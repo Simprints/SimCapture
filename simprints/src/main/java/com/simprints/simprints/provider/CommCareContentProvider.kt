@@ -64,7 +64,7 @@ class CommCareContentProvider : ContentProvider() {
                 arrayOf(
                     SIMPRINTS_COSYNC_SUBJECT_ACTIONS,
                     simprintsBiometricsRepository.getSimprintsSubjectActions(caseId),
-                )
+                ),
             )
         }
         return cursor

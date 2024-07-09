@@ -34,5 +34,4 @@ class SimprintsBeneficiarySubjectActionRepository @Inject constructor(
                     .blockingSet(subjectActions)
             }
     }
-
 }
