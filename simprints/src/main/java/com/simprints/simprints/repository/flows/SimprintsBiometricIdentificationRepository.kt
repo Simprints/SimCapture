@@ -8,7 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import com.simprints.libsimprints.Constants
 import com.simprints.libsimprints.Identification
-import com.simprints.libsimprints.SimHelper
+import com.simprints.simprints.repository.flows.SimprintsBiometricConstants.DATA_SOURCE_COMMCARE
 import com.simprints.simprints.repository.flows.SimprintsBiometricConstants.MODULE_ID
 import com.simprints.simprints.repository.flows.SimprintsBiometricConstants.PROJECT_ID
 import com.simprints.simprints.repository.flows.SimprintsBiometricConstants.USER_ID
@@ -88,8 +88,12 @@ class SimprintsBiometricIdentificationRepository @Inject constructor(
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
             registerForIdentifyResult.launch(
-                with(intent) {
-                    SimHelper(get(PROJECT_ID), get(USER_ID)).identify(get(MODULE_ID))
+                // LibSimprints doesn't add SIMPRINTS_BIOMETRIC_DATA_SOURCE - making intent manually
+                Intent(Constants.SIMPRINTS_IDENTIFY_INTENT).apply {
+                    putExtra(Constants.SIMPRINTS_PROJECT_ID, intent.get(PROJECT_ID))
+                    putExtra(Constants.SIMPRINTS_USER_ID, intent.get(USER_ID))
+                    putExtra(Constants.SIMPRINTS_MODULE_ID, intent.get(MODULE_ID))
+                    putExtra(Constants.SIMPRINTS_BIOMETRIC_DATA_SOURCE, DATA_SOURCE_COMMCARE)
                 },
             )
         }

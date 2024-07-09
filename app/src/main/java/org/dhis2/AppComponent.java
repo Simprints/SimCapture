@@ -1,6 +1,7 @@
 package org.dhis2;
 
 import com.simprints.simprints.di.SimprintsBiometricsDiModule;
+import com.simprints.simprints.repository.SimprintsBiometricsRepository;
 
 import org.dhis2.commons.featureconfig.di.FeatureConfigModule;
 import org.dhis2.commons.network.NetworkUtils;
@@ -24,7 +25,6 @@ import org.dhis2.utils.Validator;
 import org.dhis2.utils.analytics.AnalyticsModule;
 import org.dhis2.commons.matomo.MatomoAnalyticsController;
 import org.dhis2.utils.analytics.matomo.MatomoAnalyticsModule;
-import org.dhis2.commons.filters.di.FilterModule;
 import org.dhis2.commons.reporting.CrashReportController;
 import org.dhis2.commons.reporting.CrashReportModule;
 import org.hisp.dhis.android.core.common.ValueType;
@@ -99,6 +99,7 @@ public  interface AppComponent {
     org.dhis2.commons.viewmodel.DispatcherProvider dispatcherProvider();
 
     LocationProvider locationProvider();
+    SimprintsBiometricsRepository simprintsBiometricsRepository();
 
     NetworkUtils networkUtilsProvider();
     DispatcherProvider customDispatcherProvider();

@@ -45,7 +45,9 @@ class SimprintsBeneficiaryGuidRepository @Inject constructor(
             teiUid
         }
 
-    fun getExistingGuidsPairedToTeiUids(simprintsGuids: List<String>): List<Pair<String, String>> {
+    fun getExistingGuidsPairedToTeiUids(
+        simprintsGuids: List<String>? = null,
+    ): List<Pair<String, String>> {
         val simprintsGuidAttributes =
             d2.trackedEntityModule().trackedEntityAttributes()
                 .byShortName().eq(SIMPRINTS_GUID).blockingGet()
@@ -55,8 +57,12 @@ class SimprintsBeneficiaryGuidRepository @Inject constructor(
                     .byTrackedEntityAttribute().eq(simprintsGuidAttribute.uid()).blockingGet()
             }
         val relevantSimprintsGuidAttributeValues =
-            allSimprintsGuidAttributeValues.filter { simprintsGuidAttributeValue ->
-                simprintsGuidAttributeValue.value() in simprintsGuids
+            if (simprintsGuids != null) {
+                allSimprintsGuidAttributeValues.filter { simprintsGuidAttributeValue ->
+                    simprintsGuidAttributeValue.value() in simprintsGuids
+                }
+            } else {
+                allSimprintsGuidAttributeValues
             }
         return relevantSimprintsGuidAttributeValues.mapNotNull { simprintsGuidAttributeValue ->
             val simprintsGuid = simprintsGuidAttributeValue.value()

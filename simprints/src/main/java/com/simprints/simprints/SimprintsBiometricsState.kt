@@ -4,6 +4,7 @@ package com.simprints.simprints
 data class SimprintsBiometricsState(
     val teiUid: String? = null,
     val simprintsGuid: String? = null,
+    val simprintsSubjectActions: String? = null,
     val programUid: String? = null,
     val enrollmentUid: String? = null, // DHIS2-specific enrollment of TEI in Program; not biometric
     val simprintsProjectId: String? = null,

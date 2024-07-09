@@ -3,6 +3,7 @@
     <string name="simprints_biometrics_form_title_status_readout">[Simprints Biometrics Status Readout]</string>
     <string name="simprints_biometrics_form_tei_uid">TEI UID:</string>
     <string name="simprints_biometrics_form_guid">Simprints GUID:</string>
+    <string name="simprints_biometrics_form_subject_actions">Simprints subject actions:</string>
     <string name="simprints_biometrics_form_program_uid">Program UID:</string>
     <string name="simprints_biometrics_form_project_id">Simprints Project ID:</string>
     <string name="simprints_biometrics_form_org_unit_uid">Org Unit UID:</string>
@@ -15,4 +16,6 @@
     <string name="simprints_locked_verify_tei_biometrically_to_unlock">Locked. Verify TEI biometrically to unlock.</string>
     <string name="record_is_locked">Record is Locked</string>
     <string name="record_is_unlocked">Record is Unlocked</string>
+    <string name="simprints_provider_permission_title">Simprints-compatible content provider</string>
+    <string name="simprints_provider_permission_description">Provides TEI subject actions</string>
 </resources>
