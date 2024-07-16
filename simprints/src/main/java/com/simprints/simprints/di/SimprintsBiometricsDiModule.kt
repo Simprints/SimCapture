@@ -5,6 +5,7 @@ import com.simprints.simprints.repository.SimprintsBiometricsRepository
 import com.simprints.simprints.repository.datastores.BiometricsResultSuccessRepository
 import com.simprints.simprints.repository.datastores.BiometricsResultTimestampRepository
 import com.simprints.simprints.repository.datastores.SimprintsBeneficiaryGuidRepository
+import com.simprints.simprints.repository.datastores.SimprintsBeneficiarySubjectActionRepository
 import com.simprints.simprints.repository.datastores.SimprintsBiometricsProgressRepository
 import com.simprints.simprints.repository.datastores.SimprintsModuleIdRepository
 import com.simprints.simprints.repository.datastores.SimprintsProjectBiometricLockingTimeoutRepository
@@ -29,6 +30,7 @@ class SimprintsBiometricsDiModule {
     @Singleton
     fun simprintsBiometricsRepository(
         guidRepository: SimprintsBeneficiaryGuidRepository,
+        subjectActionRepository: SimprintsBeneficiarySubjectActionRepository,
         moduleIdRepository: SimprintsModuleIdRepository,
         biometricLockabilityRepository: SimprintsProjectBiometricLockingTimeoutRepository,
         projectIdRepository: SimprintsProjectIdRepository,
@@ -45,6 +47,7 @@ class SimprintsBiometricsDiModule {
             d2 = D2Manager.getD2(),
             coroutineScope = GlobalScope,
             guidRepository,
+            subjectActionRepository,
             moduleIdRepository,
             biometricLockabilityRepository,
             projectIdRepository,
@@ -63,6 +66,12 @@ class SimprintsBiometricsDiModule {
     @Singleton
     fun guidRepository(): SimprintsBeneficiaryGuidRepository {
         return SimprintsBeneficiaryGuidRepository(d2 = D2Manager.getD2())
+    }
+
+    @Provides
+    @Singleton
+    fun subjectActionRepository(): SimprintsBeneficiarySubjectActionRepository {
+        return SimprintsBeneficiarySubjectActionRepository(d2 = D2Manager.getD2())
     }
 
     @Provides

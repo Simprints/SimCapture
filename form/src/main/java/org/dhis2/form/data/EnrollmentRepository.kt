@@ -1,5 +1,7 @@
 package org.dhis2.form.data
 
+import com.simprints.simprints.Constants.SIMPRINTS_GUID
+import com.simprints.simprints.Constants.SIMPRINTS_SUBJECT_ACTIONS
 import com.simprints.simprints.SimprintsBiometricsAction
 import com.simprints.simprints.SimprintsBiometricsState
 import io.reactivex.Flowable
@@ -7,7 +9,6 @@ import io.reactivex.Single
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import org.dhis2.commons.Constants.SIMPRINTS_GUID
 import org.dhis2.commons.date.DateUtils
 import org.dhis2.commons.orgunitselector.OrgUnitSelectorScope
 import org.dhis2.form.data.metadata.EnrollmentConfiguration
@@ -116,7 +117,9 @@ class EnrollmentRepository(
 
     private fun getFieldsForSingleSection(): Single<List<FieldUiModel>> {
         return Single.fromCallable {
-            conf.programAttributes().map { programTrackedEntityAttribute ->
+            conf.programAttributes().filterNot { programTrackedEntityAttribute ->
+                programTrackedEntityAttribute.isSimprintsSubjectActions()
+            }.map { programTrackedEntityAttribute ->
                 transform(programTrackedEntityAttribute)
             }
         }
@@ -131,6 +134,9 @@ class EnrollmentRepository(
                 )
                 section.attributes()?.forEachIndexed { _, attribute ->
                     conf.programAttribute(attribute.uid())?.let { programTrackedEntityAttribute ->
+                        if (programTrackedEntityAttribute.isSimprintsSubjectActions()) {
+                            return@let // this text-type field is hidden
+                        }
                         fields.add(transform(programTrackedEntityAttribute, section.uid()))
                     }
                 }
@@ -138,6 +144,11 @@ class EnrollmentRepository(
             return@fromCallable fields
         }
     }
+
+    private fun ProgramTrackedEntityAttribute.isSimprintsSubjectActions() =
+        trackedEntityAttribute()?.uid()?.let {
+            conf.trackedEntityAttribute(it)
+        }?.shortName() == SIMPRINTS_SUBJECT_ACTIONS
 
     private fun transform(
         programTrackedEntityAttribute: ProgramTrackedEntityAttribute,

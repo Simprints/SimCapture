@@ -1,7 +1,8 @@
 package org.dhis2.usescases.teiDashboard
 
+import com.simprints.simprints.Constants.SIMPRINTS_GUID
+import com.simprints.simprints.Constants.SIMPRINTS_SUBJECT_ACTIONS
 import io.reactivex.Single
-import org.dhis2.commons.Constants.SIMPRINTS_GUID
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttribute
@@ -64,7 +65,10 @@ class TeiAttributesProvider(private val d2: D2) {
     fun getListOfValuesFromProgramTrackedEntityAttributesByProgram(
         programUid: String,
         trackedEntityInstanceUid: String,
-        excludedAttributeShortNames: List<String> = listOf(SIMPRINTS_GUID), // hide in TEI search
+        excludedAttributeShortNames: List<String> = listOf(
+            SIMPRINTS_GUID,
+            SIMPRINTS_SUBJECT_ACTIONS,
+        ), // hide in TEI search
     ): List<TrackedEntityAttributeValue> {
         val attrFromProgramTrackedEntityAttribute =
             d2.programModule().programTrackedEntityAttributes()

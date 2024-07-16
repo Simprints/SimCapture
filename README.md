@@ -35,6 +35,7 @@ admin           └────────────────────�
   1. [Configure the project-to-program linkages (mappings) in the Datastore](#1-configure-the-project-to-program-linkages-mappings-in-the-datastore)
   2. [Configure the org-unit-to-module linkages (mappings) in the Datastore](#2-configure-the-org-unit-to-module-linkages-mappings-in-the-datastore)
   3. [Configure the Simprints GUID attribute in the Maintenance section](#3-configure-the-simprints-guid-attribute-in-the-maintenance-section)
+  4. [(Optional) Configure co-sync between Simprints and DHIS2 in the Maintenance section](#4-optional-configure-co-sync-between-simprints-and-dhis2-in-the-maintenance-section)
 * [Development](#development)
   1. [Engineering values](#engineering-values)
   2. [Automated fork syncing with the upstream](#automated-fork-syncing-with-the-upstream)
@@ -49,6 +50,7 @@ There are 4 biometrics features that are available in SimCapture at the prototyp
 2. Biometric verification of a TEI, to check if the TEI's current biometric reading matches the prior biometric enrollment.
 3. Biometric identification of TEIs, to find which TEIs match the prior biometric enrollments given the current biometric reading.
 4. Biometric unlocking of TEI profiles for viewing (within an unlock expiration period), by performing biometric verification of a TEI.
+5. [Optional, without UI] Biometric data samples (templates) obtained from beneficiaries by Simprints ID can optionally be synced (co-synced) at DHIS2 backend instance instead of or alongside Simprints backend - depending on the project configuration at Simprints backend. Then the biometric templates will sync between devices by the means of DHIS2 backend, and Simprints ID will pull these templates from SimCapture to identify or verify TEIs / beneficiaries. If Co-sync destination at the Simprints project configuration is only _Calling app_ but not `Simprints`, then the biometric data of TEI can be synced through SimCapture to the DHIS2 backend instance but not to Simprints backend.
 
 In the UI/UX of the SimCapture app, there biometric features are available in the following places:
 
@@ -159,6 +161,23 @@ When a TEI (beneficiary) is biometrically enrolled via the Simprints ID app, the
 To add a tracked entity attribute, go to the top-right `Menu` -> `Maintenance` -> `Program` -> `Tracked entity attribute`. On the bottom-right press `+` to add new. Fill in Name: `Simprints GUID`, Short name: `simprintsGuid`, select Value type: `Text`, Aggregation type: `None`, and press `Save` on the bottom.
 
 The `simprintsGuid` tracked entity attribute exists at this point, but isn't added to any Program. To do so, go to the top-right `Menu` -> `Maintenance` -> `Program` -> `Program`. Press the Program of interest, then `(3) Attributes`. In the left list locate and select `Simprints GUID`, then press `->` between the two lists to move `Simprints GUID` to the right list. Press `Save` on the bottom. Now each TEI within this Program does have a space where SimCapture can write a Simprints GUID into.
+
+
+### 4. (Optional) Configure co-sync between Simprints and DHIS2 in the Maintenance section
+
+When in Simprints project's configuration the Co-sync is set up, in the result data of biometric enrollment of a TEI (beneficiary) Simprints ID will return to SimCapture not only the unique ID (GUID) of the beneficiary, but also biometric data (template) - in a structured textual form in a single line of text data. SimCapture can then store the template in a tracked entity attribute of the TEI the similar way to GUID, but the name of the tracked entity attribute for the template will be `simprintsSubjectActions`. When later SimCapture launches Simprints ID for verification or identification of TEIs, then Simprints ID will query `simprintsSubjectActions` of TEIs stored in SimCapture's app data by using Android's ContentProvider data access mechanism. Biometric templates as attributes of TEIs can be synced between devices running SimCapture, and the DHIS2 backend instancce. This was DHIS2 backend replaces Simprints backend as biometric data sync medium.
+
+To set up the `simprintsSubjectActions` tracked entity attribute, go to the top-right `Menu` -> `Maintenance` -> `Program` -> `Tracked entity attribute`. On the bottom-right press `+` to add new. Fill in Name: `Simprints Subject Actions (Templates)`, Short name: `simprintsSubjectActions`, select Value type: `Long text`, Aggregation type: `None`, and press `Save` on the bottom.
+
+The `simprintsSubjectActions` tracked entity attribute exists at this point, but isn't added to any Program. To do so, go to the top-right `Menu` -> `Maintenance` -> `Program` -> `Program`. Press the Program of interest, then `(3) Attributes`. In the left list locate and select `Simprints Subject Actions (Templates)`, then press `->` between the two lists to move `Simprints Subject Actions (Templates)` to the right list. Press `Save` on the bottom. Now each TEI within this Program does have a space where SimCapture can write their biometric template into.
+
+**Co-sync checklist** for this functionality to work:
+* In the Simprints project configuration, in _Synchronization_ section, in _Destinations_ options, _Calling app_ option should be checked.
+* In the Simprints project configuration, in _Synchronization_ section, in _Co sync_ options, _Only biometrics_ or _Everything_ option should be selected.
+* The DHIS2 backend instance should be configured as described above.
+* SimCapture app should be installed on the Android device before Simprints ID, so the app settings in Android system for Simprints ID can detect the permission to access data from SimCapture.
+* Before performing identification or verification or TEIs with co-sync enabled, check that the _Simprints-compatible content provider_ permission is enabled in the app settings in Android system for Simprints ID.
+* **_Note_**: the biometric data text size for a TEI may exceed the maximum size that's pre-configured in DHIS2 backend source code; in this case SimCapture will still keep the whole biometric data, but will not be able to sync that TEI with the DHIS2 backend instance. You can see the limitation in the DHIS2 backend source code [here on GitHub](https://github.com/dhis2/dhis2-core/blob/2.41/dhis-2/dhis-api/src/main/java/org/hisp/dhis/trackedentity/TrackedEntityAttributeService.java#L50).
 
 
 ## Development

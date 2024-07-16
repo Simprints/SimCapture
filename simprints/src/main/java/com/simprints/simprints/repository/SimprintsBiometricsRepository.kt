@@ -7,6 +7,7 @@ import com.simprints.simprints.SimprintsBiometricsState
 import com.simprints.simprints.repository.datastores.BiometricsResultSuccessRepository
 import com.simprints.simprints.repository.datastores.BiometricsResultTimestampRepository
 import com.simprints.simprints.repository.datastores.SimprintsBeneficiaryGuidRepository
+import com.simprints.simprints.repository.datastores.SimprintsBeneficiarySubjectActionRepository
 import com.simprints.simprints.repository.datastores.SimprintsBiometricsProgressRepository
 import com.simprints.simprints.repository.datastores.SimprintsModuleIdRepository
 import com.simprints.simprints.repository.datastores.SimprintsProjectBiometricLockingTimeoutRepository
@@ -34,6 +35,7 @@ class SimprintsBiometricsRepository(
     private val d2: D2,
     coroutineScope: CoroutineScope,
     private val guidRepository: SimprintsBeneficiaryGuidRepository,
+    private val subjectActionRepository: SimprintsBeneficiarySubjectActionRepository,
     private val moduleIdRepository: SimprintsModuleIdRepository,
     private val lockingTimeoutRepository: SimprintsProjectBiometricLockingTimeoutRepository,
     private val projectIdRepository: SimprintsProjectIdRepository,
@@ -59,11 +61,17 @@ class SimprintsBiometricsRepository(
     init {
         coroutineScope.launch {
             enrollmentRepository.getEnrollmentResultFlow()
-                .collect { (simprintsGuid, biometricsResultSuccess) ->
+                .collect { (guid, subjectActions, biometricsResultSuccess) ->
                     val (teiUid, programUid) = progressRepository.getSimprintsBiometricsFinished()
                     val biometricsResultTimestamp = System.currentTimeMillis()
-                    if (teiUid != null && simprintsGuid != null) {
-                        guidRepository.setSimprintsGuid(teiUid, simprintsGuid)
+                    if (teiUid != null && guid != null) {
+                        guidRepository.setSimprintsGuid(teiUid, guid)
+                        if (subjectActions != null) {
+                            subjectActionRepository.setSimprintsSubjectActions(
+                                teiUid,
+                                subjectActions,
+                            )
+                        }
                         resultTimestampRepository
                             .setResultTimestamp(teiUid, timestamp = biometricsResultTimestamp)
                         resultSuccessRepository
@@ -72,7 +80,7 @@ class SimprintsBiometricsRepository(
                     if (teiUid == biometricsStateFlow.value.teiUid) {
                         biometricsStateFlow.value =
                             biometricsStateFlow.value.copy(
-                                simprintsGuid = simprintsGuid,
+                                simprintsGuid = guid,
                                 programUid = programUid,
                                 lastBiometricsResultTimestamp = biometricsResultTimestamp,
                                 lastBiometricsResultSuccess = biometricsResultSuccess,
@@ -138,6 +146,12 @@ class SimprintsBiometricsRepository(
 
     fun getSimprintsGuidAttributeUids(): List<String> =
         guidRepository.getSimprintsGuidAttributeUids()
+
+    fun getTeiUidsWithSimprintsGuids(): List<String> =
+        guidRepository.getExistingGuidsPairedToTeiUids().map { (_, teiUid) -> teiUid }
+
+    fun getSimprintsSubjectActions(teiUid: String): String? =
+        subjectActionRepository.getSimprintsSubjectActions(teiUid)
 
     fun getSimprintsBiometricsStateFlow(
         teiUid: String? = null,
@@ -226,6 +240,9 @@ class SimprintsBiometricsRepository(
         return SimprintsBiometricsState(
             teiUid = teiUid,
             simprintsGuid = teiUid?.let { guidRepository.getSimprintsGuid(teiUid) },
+            simprintsSubjectActions = teiUid?.let {
+                subjectActionRepository.getSimprintsSubjectActions(teiUid)
+            },
             programUid = programUid,
             enrollmentUid = enrollmentUid,
             simprintsProjectId = projectIdRepository.getSimprintsProjectId(programUid),

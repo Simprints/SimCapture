@@ -1,7 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- For CommCare-compatible co-sync biometric data content provider for Simprints ID. -->
+    <permission
+        android:name="org.commcare.dalvik.provider.cases.read"
+        android:description="@string/simprints_provider_permission_description"
+        android:label="@string/simprints_provider_permission_title"
+        android:protectionLevel="dangerous"
+        />
+
     <application>
+
+        <!-- CommCare-compatible co-sync biometric data content provider for Simprints ID. -->
+        <provider
+            android:name="com.simprints.simprints.provider.CommCareContentProvider"
+            android:authorities="org.commcare.dalvik.case"
+            android:exported="true"
+            android:enabled="true"
+            android:multiprocess="true"
+            android:readPermission="org.commcare.dalvik.provider.cases.read" />
 
         <!-- These activities serve as Android-specific data transporters between this SimTracker and the separate Simprints ID app. Not part of UI. -->
         <activity android:name=".repository.flows.SimprintsBiometricEnrollmentRepository$SimprintsBiometricEnrollmentHandlingActivity" />

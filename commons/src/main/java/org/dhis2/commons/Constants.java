@@ -136,9 +136,6 @@ public class Constants {
 
     public static final String NEW_APP_VERSION = "NEW_APP_VERSION";
 
-    //SIMPRINTS
-    public static final String SIMPRINTS_NAMESPACE = "simprints";
-    public static final String SIMPRINTS_GUID = "simprintsGuid";
 
     private Constants() {
         // hide public constructor

@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.simprints.libsimprints.Constants
 import com.simprints.libsimprints.Registration
 import com.simprints.libsimprints.SimHelper
+import com.simprints.simprints.repository.flows.SimprintsBiometricConstants.DATA_SOURCE_COMMCARE
 import com.simprints.simprints.repository.flows.SimprintsBiometricConstants.MODULE_ID
 import com.simprints.simprints.repository.flows.SimprintsBiometricConstants.PROJECT_ID
 import com.simprints.simprints.repository.flows.SimprintsBiometricConstants.USER_ID
@@ -19,6 +20,7 @@ import javax.inject.Inject
 
 data class SimprintsBiometricEnrollmentResult(
     val simprintsGuid: String? = null,
+    val simprintsSubjectActions: String? = null,
     val biometricsResultSuccess: Boolean? = null,
 )
 
@@ -49,6 +51,7 @@ class SimprintsBiometricEnrollmentRepository @Inject constructor(
                 putExtra(PROJECT_ID, projectId)
                 putExtra(MODULE_ID, moduleId)
                 putExtra(USER_ID, userId)
+                putExtra(Constants.SIMPRINTS_BIOMETRIC_DATA_SOURCE, DATA_SOURCE_COMMCARE)
             },
         )
     }
@@ -73,6 +76,8 @@ class SimprintsBiometricEnrollmentRepository @Inject constructor(
                 enrollmentResultFlow.tryEmit(
                     SimprintsBiometricEnrollmentResult(
                         simprintsGuid = guid,
+                        simprintsSubjectActions = activityResult.data
+                            ?.getStringExtra(Constants.SIMPRINTS_COSYNC_SUBJECT_ACTIONS),
                         biometricsResultSuccess = guid != null,
                     ),
                 )

@@ -16,6 +16,7 @@ import androidx.multidex.MultiDex;
 import androidx.multidex.MultiDexApplication;
 
 import com.simprints.simprints.di.SimprintsBiometricsDiModule;
+import com.simprints.simprints.provider.CommCareContentProvider;
 
 import org.dhis2.commons.di.dagger.PerActivity;
 import org.dhis2.commons.di.dagger.PerServer;
@@ -127,6 +128,7 @@ public class App extends MultiDexApplication implements Components, LifecycleObs
         initCrashController();
         setUpRxPlugin();
         initCustomCrashActivity();
+        setUpSimprintsCommCareContentProvider();
     }
 
     public void initCrashController() {
@@ -163,6 +165,11 @@ public class App extends MultiDexApplication implements Components, LifecycleObs
         CaocConfig.Builder.create()
                 .errorActivity(CrashActivity.class)
                 .apply();
+    }
+
+    private void setUpSimprintsCommCareContentProvider() {
+        CommCareContentProvider.simprintsBiometricsRepository =
+                appComponent.simprintsBiometricsRepository(); // singleton
     }
 
     @Override

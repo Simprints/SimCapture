@@ -21,6 +21,7 @@ data class SimprintsBiometricsUiModel(
 
     val teiUid = ObservableField<String>()
     val simprintsGuid = ObservableField<String>()
+    val simprintsSubjectActions = ObservableField<String>()
     val programUid = ObservableField<String>()
     val simprintsProjectId = ObservableField<String>()
     val orgUnitUid = ObservableField<String>()
@@ -39,6 +40,7 @@ data class SimprintsBiometricsUiModel(
                 it.let {
                     teiUid.setOrNone(it.teiUid)
                     simprintsGuid.setOrNone(it.simprintsGuid)
+                    simprintsSubjectActions.setOrNone(it.simprintsSubjectActions?.take(100)) // truncated data view
                     programUid.setOrNone(it.programUid)
                     simprintsProjectId.setOrNone(it.simprintsProjectId)
                     orgUnitUid.setOrNone(it.orgUnitUid)

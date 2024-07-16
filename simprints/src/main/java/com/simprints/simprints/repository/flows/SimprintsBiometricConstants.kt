@@ -7,4 +7,5 @@ internal object SimprintsBiometricConstants {
     const val MODULE_ID = "moduleId"
     const val USER_ID = "userId"
     const val GUID = "guid"
+    const val DATA_SOURCE_COMMCARE = "COMMCARE"
 }
