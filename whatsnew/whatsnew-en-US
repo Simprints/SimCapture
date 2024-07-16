@@ -1,11 +1,8 @@
-- Event and enrollment label can be customized via the Maintenance App.
-- Supports multiselect data elements.
-- Support for custom icons.
-- Event/enrollment details are now more accessible within forms.
-- Improved search flow and dashboard layout.
-- Redesigned input fields.
-- Support line listing analytics.
-- Custom map layers can be used.
-- Export/import databases for troubleshooting.
-- Better feedback for configuration errors.
-- Better navigation for many TEIs
+# Release notes - Android App for DHIS2 - 3.0.0.2
+
+- IllegalArgumentException: Key "" was already used.
+- App crash when a catCombo is override
+- Future date can be entered in Date of birth search field
+- Phone number input value type lacks of support for international symbols like \+, \(, \)
+- Maps - App crashes when navigating from home to maps but not from analytics to maps
+- Value of a TEA of valuetype AGE/DATE is not fully validated

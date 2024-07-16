@@ -464,7 +464,7 @@ class SearchTEIViewModel(
 
     suspend fun fetchGlobalResults() = withContext(dispatchers.io()) {
         val searchParametersModel = SearchParametersModel(
-            selectedProgram = searchRepository.getProgram(initialProgramUid),
+            selectedProgram = null,
             queryData = queryData,
         )
         val getPagingData = searchRepositoryKt.searchTrackedEntities(
@@ -1024,6 +1024,7 @@ class SearchTEIViewModel(
                     ValueType.ORGANISATION_UNIT, ValueType.MULTI_TEXT -> {
                         map[item.uid] = (item.displayName ?: "")
                     }
+
                     ValueType.DATE, ValueType.AGE -> {
                         item.value?.let {
                             if (it.isNotEmpty()) {
@@ -1038,6 +1039,7 @@ class SearchTEIViewModel(
                             }
                         }
                     }
+
                     ValueType.DATETIME -> {
                         item.value?.let {
                             if (it.isNotEmpty()) {
@@ -1052,9 +1054,11 @@ class SearchTEIViewModel(
                             }
                         }
                     }
+
                     ValueType.BOOLEAN -> {
                         map[item.uid] = "${item.label}: ${item.value}"
                     }
+
                     ValueType.TRUE_ONLY -> {
                         item.value?.let {
                             if (it == "true") {
@@ -1062,9 +1066,11 @@ class SearchTEIViewModel(
                             }
                         }
                     }
+
                     ValueType.PERCENTAGE -> {
                         map[item.uid] = "${item.value}%"
                     }
+
                     else -> {
                         map[item.uid] = (item.value ?: "")
                     }
