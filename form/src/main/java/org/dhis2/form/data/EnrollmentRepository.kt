@@ -53,13 +53,11 @@ class EnrollmentRepository(
         val teTypeAccess = conf.trackedEntityType()?.access()?.data()?.write() == true
         return programAccess && teTypeAccess
     }
-
     override fun getSpecificDataEntryItems(uid: String): List<FieldUiModel> {
         return when (uid) {
             ORG_UNIT_UID -> {
                 getEnrollmentData()
             }
-
             else -> {
                 emptyList()
             }
@@ -302,12 +300,7 @@ class EnrollmentRepository(
 
     private fun getEnrollmentData(): MutableList<FieldUiModel> {
         val enrollmentDataList = ArrayList<FieldUiModel>()
-        enrollmentDataList.add(
-            getEnrollmentDataSection(
-                conf.program()?.displayName(),
-                conf.program()?.description(),
-            ),
-        )
+        enrollmentDataList.add(getEnrollmentDataSection(conf.program()?.displayName(), conf.program()?.description()))
 
         enrollmentDataList.add(
             getEnrollmentDateField(
@@ -361,14 +354,12 @@ class EnrollmentRepository(
             (selectedOrgUnit?.closedDate() == null && java.lang.Boolean.FALSE == selectedProgram?.selectEnrollmentDatesInFuture()) -> {
                 maxDate = Date(System.currentTimeMillis())
             }
-
             (selectedOrgUnit?.closedDate() != null && java.lang.Boolean.FALSE == selectedProgram?.selectEnrollmentDatesInFuture()) -> {
-                maxDate =
-                    if (selectedOrgUnit.closedDate()!!.before(Date(System.currentTimeMillis()))) {
-                        selectedOrgUnit.closedDate()
-                    } else {
-                        Date(System.currentTimeMillis())
-                    }
+                maxDate = if (selectedOrgUnit.closedDate()!!.before(Date(System.currentTimeMillis()))) {
+                    selectedOrgUnit.closedDate()
+                } else {
+                    Date(System.currentTimeMillis())
+                }
             }
 
             (selectedOrgUnit?.closedDate() != null && java.lang.Boolean.TRUE == selectedProgram?.selectEnrollmentDatesInFuture()) -> {

@@ -48,21 +48,21 @@ There are 4 biometrics features that are available in SimCapture at the prototyp
 1. Biometric enrollment of a tracked entity instance (known as TEI, a person, a patient, or a beneficiary of healthcare programs).
 2. Biometric verification of a TEI, to check if the TEI's current biometric reading matches the prior biometric enrollment.
 3. Biometric identification of TEIs, to find which TEIs match the prior biometric enrollments given the current biometric reading.
-4. Biometric unlocking of TEI profiles for viewing (within an unlock expiration period), by performing biometric verification of a TEI.
+4. Biometric unlocking of program stages in TEI profiles for viewing (within an unlock expiration period), by performing biometric verification of a TEI.
 
 In the UI/UX of the SimCapture app, there biometric features are available in the following places:
 
-| UI item                      | Place in app                  | Visible when                                                | UI on screen (prototype)  | Simprints biometric features used      |
-|------------------------------|-------------------------------|-------------------------------------------------------------|---------------------------|----------------------------------------|
-| 1. Biometrics status readout | TEI profile view              | Always (in the prototype)                                   | ![](docs/simprints/1.png) | Enroll (if not enrolled yet) or verify |
-| 2. Biometrics status/actions | TEI profile editor            | When Simprints GUID attribute exists in the viewed program  | ![](docs/simprints/2.png) | Enroll (if not enrolled yet) or verify |
-| 3. Biometric locking popup   | TEIs view/search list overlay | When biometrically enrolled TEI wasn't verified recently    | ![](docs/simprints/3.png) | Verify                                 |
-| 4. Biometric search button   | TEIs view/search list toolbar | When the viewed program is configured for biometrics        | ![](docs/simprints/4.png) | Identify (launching the feature)       |
-| 5. Biometric search results  | TEIs search result list       | After the biometric search button used; before Back pressed | ![](docs/simprints/5.png) | Identify (showing the results)         |
+| UI item                                        | Place in app                  | Visible when                                                                                           | UI on screen (prototype)  | Simprints biometric features used                                                                                                   |
+|------------------------------------------------|-------------------------------|--------------------------------------------------------------------------------------------------------|---------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| 1. Biometric Enroll / Verify button            | TEI profile record view       | When TEI isn't enrolled / wasn't verified or identified recently (program stages locked in the record) | ![](simprints/docs/1.png) | **Enroll** (if not enrolled yet), **Verify**, or none (_Biometrics unavailable_ if program not configured for Simprints biometrics) |
+| 2. Biometric Enroll / Verify button            | TEI profile record editor     | When program is configured for Simprints biometrics                                                    | ![](simprints/docs/2.png) | **Enroll** (if not enrolled yet) or **Verify**                                                                                      |
+| 3. Biometric Lock indicator for program stages | TEI profile record view       | Always (program stages will be visible below if record is unlocked)                                    | ![](simprints/docs/3.png) | -                                                                                                                                   |
+| 4. Biometric Search button                     | TEIs view/search list toolbar | When the viewed program is configured for Simprints biometrics                                         | ![](simprints/docs/4.png) | **Identify**                                                                                                                        |
+
 
 Notes:
-* Biometric status readout in the TEI profile, status/action in the TEI profile editor, and locking popup share the same biometrics readout UI in the prototype. These are subject to changing.
-* Simprints GUID is a unique value for a TEI but in the Simprints ID app. Depending on the configuration of the DHIS2 instance backend the SimCapture app user is signed in to, healthcare programs can have a `simprintsGuid` field (tracked entity attribute). If `simprintsGuid` attribute is present in a program, TEIs within that program are either biometrically enrolled (if `simprintsGuid` value is not empty) and are subject to further biometric verification (and locking) or identification, or they are not yet biometrically enrolled (if `simprintsGuid` value is empty) are are subject to enrollment.
+* Biometric Search results are displayed in the similar way as regular DHIS2 search results, however: pressing Back exits the search result list back into all TEI list.
+* Simprints GUID is a unique value for a TEI but in the Simprints ID app. Depending on the configuration of the DHIS2 instance backend the SimCapture app user is signed in to, healthcare programs can have a `simprintsGuid` field (tracked entity attribute). If `simprintsGuid` attribute is present in a program, TEIs within that program are either biometrically enrolled (if `simprintsGuid` value is not empty) and are subject to further biometric verification (and locking) or identification. Or, they are not yet biometrically enrolled (if `simprintsGuid` value is empty) and are subject to enrollment.
 * A healthcare program may be configured by an admin of the DHIS2 instance backend to be linked to some certain Simprints-specific identifiers (see below for details). If such a linking is configured properly for a given program, the SimCapture app will download that data during a sync with the DHIS2 backend, and biometric features and their UI items will be enabled.
 
 
@@ -127,8 +127,7 @@ Notes:
 * To view `programUid` of a Program, go to top-right `Menu` -> `Maintenance` -> `Program` -> `Program`. In the list of Programs, locate the one of an interest, press the 3-dot menu button on the right of it, and select `Show details`. The `programUid` value will be in the `Id` section.
 * Absent or incorrect `programUid` or `projectId` value would result into the Program not supporting biometric functions.
 * Absent or non-positive `matchConfidenceScoreThreshold` value would effectively make it 0, so then anything that Simprins ID returns is a match for SimCapture.
-* Non-positive `biometricLockingTimeoutMinutes` value would effectively make it 0, so then a TEI profile needs to be biometrically unlocked before every viewing.
-* Absent `biometricLockingTimeoutMinutes` value would mean that all TEIs in this Program are always freely viewable, with no locking in place.
+* Non-positive or absent `biometricLockingTimeoutMinutes` value would effectively make it 0, so then a TEI profile needs to be biometrically unlocked before every viewing.
 
 Also see the JSON example above.
 
