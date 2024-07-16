@@ -166,21 +166,21 @@ android {
 
     productFlavors {
         create("dhis") {
-            applicationId = "com.dhis2"
+            applicationId = "com.simprints.dhis2"
             dimension = "default"
             versionCode = libs.versions.vCode.get().toInt()
             versionName = libs.versions.vName.get()
         }
 
         create("dhisPlayServices") {
-            applicationId = "com.dhis2"
+            applicationId = "com.simprints.dhis2"
             dimension = "default"
             versionCode = libs.versions.vCode.get().toInt()
             versionName = libs.versions.vName.get()
         }
 
         create("dhisUITesting") {
-            applicationId = "com.dhis2"
+            applicationId = "com.simprints.dhis2"
             dimension = "default"
             versionCode = libs.versions.vCode.get().toInt()
             versionName = libs.versions.vName.get()
