@@ -1,13 +1,9 @@
 package org.dhis2.form.data
 
 import com.simprints.simprints.Constants.SIMPRINTS_GUID
-import com.simprints.simprints.SimprintsBiometricsAction
-import com.simprints.simprints.SimprintsBiometricsState
+import com.simprints.simprints.repository.SimprintsBiometricsRepository
 import io.reactivex.Flowable
 import io.reactivex.Single
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import org.dhis2.commons.date.DateUtils
 import org.dhis2.commons.orgunitselector.OrgUnitSelectorScope
 import org.dhis2.form.data.metadata.EnrollmentConfiguration
@@ -37,6 +33,7 @@ class EnrollmentRepository(
     private val conf: EnrollmentConfiguration,
     private val enrollmentMode: EnrollmentMode,
     private val enrollmentFormLabelsProvider: EnrollmentFormLabelsProvider,
+    private val simprintsBiometricsRepository: SimprintsBiometricsRepository,
 ) : DataEntryBaseRepository(conf, fieldFactory) {
 
     override val programUid by lazy {
@@ -207,8 +204,11 @@ class EnrollmentRepository(
             attribute.uid(),
             dataValue ?: "",
             sectionUid,
-            teiStateFlow = simprintsBiometricsStateFlow,
-            onInteraction = simprintsBiometricsActionFlow::tryEmit,
+            teiStateFlow = simprintsBiometricsRepository.getSimprintsBiometricsStateFlow(
+                teiUid = conf.tei()?.uid(),
+                programUid,
+            ),
+            onInteraction = simprintsBiometricsRepository::dispatchSimprintsAction,
         ) ?: fieldFactory.create(
             attribute.uid(), // indentation of these params is preserved
             attribute.displayFormName() ?: "",
@@ -551,16 +551,6 @@ class EnrollmentRepository(
     }
 
     companion object {
-
-        // These flows are static to avoid duplication when the repo is initialized twice in DHIS2;
-        // todo non-static implementation
-        val simprintsBiometricsActionFlow: MutableSharedFlow<SimprintsBiometricsAction> =
-            MutableSharedFlow(
-                extraBufferCapacity = 1,
-                onBufferOverflow = BufferOverflow.DROP_OLDEST,
-            )
-        val simprintsBiometricsStateFlow: MutableStateFlow<SimprintsBiometricsState> =
-            MutableStateFlow(SimprintsBiometricsState())
 
         const val ENROLLMENT_DATA_SECTION_UID = "ENROLLMENT_DATA_SECTION_UID"
         const val ENROLLMENT_DATE_UID = "ENROLLMENT_DATE_UID"
