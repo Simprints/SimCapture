@@ -1,7 +1,6 @@
 package org.dhis2.usescases.teiDashboard
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
-import com.simprints.simprints.repository.SimprintsBiometricsRepository
 import io.reactivex.Observable
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +32,6 @@ class DashboardViewModelTest {
     private val repository: DashboardRepository = mock()
     private val analyticsHelper: AnalyticsHelper = mock()
     private val testingDispatcher = StandardTestDispatcher()
-    private val simprintsBiometricsRepository: SimprintsBiometricsRepository = mock()
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Before
@@ -147,26 +145,26 @@ class DashboardViewModelTest {
         }
     }
 
-    private fun getViewModel() =
-        DashboardViewModel(
-            repository,
-            analyticsHelper,
-            object : DispatcherProvider {
-                override fun io(): CoroutineDispatcher {
-                    return testingDispatcher
-                }
+    private fun getViewModel() = DashboardViewModel(
+        repository,
+        analyticsHelper,
+        object :
+            DispatcherProvider {
+            override fun io(): CoroutineDispatcher {
+                return testingDispatcher
+            }
 
-                override fun computation(): CoroutineDispatcher {
-                    return testingDispatcher
-                }
+            override fun computation(): CoroutineDispatcher {
+                return testingDispatcher
+            }
 
-                override fun ui(): CoroutineDispatcher {
-                    return testingDispatcher
-                }
-            },
-        ).also {
-            testingDispatcher.scheduler.advanceUntilIdle()
-        }
+            override fun ui(): CoroutineDispatcher {
+                return testingDispatcher
+            }
+        },
+    ).also {
+        testingDispatcher.scheduler.advanceUntilIdle()
+    }
 
     private fun mockEnrollmentModel() {
         whenever(repository.getDashboardModel()) doReturn mockedEnrollmentModel

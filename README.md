@@ -54,11 +54,11 @@ In the UI/UX of the SimCapture app, there biometric features are available in th
 
 | UI item                      | Place in app                  | Visible when                                                | UI on screen (prototype)  | Simprints biometric features used      |
 |------------------------------|-------------------------------|-------------------------------------------------------------|---------------------------|----------------------------------------|
-| 1. Biometrics status readout | TEI profile view              | Always (in the prototype)                                   | ![](docs/simprints/1.png) | Enroll (if not enrolled yet) or verify |
-| 2. Biometrics status/actions | TEI profile editor            | When Simprints GUID attribute exists in the viewed program  | ![](docs/simprints/2.png) | Enroll (if not enrolled yet) or verify |
-| 3. Biometric locking popup   | TEIs view/search list overlay | When biometrically enrolled TEI wasn't verified recently    | ![](docs/simprints/3.png) | Verify                                 |
-| 4. Biometric search button   | TEIs view/search list toolbar | When the viewed program is configured for biometrics        | ![](docs/simprints/4.png) | Identify (launching the feature)       |
-| 5. Biometric search results  | TEIs search result list       | After the biometric search button used; before Back pressed | ![](docs/simprints/5.png) | Identify (showing the results)         |
+| 1. Biometrics status readout | TEI profile view              | Always (in the prototype)                                   | ![](simprints/docs/1.png) | Enroll (if not enrolled yet) or verify |
+| 2. Biometrics status/actions | TEI profile editor            | When Simprints GUID attribute exists in the viewed program  | ![](simprints/docs/2.png) | Enroll (if not enrolled yet) or verify |
+| 3. Biometric locking popup   | TEIs view/search list overlay | When biometrically enrolled TEI wasn't verified recently    | ![](simprints/docs/3.png) | Verify                                 |
+| 4. Biometric search button   | TEIs view/search list toolbar | When the viewed program is configured for biometrics        | ![](simprints/docs/4.png) | Identify (launching the feature)       |
+| 5. Biometric search results  | TEIs search result list       | After the biometric search button used; before Back pressed | ![](simprints/docs/5.png) | Identify (showing the results)         |
 
 Notes:
 * Biometric status readout in the TEI profile, status/action in the TEI profile editor, and locking popup share the same biometrics readout UI in the prototype. These are subject to changing.

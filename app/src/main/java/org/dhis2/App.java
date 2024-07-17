@@ -206,8 +206,8 @@ public class App extends MultiDexApplication implements Components, LifecycleObs
                 .coroutineDispatchers(new DispatcherModule())
                 .crashReportModule(new CrashReportModule())
                 .customDispatcher(new CustomDispatcherModule())
-                .featureConfigModule(new FeatureConfigModule())
-                .simprintsBiometricsDiModule(new SimprintsBiometricsDiModule());
+                .simprintsBiometricsDiModule(new SimprintsBiometricsDiModule())
+                .featureConfigModule(new FeatureConfigModule());
     }
 
     @NonNull
