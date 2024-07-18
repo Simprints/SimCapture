@@ -1,6 +1,5 @@
 package org.dhis2.usescases.teiDashboard
 
-import com.simprints.simprints.repository.SimprintsBiometricsRepository
 import dagger.Module
 import dagger.Provides
 import dhis2.org.analytics.charts.Charts
@@ -124,10 +123,9 @@ class TeiDashboardModule(
     @PerActivity
     fun providesViewModelFactory(
         repository: DashboardRepository,
-        simprintsBiometricsRepository: SimprintsBiometricsRepository,
         analyticsHelper: AnalyticsHelper,
         dispatcher: DispatcherProvider,
     ): DashboardViewModelFactory {
-        return DashboardViewModelFactory(repository, simprintsBiometricsRepository, analyticsHelper, dispatcher)
+        return DashboardViewModelFactory(repository, analyticsHelper, dispatcher)
     }
 }

@@ -17,7 +17,6 @@ import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.commons.schedulers.SchedulerProvider
-import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.dhislogic.DhisEnrollmentUtils
 import org.dhis2.data.forms.dataentry.SearchTEIRepository
 import org.dhis2.data.forms.dataentry.SearchTEIRepositoryImpl
@@ -28,6 +27,7 @@ import org.dhis2.form.data.metadata.EnrollmentConfiguration
 import org.dhis2.form.data.metadata.FileResourceConfiguration
 import org.dhis2.form.data.metadata.OptionSetConfiguration
 import org.dhis2.form.data.metadata.OrgUnitConfiguration
+import org.dhis2.form.di.Injector
 import org.dhis2.form.model.EnrollmentMode
 import org.dhis2.form.model.RowAction
 import org.dhis2.form.ui.FieldViewModelFactory
@@ -92,12 +92,15 @@ class EnrollmentModule(
         modelFactory: FieldViewModelFactory,
         enrollmentFormLabelsProvider: EnrollmentFormLabelsProvider,
         metadataIconProvider: MetadataIconProvider,
+        simprintsBiometricsRepository: SimprintsBiometricsRepository,
     ): EnrollmentRepository {
+        Injector.simprintsBiometricsRepository = simprintsBiometricsRepository // for forms module
         return EnrollmentRepository(
             fieldFactory = modelFactory,
             conf = EnrollmentConfiguration(d2, enrollmentUid, metadataIconProvider),
             enrollmentMode = EnrollmentMode.valueOf(enrollmentMode.name),
             enrollmentFormLabelsProvider = enrollmentFormLabelsProvider,
+            simprintsBiometricsRepository = simprintsBiometricsRepository,
         )
     }
 
@@ -156,8 +159,6 @@ class EnrollmentModule(
         matomoAnalyticsController: MatomoAnalyticsController,
         eventCollectionRepository: EventCollectionRepository,
         teiAttributesProvider: TeiAttributesProvider,
-        simprintsBiometricsRepository: SimprintsBiometricsRepository,
-        dispatcherProvider: DispatcherProvider,
     ): EnrollmentPresenterImpl {
         return EnrollmentPresenterImpl(
             enrollmentView,
@@ -172,8 +173,6 @@ class EnrollmentModule(
             matomoAnalyticsController,
             eventCollectionRepository,
             teiAttributesProvider,
-            simprintsBiometricsRepository,
-            dispatcherProvider,
         )
     }
 

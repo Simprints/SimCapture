@@ -1,5 +1,6 @@
 package org.dhis2.form.data
 
+import com.simprints.simprints.repository.SimprintsBiometricsRepository
 import org.dhis2.form.data.metadata.EnrollmentConfiguration
 import org.dhis2.form.model.EnrollmentMode
 import org.dhis2.form.model.SectionUiModelImpl
@@ -27,6 +28,7 @@ import org.hisp.dhis.android.core.trackedentity.TrackedEntityType
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.Mockito
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
@@ -43,6 +45,7 @@ class FormRepositoryIntegrationTest {
         on { provideEnrollmentOrgUnitLabel() } doReturn "OrgUnit label"
         on { provideEnrollmentDataSectionLabel(any()) } doReturn "Enrollment data"
     }
+    private val simprintsBiometricsRepository: SimprintsBiometricsRepository = Mockito.mock()
 
     private val program: Program = mock {
         on { uid() } doReturn "programUid"
@@ -177,6 +180,7 @@ class FormRepositoryIntegrationTest {
             conf,
             enrollmentMode,
             enrollmentFormLabelsProvider,
+            simprintsBiometricsRepository,
         )
 
         return FormRepositoryImpl(

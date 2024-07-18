@@ -1,5 +1,6 @@
 package org.dhis2.form.data
 
+import com.simprints.simprints.repository.SimprintsBiometricsRepository
 import junit.framework.TestCase.assertTrue
 import org.dhis2.form.data.EnrollmentRepository.Companion.ORG_UNIT_UID
 import org.dhis2.form.data.metadata.EnrollmentConfiguration
@@ -20,6 +21,7 @@ class EnrollmentRepositoryTest {
     private val conf: EnrollmentConfiguration = mock()
     private val enrollmentMode: EnrollmentMode = mock()
     private val enrolmentFormLabelsProvider: EnrollmentFormLabelsProvider = mock()
+    private val simprintsBiometricsRepository: SimprintsBiometricsRepository = mock()
     lateinit var repository: DataEntryRepository
     val programSection: ProgramSection = mock()
 
@@ -56,6 +58,7 @@ class EnrollmentRepositoryTest {
             conf,
             enrollmentMode,
             enrolmentFormLabelsProvider,
+            simprintsBiometricsRepository,
         )
     }
 

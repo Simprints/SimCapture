@@ -6,20 +6,16 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
 import com.simprints.simprints.SimprintsBiometricsAction
-import com.simprints.simprints.SimprintsBiometricsState
 import com.simprints.simprints.repository.SimprintsBiometricsRepository
-import com.simprints.simprints.ui.SimprintsBiometricsUiModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.dhis2.R
@@ -72,38 +68,6 @@ class SearchTEIViewModel(
 
     private val _legacyInteraction = MutableLiveData<LegacyInteraction?>()
     val legacyInteraction: LiveData<LegacyInteraction?> = _legacyInteraction
-
-    data class TeiBiometricUnlock(
-        val teiUid: String?,
-        val programUid: String?,
-        val enrollmentUid: String?,
-    )
-
-    // To ensure a non-duplicate unlock event - keeping track of previous state to compare against
-    private var previousSimprintsBiometricTeiState: SimprintsBiometricsState =
-        simprintsBiometricsRepository
-            .getSimprintsBiometricsStateFlow(programUid = initialProgramUid).value
-
-    val teiBiometricUnlocks: LiveData<TeiBiometricUnlock> =
-        simprintsBiometricsRepository.getSimprintsBiometricsStateFlow()
-            .transform { new ->
-                val old = previousSimprintsBiometricTeiState
-                previousSimprintsBiometricTeiState = new
-                val isTheSameTei = old.teiUid == new.teiUid
-                val isTheSameProgram = old.programUid == new.programUid
-                val gotUnlockedNow = with(System.currentTimeMillis()) {
-                    old.isLocked(this) && !new.isLocked(this)
-                }
-                if (isTheSameTei && isTheSameProgram && gotUnlockedNow) {
-                    emit(new) // this indicates arrival of new search results to show
-                }
-            }
-            .map { newlyUnlockedTeiState ->
-                with(newlyUnlockedTeiState) {
-                    TeiBiometricUnlock(teiUid, programUid, enrollmentUid)
-                }
-            }
-            .asLiveData()
 
     private val _refreshData = MutableLiveData(Unit)
     val refreshData: LiveData<Unit> = _refreshData
@@ -175,31 +139,6 @@ class SearchTEIViewModel(
             SimprintsBiometricsAction(isOneToMany = true),
         )
     }
-
-    // One TEI is viewed at a time, so its Simprints biometrics state model updates on each new TEI.
-
-    private val teiToSimprintsBiometricsUiModelMap: MutableMap<String, SimprintsBiometricsUiModel> =
-        mutableMapOf()
-
-    fun checkIfTeiLocked(teiUid: String?, programUid: String?, enrollmentUid: String?): Boolean =
-        simprintsBiometricsRepository
-            .getSimprintsBiometricsStateFlow(teiUid, programUid, enrollmentUid)
-            .value.isLocked(millisNow = System.currentTimeMillis())
-
-    fun getSimprintsBiometricsUiModel(
-        teiUid: String,
-        programUid: String,
-    ): SimprintsBiometricsUiModel =
-        teiToSimprintsBiometricsUiModelMap.getOrPut(teiUid) {
-            teiToSimprintsBiometricsUiModelMap.clear()
-            SimprintsBiometricsUiModel(
-                simprintsBiometricsRepository.getSimprintsBiometricsStateFlow(
-                    teiUid,
-                    programUid,
-                ),
-                simprintsBiometricsRepository::dispatchSimprintsAction,
-            )
-        }
 
     fun setListScreen() {
         _screenState.value.takeIf { it?.screenState == SearchScreenState.MAP }?.let {

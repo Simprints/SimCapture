@@ -1,13 +1,9 @@
 package org.dhis2.form.data
 
-import com.simprints.simprints.SimprintsBiometricsAction
-import com.simprints.simprints.SimprintsBiometricsState
+import com.simprints.simprints.Constants.SIMPRINTS_GUID
+import com.simprints.simprints.repository.SimprintsBiometricsRepository
 import io.reactivex.Flowable
 import io.reactivex.Single
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import org.dhis2.commons.Constants.SIMPRINTS_GUID
 import org.dhis2.commons.date.DateUtils
 import org.dhis2.commons.orgunitselector.OrgUnitSelectorScope
 import org.dhis2.form.data.metadata.EnrollmentConfiguration
@@ -37,6 +33,7 @@ class EnrollmentRepository(
     private val conf: EnrollmentConfiguration,
     private val enrollmentMode: EnrollmentMode,
     private val enrollmentFormLabelsProvider: EnrollmentFormLabelsProvider,
+    private val simprintsBiometricsRepository: SimprintsBiometricsRepository,
 ) : DataEntryBaseRepository(conf, fieldFactory) {
 
     override val programUid by lazy {
@@ -53,13 +50,11 @@ class EnrollmentRepository(
         val teTypeAccess = conf.trackedEntityType()?.access()?.data()?.write() == true
         return programAccess && teTypeAccess
     }
-
     override fun getSpecificDataEntryItems(uid: String): List<FieldUiModel> {
         return when (uid) {
             ORG_UNIT_UID -> {
                 getEnrollmentData()
             }
-
             else -> {
                 emptyList()
             }
@@ -209,8 +204,11 @@ class EnrollmentRepository(
             attribute.uid(),
             dataValue ?: "",
             sectionUid,
-            teiStateFlow = simprintsBiometricsStateFlow,
-            onInteraction = simprintsBiometricsActionFlow::tryEmit,
+            teiStateFlow = simprintsBiometricsRepository.getSimprintsBiometricsStateFlow(
+                teiUid = conf.tei()?.uid(),
+                programUid,
+            ),
+            onInteraction = simprintsBiometricsRepository::dispatchSimprintsAction,
         ) ?: fieldFactory.create(
             attribute.uid(), // indentation of these params is preserved
             attribute.displayFormName() ?: "",
@@ -302,12 +300,7 @@ class EnrollmentRepository(
 
     private fun getEnrollmentData(): MutableList<FieldUiModel> {
         val enrollmentDataList = ArrayList<FieldUiModel>()
-        enrollmentDataList.add(
-            getEnrollmentDataSection(
-                conf.program()?.displayName(),
-                conf.program()?.description(),
-            ),
-        )
+        enrollmentDataList.add(getEnrollmentDataSection(conf.program()?.displayName(), conf.program()?.description()))
 
         enrollmentDataList.add(
             getEnrollmentDateField(
@@ -361,14 +354,12 @@ class EnrollmentRepository(
             (selectedOrgUnit?.closedDate() == null && java.lang.Boolean.FALSE == selectedProgram?.selectEnrollmentDatesInFuture()) -> {
                 maxDate = Date(System.currentTimeMillis())
             }
-
             (selectedOrgUnit?.closedDate() != null && java.lang.Boolean.FALSE == selectedProgram?.selectEnrollmentDatesInFuture()) -> {
-                maxDate =
-                    if (selectedOrgUnit.closedDate()!!.before(Date(System.currentTimeMillis()))) {
-                        selectedOrgUnit.closedDate()
-                    } else {
-                        Date(System.currentTimeMillis())
-                    }
+                maxDate = if (selectedOrgUnit.closedDate()!!.before(Date(System.currentTimeMillis()))) {
+                    selectedOrgUnit.closedDate()
+                } else {
+                    Date(System.currentTimeMillis())
+                }
             }
 
             (selectedOrgUnit?.closedDate() != null && java.lang.Boolean.TRUE == selectedProgram?.selectEnrollmentDatesInFuture()) -> {
@@ -560,16 +551,6 @@ class EnrollmentRepository(
     }
 
     companion object {
-
-        // These flows are static to avoid duplication when the repo is initialized twice in DHIS2;
-        // todo non-static implementation
-        val simprintsBiometricsActionFlow: MutableSharedFlow<SimprintsBiometricsAction> =
-            MutableSharedFlow(
-                extraBufferCapacity = 1,
-                onBufferOverflow = BufferOverflow.DROP_OLDEST,
-            )
-        val simprintsBiometricsStateFlow: MutableStateFlow<SimprintsBiometricsState> =
-            MutableStateFlow(SimprintsBiometricsState())
 
         const val ENROLLMENT_DATA_SECTION_UID = "ENROLLMENT_DATA_SECTION_UID"
         const val ENROLLMENT_DATE_UID = "ENROLLMENT_DATE_UID"

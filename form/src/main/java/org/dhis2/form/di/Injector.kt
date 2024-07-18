@@ -1,6 +1,7 @@
 package org.dhis2.form.di
 
 import android.content.Context
+import com.simprints.simprints.repository.SimprintsBiometricsRepository
 import org.dhis2.commons.R
 import org.dhis2.commons.data.EntryMode
 import org.dhis2.commons.date.DateUtils
@@ -145,8 +146,12 @@ object Injector {
             conf = EnrollmentConfiguration(provideD2(), enrollmentRecords.enrollmentUid, metadataIconProvider),
             enrollmentMode = enrollmentRecords.enrollmentMode,
             enrollmentFormLabelsProvider = provideEnrollmentFormLabelsProvider(context),
+            simprintsBiometricsRepository = simprintsBiometricsRepository,
         )
     }
+
+    // to be set by module that has visibility of `forms`
+    lateinit var simprintsBiometricsRepository: SimprintsBiometricsRepository
 
     private fun provideEventRepository(
         context: Context,
