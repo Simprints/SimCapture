@@ -153,7 +153,6 @@ class TEIDataFragment : FragmentGlobalAbstract(), TEIDataContracts.View {
                         showDetailCard()
                     }
                 }
-
                 dashboardModel.observe(viewLifecycleOwner) {
                     if (sharedPreferences.getString(PREF_COMPLETED_EVENT, null) != null) {
                         presenter.displayGenerateEvent(
