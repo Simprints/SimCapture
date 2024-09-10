@@ -1,13 +1,9 @@
 package org.dhis2.usescases.enrollment
 
-import com.simprints.simprints.repository.SimprintsBiometricsRepository
 import io.reactivex.Single
 import io.reactivex.processors.PublishProcessor
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.dhis2.commons.matomo.MatomoAnalyticsController
 import org.dhis2.commons.schedulers.SchedulerProvider
-import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.schedulers.TrampolineSchedulerProvider
 import org.dhis2.form.data.EnrollmentRepository
 import org.dhis2.usescases.enrollment.EnrollmentActivity.EnrollmentMode.CHECK
@@ -53,14 +49,6 @@ class EnrollmentPresenterImplTest {
     private val matomoAnalyticsController: MatomoAnalyticsController = mock()
     private val eventCollectionRepository: EventCollectionRepository = mock()
     private val teiAttributesProvider: TeiAttributesProvider = mock()
-    private val simprintsBiometricsRepository: SimprintsBiometricsRepository = mock()
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val testingDispatcher = UnconfinedTestDispatcher()
-    private val dispatcherProvider: DispatcherProvider = mock {
-        on { io() } doReturn testingDispatcher
-        on { ui() } doReturn testingDispatcher
-    }
 
     @Before
     fun setUp() {
@@ -77,8 +65,6 @@ class EnrollmentPresenterImplTest {
             matomoAnalyticsController,
             eventCollectionRepository,
             teiAttributesProvider,
-            simprintsBiometricsRepository,
-            dispatcherProvider,
         )
     }
 

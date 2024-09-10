@@ -8,8 +8,8 @@ import androidx.compose.material.icons.filled.PhoneEnabled
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import com.simprints.simprints.Constants.SIMPRINTS_GUID
 import org.dhis2.R
-import org.dhis2.commons.Constants.SIMPRINTS_GUID
 import org.dhis2.commons.date.toUi
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.usescases.teiDashboard.DashboardEnrollmentModel

@@ -54,8 +54,7 @@ import dispatch.core.DispatcherProvider;
         DispatcherModule.class,
         FeatureConfigModule.class,
         NetworkUtilsModule.class,
-        CustomDispatcherModule.class,
-        SimprintsBiometricsDiModule.class
+        CustomDispatcherModule.class
 })
 public  interface AppComponent {
 
@@ -101,6 +100,7 @@ public  interface AppComponent {
     LocationProvider locationProvider();
 
     NetworkUtils networkUtilsProvider();
+
     DispatcherProvider customDispatcherProvider();
 
     //injection targets
