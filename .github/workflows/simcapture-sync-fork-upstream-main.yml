@@ -1,0 +1,64 @@
+name: Sync upstream repo's main into this fork repo's upstream-main
+
+on:
+  schedule:
+    - cron: '0 0 * * 1-5'
+  workflow_dispatch:
+
+concurrency:
+  group: simcapture-sync-fork-upstream-main
+  cancel-in-progress: false
+
+jobs:
+  simcapture-sync-fork-upstream-main:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CURRENT_FORK_REPOSITORY: ${{ github.repository }}
+      SOURCE_UPSTREAM_REPOSITORY: dhis2/dhis2-android-capture-app
+      SOURCE_BRANCH: main
+      DESTINATION_BRANCH: upstream-main
+    steps:
+      - name: Set this repo's upstream-main branch to match the upstream repo's main branch
+        env:
+          GH_TOKEN: ${{ secrets.GH_WORKFLOW_SYNC_PAT_SIMCAPTURE }}
+        run: |
+          set -euo pipefail
+
+          source_head_sha=$(
+            gh api "repos/$SOURCE_UPSTREAM_REPOSITORY/branches/$SOURCE_BRANCH" --jq '.commit.sha'
+          )
+          destination_head_sha=$(
+            gh api "repos/$CURRENT_FORK_REPOSITORY/branches/$DESTINATION_BRANCH" --jq '.commit.sha'
+          )
+          
+          echo "Source $SOURCE_UPSTREAM_REPOSITORY:$SOURCE_BRANCH branch head before sync: $source_head_sha."
+          echo "Destination $CURRENT_FORK_REPOSITORY:$DESTINATION_BRANCH branch head before sync: $destination_head_sha."
+
+          if [[ "$destination_head_sha" == "$source_head_sha" ]]; then
+            echo "Destination branch already matches source."
+            exit 0
+          fi
+
+          gh api --method PATCH "repos/$CURRENT_FORK_REPOSITORY/git/refs/heads/$DESTINATION_BRANCH" \
+            --raw-field sha="$source_head_sha" \
+            --field force=true >/dev/null
+          echo "Force-updated destination $DESTINATION_BRANCH branch head to $source_head_sha."
+
+          post_sync_source_head_sha=$(
+            gh api "repos/$SOURCE_UPSTREAM_REPOSITORY/branches/$SOURCE_BRANCH" --jq '.commit.sha'
+          )
+          post_sync_destination_head_sha=$(
+            gh api "repos/$CURRENT_FORK_REPOSITORY/branches/$DESTINATION_BRANCH" --jq '.commit.sha'
+          )
+
+          echo "Source $SOURCE_UPSTREAM_REPOSITORY:$SOURCE_BRANCH branch head after sync: $post_sync_source_head_sha."
+          echo "Destination $CURRENT_FORK_REPOSITORY:$DESTINATION_BRANCH branch head after sync: $post_sync_destination_head_sha."
+
+          if [[ "$post_sync_destination_head_sha" != "$post_sync_source_head_sha" ]]; then
+            echo "Error: Branch heads $SOURCE_UPSTREAM_REPOSITORY:$SOURCE_BRANCH and $CURRENT_FORK_REPOSITORY:$DESTINATION_BRANCH do not match after sync." >&2
+            exit 1
+          fi
+
+          echo "Branch sync complete."
