@@ -1,0 +1,203 @@
+name: Create PRs for upstream releases merged into upstream-main
+
+on:
+  workflow_run:
+    workflows:
+      - "Sync upstream repo's main into this fork repo's upstream-main"
+    types:
+      - completed
+  workflow_dispatch:
+  pull_request:
+    types:
+      - closed
+
+concurrency:
+  group: simcapture-upstream-release-pr
+  cancel-in-progress: false
+
+jobs:
+  simcapture-upstream-release-pr:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      CURRENT_FORK_OWNER: ${{ github.repository_owner }}
+      CURRENT_FORK_REPOSITORY: ${{ github.repository }}
+      CURRENT_FORK_MAIN_BRANCH: main
+      UPSTREAM_REPOSITORY: dhis2/dhis2-android-capture-app
+      UPSTREAM_TRACKING_MAIN_BRANCH: upstream-main
+    steps:
+      - name: Create or update PR branches for new upstream releases
+        env:
+          GH_TOKEN: ${{ secrets.GH_WORKFLOW_SYNC_PAT_SIMCAPTURE }}
+        run: |
+          set -euo pipefail
+
+          is_commit_reachable_from_ref() {
+            commit_sha="$1"
+            ref_name="$2"
+
+            if ! compare_json=$(gh api "repos/$CURRENT_FORK_REPOSITORY/compare/$commit_sha...$ref_name"); then
+              return 1
+            fi
+
+            merge_base_sha=$(jq -r '.merge_base_commit.sha // empty' <<< "$compare_json")
+            [[ "$merge_base_sha" == "$commit_sha" ]]
+          }
+
+          create_or_update_branch_ref() {
+            branch_name="$1"
+            target_sha="$2"
+            encoded_branch_name=$(jq -rn --arg value "$branch_name" '$value | @uri')
+
+            if gh api "repos/$CURRENT_FORK_REPOSITORY/git/ref/heads/$encoded_branch_name"; then
+              gh api --method PATCH "repos/$CURRENT_FORK_REPOSITORY/git/refs/heads/$encoded_branch_name" \
+                --raw-field sha="$target_sha" \
+                --field force=true
+              echo "Updated $branch_name branch to $target_sha."
+            else
+              gh api --method POST "repos/$CURRENT_FORK_REPOSITORY/git/refs" \
+                --raw-field ref="refs/heads/$branch_name" \
+                --raw-field sha="$target_sha"
+              echo "Created $branch_name branch at $target_sha."
+            fi
+          }
+
+          main_head_sha=$(gh api "repos/$CURRENT_FORK_REPOSITORY/branches/$CURRENT_FORK_MAIN_BRANCH" --jq '.commit.sha')
+          main_tree_sha=$(gh api "repos/$CURRENT_FORK_REPOSITORY/git/commits/$main_head_sha" --jq '.tree.sha')
+
+          declare -A release_sha_by_branch=()
+          declare -a ordered_release_branches=()
+          release_prs_file=$(mktemp)
+          trap 'rm -f "$release_prs_file"' EXIT
+
+          gh api --method GET --paginate search/issues \
+            -f q="repo:$UPSTREAM_REPOSITORY is:pr is:merged base:main head:release/" \
+            -f per_page=100 \
+            --jq '.items[].number' \
+          | while IFS= read -r pr_number; do
+              [[ -z "$pr_number" ]] && continue
+              gh api "repos/$UPSTREAM_REPOSITORY/pulls/$pr_number" \
+                --jq '{number: .number, merged_at: .merged_at, merge_commit_sha: .merge_commit_sha, head_ref: .head.ref, title: .title}'
+              printf '\n'
+            done > "$release_prs_file"
+
+          if [[ ! -s "$release_prs_file" ]]; then
+            echo "No upstream release PRs merged into upstream main branch found."
+            exit 0
+          fi
+
+          while IFS= read -r pr_json; do
+            [[ -z "$pr_json" ]] && continue
+
+            pr_number=$(jq -r '.number' <<< "$pr_json")
+            release_branch=$(jq -r '.head_ref' <<< "$pr_json")
+            release_sha=$(jq -r '.merge_commit_sha' <<< "$pr_json")
+
+            echo "Inspecting upstream PR #$pr_number for $release_branch at $release_sha."
+
+            if ! is_commit_reachable_from_ref "$release_sha" "$UPSTREAM_TRACKING_MAIN_BRANCH"; then
+              echo "Skipping upstream PR #$pr_number because $release_sha is not reachable from $UPSTREAM_TRACKING_MAIN_BRANCH."
+              continue
+            fi
+
+            if is_commit_reachable_from_ref "$release_sha" "$CURRENT_FORK_MAIN_BRANCH"; then
+              echo "Latest upstream release merge already reachable from $CURRENT_FORK_MAIN_BRANCH: $release_sha ($release_branch via upstream PR #$pr_number)."
+              break
+            fi
+
+            if [[ -n ${release_sha_by_branch[$release_branch]+x} ]]; then
+              continue
+            fi
+
+            release_sha_by_branch["$release_branch"]="$release_sha"
+            ordered_release_branches+=("$release_branch")
+          done < <(
+            jq -sc '. | sort_by(.merged_at) | reverse | .[] | select(.merged_at != null and .merge_commit_sha != null and (.head_ref | startswith("release/")))' "$release_prs_file"
+          )
+
+          if [[ ${#ordered_release_branches[@]} -eq 0 ]]; then
+            echo "No newer upstream release merges require PRs."
+            exit 0
+          fi
+
+          for ((id=${#ordered_release_branches[@]} - 1; id >= 0; id--)); do
+            release_branch="${ordered_release_branches[$id]}"
+            release_version="${release_branch#release/}"
+            pr_branch="upstream-release/$release_version"
+            release_sha="${release_sha_by_branch[$release_branch]}"
+            release_tree_sha=$(gh api "repos/$CURRENT_FORK_REPOSITORY/git/commits/$release_sha" --jq '.tree.sha')
+
+            echo "Processing $release_branch at $release_sha."
+
+            if [[ "$release_tree_sha" == "$main_tree_sha" ]]; then
+              echo "Skipping $pr_branch because its tree already matches $CURRENT_FORK_MAIN_BRANCH."
+              continue
+            fi
+
+            existing_prs=$(
+              gh api --method GET "repos/$CURRENT_FORK_REPOSITORY/pulls" \
+                -f state=all \
+                -f base="$CURRENT_FORK_MAIN_BRANCH" \
+                -f head="$CURRENT_FORK_OWNER:$pr_branch"
+            )
+
+            open_pr_number=$(jq -r '.[] | select(.state == "open") | .number' <<< "$existing_prs" | head -n 1)
+            matching_pr_number=$(jq -r --arg sha "$release_sha" '.[] | select(.head.sha == $sha) | .number' <<< "$existing_prs" | head -n 1)
+
+            if [[ -n "$open_pr_number" && "$open_pr_number" != "null" ]]; then
+              create_or_update_branch_ref "$pr_branch" "$release_sha"
+              echo "Updated existing PR branch $pr_branch for open PR #$open_pr_number."
+              continue
+            fi
+
+            if [[ -n "$matching_pr_number" && "$matching_pr_number" != "null" ]]; then
+              echo "Skipping duplicate PR creation for $pr_branch at $release_sha because PR #$matching_pr_number already exists."
+              continue
+            fi
+
+            create_or_update_branch_ref "$pr_branch" "$release_sha"
+
+            pr_title="[Automatic] Upstream release $release_version"
+            pr_body=$(cat <<EOF
+          This PR brings upstream-tracking \`$release_branch\` branch to be merged into \`$CURRENT_FORK_MAIN_BRANCH\`.
+
+          Release merge commit in the upstream-tracking \`$UPSTREAM_TRACKING_MAIN_BRANCH\` branch of this (fork) repo: [$release_sha](https://github.com/$CURRENT_FORK_REPOSITORY/commit/$release_sha).
+          Release merge commit in the \`main\` branch of the [$UPSTREAM_REPOSITORY](https://github.com/$UPSTREAM_REPOSITORY) upstream repo: [$release_sha](https://github.com/$UPSTREAM_REPOSITORY/commit/$release_sha).
+
+          _For your reference, this Action's config can be viewed [here](https://github.com/$CURRENT_FORK_REPOSITORY/blob/main/.github/workflows/simcapture-upstream-release-pr.yml), and the run logs [here](https://github.com/$CURRENT_FORK_REPOSITORY/actions/workflows/simcapture-upstream-release-pr.yml)._
+          EOF
+            )
+
+            gh pr create \
+              --repo "$CURRENT_FORK_REPOSITORY" \
+              --base "$CURRENT_FORK_MAIN_BRANCH" \
+              --head "$pr_branch" \
+              --title "$pr_title" \
+              --body "$pr_body"
+          done
+
+  delete-closed-upstream-release-pr-branch:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && startsWith(github.event.pull_request.head.ref, 'upstream-release/') && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete closed upstream release PR branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_FORK_REPOSITORY: ${{ github.repository }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+
+          encoded_pr_branch=$(jq -rn --arg value "$PR_BRANCH" '$value | @uri')
+
+          if gh api "repos/$CURRENT_FORK_REPOSITORY/git/ref/heads/$encoded_pr_branch"; then
+            gh api --method DELETE "repos/$CURRENT_FORK_REPOSITORY/git/refs/heads/$encoded_pr_branch"
+            echo "Deleted $PR_BRANCH."
+          else
+            echo "Branch $PR_BRANCH is already absent."
+          fi
