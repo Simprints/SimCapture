@@ -401,7 +401,7 @@
     <string name="complete_enrollment_message_V2">Would you like to complete the %s as well?</string>
     <string name="check_event">Check</string>
 
-    <string name="menu_home">Home</string>
+    <string name="menu_home">Home V2</string>
     <string name="appwidget_text">EXAMPLE</string>
     <string name="add_widget">Add widget</string>
     <string name="showHelp">Show help</string>
