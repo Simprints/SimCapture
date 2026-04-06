@@ -7,9 +7,12 @@ import android.os.Bundle
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.databinding.DataBindingUtil
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.launch
 import org.dhis2.App
 import org.dhis2.R
+import org.dhis2.R.string.custom_intent_error
 import org.dhis2.commons.Constants.ENROLLMENT_UID
 import org.dhis2.commons.Constants.PROGRAM_UID
 import org.dhis2.commons.Constants.TEI_UID
@@ -30,8 +33,10 @@ import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.EventCaptureAc
 import org.dhis2.usescases.general.ActivityGlobalAbstract
 import org.dhis2.usescases.teiDashboard.TeiDashboardMobileActivity
 import org.dhis2.utils.granularsync.OPEN_ERROR_LOCATION
+import org.dhis2.simprints.SimprintsEnrollmentViewModel.RegisterLastResult
 import org.hisp.dhis.android.core.common.FeatureType
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
+import timber.log.Timber
 import javax.inject.Inject
 
 class EnrollmentActivity :
@@ -53,6 +58,36 @@ class EnrollmentActivity :
 
     lateinit var binding: EnrollmentActivityBinding
     lateinit var mode: EnrollmentMode
+    private val simprintsRegisterLastBiometricsLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            lifecycleScope.launch {
+                try {
+                    when (
+                        presenter.onRegisterLastResult(
+                            resultCode = result.resultCode,
+                            data = result.data,
+                        )
+                    ) {
+                        RegisterLastResult.CONTINUE_FINISH -> {
+                            presenter.finish(mode)
+                        }
+
+                        RegisterLastResult.ERROR -> {
+                            displayMessage(getString(custom_intent_error))
+                            formView.reload()
+                        }
+
+                        RegisterLastResult.NONE -> {
+                            // no-op
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e)
+                    displayMessage(getString(custom_intent_error))
+                    formView.reload()
+                }
+            }
+        }
 
     companion object {
         const val ENROLLMENT_UID_EXTRA = "ENROLLMENT_UID_EXTRA"
@@ -133,7 +168,32 @@ class EnrollmentActivity :
                 locationProvider = locationProvider,
                 dateEditionWarningHandler = dateEditionWarningHandler,
             ) {
-                presenter.finish(enrollmentMode)
+                lifecycleScope.launch {
+                    val simprintsRegisterLastIntent =
+                        try {
+                            presenter.onFinishRequested(
+                                isNewEnrollment = enrollmentMode == EnrollmentMode.NEW,
+                                enrollmentUid = enrollmentUid,
+                            )
+                        } catch (e: Exception) {
+                            Timber.e(e)
+                            displayMessage(getString(custom_intent_error))
+                            formView.reload()
+                            return@launch
+                        }
+                    if (simprintsRegisterLastIntent != null) {
+                        try {
+                            simprintsRegisterLastBiometricsLauncher.launch(simprintsRegisterLastIntent)
+                        } catch (e: Exception) {
+                            Timber.e(e)
+                            presenter.onRegisterLastLaunchFailed()
+                            displayMessage(getString(custom_intent_error))
+                            formView.reload()
+                        }
+                        return@launch
+                    }
+                    presenter.finish(enrollmentMode)
+                }
             }
 
         presenter.init()

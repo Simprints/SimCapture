@@ -30,6 +30,7 @@ import org.dhis2.form.ui.intent.FormIntent
 import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.maps.geometry.mapper.EventsByProgramStage
 import org.dhis2.maps.usecases.MapStyleConfiguration
+import org.dhis2.simprints.SimprintsSearchViewModel
 import org.dhis2.usescases.searchTrackEntity.listView.SearchResult.SearchResultType
 import org.dhis2.utils.customviews.navigationbar.NavigationPage
 import org.hisp.dhis.android.core.common.ValueType
@@ -70,6 +71,7 @@ class SearchTEIViewModelTest {
     private val resourceManager: ResourceManager = mock()
     private val displayNameProvider: DisplayNameProvider = mock()
     private val filterManager: FilterManager = mock()
+    private val simprintsSearchViewModel: SimprintsSearchViewModel = mock()
 
     @ExperimentalCoroutinesApi
     private val testingDispatcher = StandardTestDispatcher()
@@ -103,6 +105,7 @@ class SearchTEIViewModelTest {
                 resourceManager = resourceManager,
                 displayNameProvider = displayNameProvider,
                 filterManager = filterManager,
+                simprintsSearchViewModel = simprintsSearchViewModel,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
     }
@@ -792,6 +795,7 @@ class SearchTEIViewModelTest {
                 resourceManager = resourceManager,
                 displayNameProvider = displayNameProvider,
                 filterManager = filterManager,
+                simprintsSearchViewModel = simprintsSearchViewModel,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
 
@@ -838,6 +842,7 @@ class SearchTEIViewModelTest {
                     },
                 displayNameProvider = displayNameProvider,
                 filterManager = filterManager,
+                simprintsSearchViewModel = simprintsSearchViewModel,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
 

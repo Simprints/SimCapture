@@ -5,6 +5,7 @@ import io.reactivex.processors.PublishProcessor
 import org.dhis2.commons.matomo.MatomoAnalyticsController
 import org.dhis2.commons.schedulers.SchedulerProvider
 import org.dhis2.data.schedulers.TrampolineSchedulerProvider
+import org.dhis2.simprints.SimprintsEnrollmentViewModel
 import org.dhis2.usescases.enrollment.EnrollmentActivity.EnrollmentMode.CHECK
 import org.dhis2.usescases.enrollment.EnrollmentActivity.EnrollmentMode.NEW
 import org.dhis2.usescases.teiDashboard.TeiAttributesProvider
@@ -47,6 +48,7 @@ class EnrollmentPresenterImplTest {
     private val eventCollectionRepository: EventCollectionRepository = mock()
     private val teiAttributesProvider: TeiAttributesProvider = mock()
     private val dateEntryWarningHelper: DateEditionWarningHandler = mock()
+    private val simprintsEnrollmentViewModel: SimprintsEnrollmentViewModel = mock()
 
     @Before
     fun setUp() {
@@ -64,6 +66,7 @@ class EnrollmentPresenterImplTest {
                 eventCollectionRepository,
                 teiAttributesProvider,
                 dateEntryWarningHelper,
+                simprintsEnrollmentViewModel,
             )
     }
 
