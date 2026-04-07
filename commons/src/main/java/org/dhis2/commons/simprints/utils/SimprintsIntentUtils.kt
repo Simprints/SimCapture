@@ -19,19 +19,15 @@ object SimprintsIntentUtils {
         val responseData: List<CustomIntentResponseDataModel>?,
     )
 
-    fun isCallout(customIntent: CustomIntentModel?): Boolean =
-        customIntent?.packageName?.startsWith(SIMPRINTS_PACKAGE_NAME) == true
+    fun isCallout(customIntent: CustomIntentModel?): Boolean = customIntent?.packageName?.startsWith(SIMPRINTS_PACKAGE_NAME) == true
 
-    fun isIdentifyCallout(customIntent: CustomIntentModel?): Boolean =
-        customIntent?.packageName == SIMPRINTS_IDENTIFY_ACTION
+    fun isIdentifyCallout(customIntent: CustomIntentModel?): Boolean = customIntent?.packageName == SIMPRINTS_IDENTIFY_ACTION
 
-    fun supportsRegisterLast(customIntent: CustomIntentModel?): Boolean =
-        isCallout(customIntent) && !isIdentifyCallout(customIntent)
+    fun supportsRegisterLast(customIntent: CustomIntentModel?): Boolean = isCallout(customIntent) && !isIdentifyCallout(customIntent)
 
     fun extractSessionId(extras: Bundle?): String? = extras?.getString(SIMPRINTS_SESSION_ID_KEY)
 
-    fun prepareCallout(customIntent: CustomIntentModel): PreparedCallout =
-        prepareCallout(customIntent, customIntent.packageName)
+    fun prepareCallout(customIntent: CustomIntentModel): PreparedCallout = prepareCallout(customIntent, customIntent.packageName)
 
     fun prepareRegisterLastCallout(
         customIntent: CustomIntentModel,
@@ -40,9 +36,10 @@ object SimprintsIntentUtils {
         prepareCallout(
             customIntent = customIntent,
             action = SIMPRINTS_REGISTER_LAST_ACTION,
-            requestArguments = arrayOf(
-                requestArgument(SIMPRINTS_SESSION_ID_KEY, sessionId),
-            ),
+            requestArguments =
+                arrayOf(
+                    requestArgument(SIMPRINTS_SESSION_ID_KEY, sessionId),
+                ),
         )
 
     fun prepareConfirmIdentityCallout(
@@ -66,8 +63,8 @@ object SimprintsIntentUtils {
         hasPendingEnrollment: Boolean,
     ): Boolean =
         value.isNullOrEmpty() &&
-                supportsRegisterLast(customIntent) &&
-                hasPendingEnrollment
+            supportsRegisterLast(customIntent) &&
+            hasPendingEnrollment
 
     fun getDisplayValues(
         value: String?,
@@ -91,16 +88,18 @@ object SimprintsIntentUtils {
                     customIntent.customIntentRequest
                         .filterNot { argument ->
                             argument.key in requestArguments.map { it.key }
-                        }
-                        .plus(requestArguments).forEach { argument ->
+                        }.plus(requestArguments)
+                        .forEach { argument ->
                             putRequestArgumentExtra(argument)
                         }
                 },
             responseData = customIntent.customIntentResponse,
         )
 
-    private fun requestArgument(key: String, value: String): CustomIntentRequestArgumentModel =
-        CustomIntentRequestArgumentModel(key = key, value = value)
+    private fun requestArgument(
+        key: String,
+        value: String,
+    ): CustomIntentRequestArgumentModel = CustomIntentRequestArgumentModel(key = key, value = value)
 
     private fun Intent.putRequestArgumentExtra(argument: CustomIntentRequestArgumentModel) {
         when (val value = argument.value) {

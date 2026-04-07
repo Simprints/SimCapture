@@ -78,9 +78,7 @@ class SimprintsSearchViewModel(
         )
     }
 
-    fun onConfirmIdentityResult(
-        resultCode: Int,
-    ): PendingDashboardNavigation? =
+    fun onConfirmIdentityResult(resultCode: Int): PendingDashboardNavigation? =
         pendingDashboardNavigation
             ?.takeIf { resultCode == RESULT_OK }
             .also {
@@ -91,9 +89,7 @@ class SimprintsSearchViewModel(
         pendingDashboardNavigation = null
     }
 
-    fun shouldUseLastBiometricsLabel(
-        searchFields: List<SimprintsSearchUtils.SearchField>,
-    ): Boolean {
+    fun shouldUseLastBiometricsLabel(searchFields: List<SimprintsSearchUtils.SearchField>): Boolean {
         val searchState = SimprintsSearchUtils.searchState(searchFields)
         val hasPendingSession = sessionRepository.hasPendingSession()
         if (hasPendingSession && searchState.shouldClearPendingSession) {

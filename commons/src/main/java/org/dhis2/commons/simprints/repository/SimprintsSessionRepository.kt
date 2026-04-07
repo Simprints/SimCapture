@@ -10,11 +10,9 @@ class SimprintsSessionRepository(
         clearPendingEnrollment()
     }
 
-    fun get(): String? =
-        preferenceProvider.getString(LAST_IDENTIFICATION_SESSION_ID)
+    fun get(): String? = preferenceProvider.getString(LAST_IDENTIFICATION_SESSION_ID)
 
-    fun hasPendingSession(): Boolean =
-        !get().isNullOrBlank()
+    fun hasPendingSession(): Boolean = !get().isNullOrBlank()
 
     fun markPendingEnrollment() {
         if (hasPendingSession()) {
@@ -27,11 +25,9 @@ class SimprintsSessionRepository(
             ?.takeIf(String::isNotBlank)
             ?.takeIf { preferenceProvider.getBoolean(PENDING_ENROLL_LAST, false) }
 
-    fun hasPendingEnrollment(): Boolean =
-        pendingEnrollmentSessionId() != null
+    fun hasPendingEnrollment(): Boolean = pendingEnrollmentSessionId() != null
 
-    fun clearPendingEnrollment() =
-        preferenceProvider.removeValue(PENDING_ENROLL_LAST)
+    fun clearPendingEnrollment() = preferenceProvider.removeValue(PENDING_ENROLL_LAST)
 
     fun clear() {
         preferenceProvider.removeValue(LAST_IDENTIFICATION_SESSION_ID)

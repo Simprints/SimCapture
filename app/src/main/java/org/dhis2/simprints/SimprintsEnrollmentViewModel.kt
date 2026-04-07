@@ -2,12 +2,12 @@ package org.dhis2.simprints
 
 import android.app.Activity.RESULT_OK
 import android.content.Intent
-import org.dhis2.commons.simprints.repository.SimprintsD2Repository
-import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
-import org.dhis2.commons.simprints.usecases.SimprintsResolvePendingEnrollmentActionUseCase
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
+import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
+import org.dhis2.commons.simprints.usecases.SimprintsResolvePendingEnrollmentActionUseCase
 
 class SimprintsEnrollmentViewModel(
     private val simprintsD2Repository: SimprintsD2Repository,

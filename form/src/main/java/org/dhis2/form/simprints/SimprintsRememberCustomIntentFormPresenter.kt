@@ -22,10 +22,12 @@ fun rememberSimprintsCustomIntentFormPresenter(
             value = fieldUiModel.value,
             hasPendingEnrollment = sessionRepository.hasPendingEnrollment(),
         )
-    val callout = remember(customIntent) {
-        customIntent?.takeIf(SimprintsIntentUtils::isCallout)
-            ?.let(SimprintsIntentUtils::prepareCallout)
-    }
+    val callout =
+        remember(customIntent) {
+            customIntent
+                ?.takeIf(SimprintsIntentUtils::isCallout)
+                ?.let(SimprintsIntentUtils::prepareCallout)
+        }
     val placeholderValue = resources.getString(R.string.from_last_biometric_search)
 
     return remember(

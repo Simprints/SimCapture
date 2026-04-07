@@ -1,11 +1,11 @@
 package org.dhis2.commons.simprints.usecases
 
-import org.dhis2.commons.simprints.repository.SimprintsD2Repository
-import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
-import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
+import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
 
 class SimprintsResolveConfirmIdentityCalloutUseCase(
     private val simprintsD2Repository: SimprintsD2Repository,

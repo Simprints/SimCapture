@@ -3,11 +3,10 @@ package org.dhis2.commons.simprints.utils
 import org.dhis2.mobile.commons.model.CustomIntentModel
 
 object SimprintsSearchUtils {
-
     data class SearchField(
         val uid: String,
         val value: String?,
-        val customIntent: CustomIntentModel?
+        val customIntent: CustomIntentModel?,
     )
 
     data class SearchState(
@@ -48,5 +47,4 @@ object SimprintsSearchUtils {
                 populatedFields.any { SimprintsIntentUtils.isIdentifyCallout(it.customIntent) },
         )
     }
-
 }

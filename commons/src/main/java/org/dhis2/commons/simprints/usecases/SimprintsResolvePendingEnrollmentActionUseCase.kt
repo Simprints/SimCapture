@@ -1,10 +1,10 @@
 package org.dhis2.commons.simprints.usecases
 
-import org.dhis2.commons.simprints.repository.SimprintsD2Repository
-import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository
 import org.dhis2.mobile.commons.model.CustomIntentActionTypeModel
 
@@ -26,7 +26,8 @@ class SimprintsResolvePendingEnrollmentActionUseCase(
             val enrollment =
                 simprintsD2Repository.getEnrollmentContext(enrollmentUid)
                     ?: return@withContext null
-            enrollment.attributeUids()
+            enrollment
+                .attributeUids()
                 .firstNotNullOfOrNull { attributeUid ->
                     resolvePendingEnrollmentAction(
                         attributeUid = attributeUid,
@@ -49,15 +50,17 @@ class SimprintsResolvePendingEnrollmentActionUseCase(
         orgUnitUid: String?,
         sessionId: String,
     ): PendingEnrollmentAction? {
-        val customIntent = customIntentRepository.getCustomIntent(
-            attributeUid,
-            orgUnitUid,
-            CustomIntentActionTypeModel.DATA_ENTRY,
-        ) ?: return null
+        val customIntent =
+            customIntentRepository.getCustomIntent(
+                attributeUid,
+                orgUnitUid,
+                CustomIntentActionTypeModel.DATA_ENTRY,
+            ) ?: return null
         if (!SimprintsIntentUtils.supportsRegisterLast(customIntent)) {
             return null
         }
-        if (!simprintsD2Repository.getTrackedEntityAttributeValue(teiUid, attributeUid)
+        if (!simprintsD2Repository
+                .getTrackedEntityAttributeValue(teiUid, attributeUid)
                 .isNullOrBlank()
         ) {
             return null
