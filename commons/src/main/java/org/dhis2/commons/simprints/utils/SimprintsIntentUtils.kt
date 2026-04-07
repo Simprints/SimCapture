@@ -8,6 +8,7 @@ import org.dhis2.mobile.commons.model.CustomIntentResponseDataModel
 
 object SimprintsIntentUtils {
     private const val SIMPRINTS_PACKAGE_NAME = "com.simprints.id"
+    private const val SIMPRINTS_REGISTER_ACTION = "$SIMPRINTS_PACKAGE_NAME.REGISTER"
     private const val SIMPRINTS_IDENTIFY_ACTION = "$SIMPRINTS_PACKAGE_NAME.IDENTIFY"
     private const val SIMPRINTS_CONFIRM_IDENTITY_ACTION = "$SIMPRINTS_PACKAGE_NAME.CONFIRM_IDENTITY"
     private const val SIMPRINTS_REGISTER_LAST_ACTION = "$SIMPRINTS_PACKAGE_NAME.REGISTER_LAST_BIOMETRICS"
@@ -23,7 +24,7 @@ object SimprintsIntentUtils {
 
     fun isIdentifyCallout(customIntent: CustomIntentModel?): Boolean = customIntent?.packageName == SIMPRINTS_IDENTIFY_ACTION
 
-    fun supportsRegisterLast(customIntent: CustomIntentModel?): Boolean = isCallout(customIntent) && !isIdentifyCallout(customIntent)
+    fun isRegisterCallout(customIntent: CustomIntentModel?): Boolean = customIntent?.packageName == SIMPRINTS_REGISTER_ACTION
 
     fun extractSessionId(extras: Bundle?): String? = extras?.getString(SIMPRINTS_SESSION_ID_KEY)
 
@@ -63,7 +64,7 @@ object SimprintsIntentUtils {
         hasPendingEnrollment: Boolean,
     ): Boolean =
         value.isNullOrEmpty() &&
-            supportsRegisterLast(customIntent) &&
+            isRegisterCallout(customIntent) &&
             hasPendingEnrollment
 
     fun getDisplayValues(

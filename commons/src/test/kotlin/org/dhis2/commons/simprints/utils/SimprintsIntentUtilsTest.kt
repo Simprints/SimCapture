@@ -13,24 +13,24 @@ import org.mockito.kotlin.mock
 
 class SimprintsIntentUtilsTest {
     @Test
-    fun `supportsRegisterLast should accept Simprints callouts except identify`() {
-        assertTrue(SimprintsIntentUtils.supportsRegisterLast(registerLastIntent()))
-        assertFalse(SimprintsIntentUtils.supportsRegisterLast(identifyIntent()))
-        assertFalse(SimprintsIntentUtils.supportsRegisterLast(nonSimprintsIntent()))
-    }
-
-    @Test
-    fun `hasPendingValue should require empty value register last support and pending enrollment`() {
+    fun `hasPendingValue should require empty value and register intent and pending enrollment`() {
         assertTrue(
             SimprintsIntentUtils.hasPendingValue(
-                customIntent = registerLastIntent(),
+                customIntent = registerIntent(),
                 value = null,
                 hasPendingEnrollment = true,
             ),
         )
         assertFalse(
             SimprintsIntentUtils.hasPendingValue(
-                customIntent = registerLastIntent(),
+                customIntent = registerIntent(),
+                value = null,
+                hasPendingEnrollment = false,
+            ),
+        )
+        assertFalse(
+            SimprintsIntentUtils.hasPendingValue(
+                customIntent = registerIntent(),
                 value = "guid-1",
                 hasPendingEnrollment = true,
             ),
@@ -86,9 +86,7 @@ class SimprintsIntentUtilsTest {
 
     private fun identifyIntent() = customIntent(packageName = "com.simprints.id.IDENTIFY")
 
-    private fun registerLastIntent() = customIntent(packageName = "com.simprints.id.VERIFY")
-
-    private fun nonSimprintsIntent() = customIntent(packageName = "com.example.other.IDENTIFY")
+    private fun registerIntent() = customIntent(packageName = "com.simprints.id.REGISTER")
 
     private fun customIntent(packageName: String) =
         CustomIntentModel(

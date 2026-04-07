@@ -27,7 +27,7 @@ class SimprintsResolvePendingEnrollmentActionUseCaseTest {
     @Test
     fun `invoke should return pending action when register last attribute has no value`() =
         runBlocking {
-            val customIntent = registerLastIntent()
+            val customIntent = registerIntent()
             whenever(repository.getEnrollmentContext("enrollment-uid")) doReturn
                 SimprintsD2Repository.EnrollmentContext(
                     teiUid = "tei-uid",
@@ -133,7 +133,7 @@ class SimprintsResolvePendingEnrollmentActionUseCaseTest {
                     "org-unit-uid",
                     CustomIntentActionTypeModel.DATA_ENTRY,
                 ),
-            ) doReturn registerLastIntent()
+            ) doReturn registerIntent()
             whenever(
                 repository.getTrackedEntityAttributeValue(
                     "tei-uid",
@@ -176,7 +176,7 @@ class SimprintsResolvePendingEnrollmentActionUseCaseTest {
 
     private fun identifyIntent() = customIntent(packageName = "com.simprints.id.IDENTIFY")
 
-    private fun registerLastIntent() = customIntent(packageName = "com.simprints.id.VERIFY")
+    private fun registerIntent() = customIntent(packageName = "com.simprints.id.REGISTER")
 
     private fun customIntent(packageName: String) =
         CustomIntentModel(

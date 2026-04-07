@@ -56,7 +56,7 @@ class SimprintsResolvePendingEnrollmentActionUseCase(
                 orgUnitUid,
                 CustomIntentActionTypeModel.DATA_ENTRY,
             ) ?: return null
-        if (!SimprintsIntentUtils.supportsRegisterLast(customIntent)) {
+        if (!SimprintsIntentUtils.isRegisterCallout(customIntent)) {
             return null
         }
         if (!simprintsD2Repository
