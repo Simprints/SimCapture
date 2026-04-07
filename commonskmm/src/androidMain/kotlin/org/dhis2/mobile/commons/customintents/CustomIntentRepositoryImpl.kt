@@ -100,6 +100,26 @@ class CustomIntentRepositoryImpl(
             .settingModule()
             .customIntentService()
             .blockingEvaluateRequestParams(customIntent, context)
+            .overrideSimprintsIdentifyModuleIdWithUserOrgUnit(customIntent)
+
+    private fun Map<String, Any?>.overrideSimprintsIdentifyModuleIdWithUserOrgUnit(customIntent: CustomIntent): Map<String, Any?> {
+        val simprintsIdentifyAction = "com.simprints.id.IDENTIFY"
+        val simprintsModuleIdKey = "moduleId"
+        if (customIntent.packageName() != simprintsIdentifyAction) {
+            return this
+        }
+        val orgUnitCode = currentUserOrgUnitName()
+            ?: return this
+        return this + (simprintsModuleIdKey to orgUnitCode)
+    }
+
+    private fun currentUserOrgUnitName(): String? =
+        d2
+            .organisationUnitModule()
+            .organisationUnits()
+            .byRootOrganisationUnit(true)
+            .blockingGet()
+            .firstNotNullOfOrNull { it.name()?.takeUnless(String::isBlank) }
 
     override fun reEvaluateCustomIntentRequestParams(
         orgUnitUid: String,
