@@ -17,6 +17,9 @@ import org.dhis2.form.model.StoreResult
 import org.dhis2.form.model.ValueStoreResult
 import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.form.ui.provider.LegendValueProvider
+import org.dhis2.mobile.commons.model.CustomIntentModel
+import org.dhis2.mobile.commons.model.CustomIntentResponseDataModel
+import org.dhis2.mobile.commons.model.CustomIntentResponseExtraType
 import org.dhis2.mobile.commons.providers.FieldErrorMessageProvider
 import org.dhis2.mobileProgramRules.RuleEngineHelper
 import org.hamcrest.MatcherAssert.assertThat
@@ -455,6 +458,45 @@ class FormRepositoryImplTest {
             assertTrue(repository.runDataIntegrityCheck(false) is SuccessfulResult)
         }
 
+    @Test
+    fun `Should treat pending Simprints register last value as completed and valid`() =
+        runBlocking {
+            whenever(
+                dataEntryRepository.list(),
+            ) doReturn Flowable.just(providePendingSimprintsMandatoryItemList())
+            whenever(
+                preferenceProvider.getString("SID_LAST_IDENTIFICATION_SESSION_ID", null),
+            ) doReturn "session-id"
+            whenever(
+                preferenceProvider.getBoolean("SID_PENDING_ENROLL_LAST", false),
+            ) doReturn true
+            whenever(
+                dataEntryRepository.updateSection(
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                ),
+            ).thenAnswer { invocation ->
+                (invocation.getArgument(0) as SectionUiModelImpl).copy(
+                    isOpen = invocation.getArgument(1),
+                    totalFields = invocation.getArgument(2),
+                    completedFields = invocation.getArgument(3),
+                    errors = invocation.getArgument(4),
+                    warnings = invocation.getArgument(5),
+                )
+            }
+
+            val result = repository.fetchFormItems()
+            val section = result.filterIsInstance<SectionUiModelImpl>().first()
+
+            assertEquals(1f, repository.completedFieldsPercentage(result), 0f)
+            assertEquals(1, section.completedFields)
+            assertTrue(repository.runDataIntegrityCheck(false) is SuccessfulResult)
+        }
+
     private fun mockedSections() =
         listOf(
             "section1",
@@ -611,6 +653,40 @@ class FormRepositoryImplTest {
                 optionSetConfiguration = null,
                 autocompleteList = null,
             ),
+        )
+
+    private fun providePendingSimprintsMandatoryItemList() =
+        listOf(
+            section1(),
+            FieldUiModelImpl(
+                uid = "uid001",
+                value = null,
+                displayName = null,
+                label = "BiometricSubjectID",
+                valueType = ValueType.TEXT,
+                programStageSection = "section1",
+                uiEventFactory = null,
+                mandatory = true,
+                optionSetConfiguration = null,
+                autocompleteList = null,
+                customIntent = registerLastIntent(),
+            ),
+        )
+
+    private fun registerLastIntent() =
+        CustomIntentModel(
+            uid = "register-last",
+            name = "Register last",
+            packageName = "com.simprints.id.VERIFY",
+            customIntentRequest = emptyList(),
+            customIntentResponse =
+                listOf(
+                    CustomIntentResponseDataModel(
+                        name = "guid",
+                        extraType = CustomIntentResponseExtraType.STRING,
+                        key = null,
+                    ),
+                ),
         )
 
     @Test

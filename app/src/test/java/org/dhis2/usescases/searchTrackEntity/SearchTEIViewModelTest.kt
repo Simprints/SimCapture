@@ -1,5 +1,7 @@
 package org.dhis2.usescases.searchTrackEntity
 
+import android.app.Activity.RESULT_OK
+import android.content.Intent
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -38,6 +40,7 @@ import org.hisp.dhis.android.core.program.Program
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityType
 import org.hisp.dhis.mobile.ui.designsystem.component.navigationBar.NavigationBarItem
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -422,6 +425,77 @@ class SearchTEIViewModelTest {
     fun `Should filter query data for new program`() {
         viewModel.queryDataByProgram("programUid")
         verify(repository).filterQueryForProgram(viewModel.queryData, "programUid")
+    }
+
+    @Test
+    fun `Should emit launch Simprints confirm identity navigation when opening dashboard requires callout`() =
+        runTest {
+            val intent: Intent = mock()
+            whenever(
+                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any()),
+            ) doReturn SimprintsSearchViewModel.DashboardAction.LaunchConfirmIdentity(intent)
+
+            viewModel.simprintsNavigation.test {
+                viewModel.onOpenDashboardRequested("teiUid", "programUid", "enrollmentUid")
+                testingDispatcher.scheduler.advanceUntilIdle()
+
+                val action = awaitItem()
+                assertTrue(action is SimprintsNavigationAction.LaunchConfirmIdentity)
+                assertEquals(intent, (action as SimprintsNavigationAction.LaunchConfirmIdentity).intent)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `Should emit open dashboard navigation after Simprints confirm identity succeeds`() =
+        runTest {
+            whenever(simprintsSearchViewModel.onConfirmIdentityResult(RESULT_OK)) doReturn
+                SimprintsSearchViewModel.PendingDashboardNavigation(
+                    teiUid = "teiUid",
+                    programUid = "programUid",
+                    enrollmentUid = "enrollmentUid",
+                )
+
+            viewModel.simprintsNavigation.test {
+                viewModel.onConfirmIdentityResult(RESULT_OK)
+                testingDispatcher.scheduler.advanceUntilIdle()
+
+                val action = awaitItem()
+                assertTrue(action is SimprintsNavigationAction.OpenDashboard)
+                action as SimprintsNavigationAction.OpenDashboard
+                assertEquals("teiUid", action.teiUid)
+                assertEquals("programUid", action.programUid)
+                assertEquals("enrollmentUid", action.enrollmentUid)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `Should emit error message when Simprints confirm identity setup fails`() =
+        runTest {
+            whenever(
+                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any()),
+            ).thenThrow(RuntimeException())
+            whenever(resourceManager.getString(R.string.custom_intent_error)) doReturn "Custom intent error"
+
+            viewModel.simprintsNavigation.test {
+                viewModel.onOpenDashboardRequested("teiUid", "programUid", "enrollmentUid")
+                testingDispatcher.scheduler.advanceUntilIdle()
+
+                val action = awaitItem()
+                assertTrue(action is SimprintsNavigationAction.ShowMessage)
+                assertEquals("Custom intent error", (action as SimprintsNavigationAction.ShowMessage).message)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `Should refresh Simprints last biometrics label state`() {
+        whenever(simprintsSearchViewModel.shouldUseLastBiometricsLabel(any())) doReturn true
+
+        viewModel.refreshSimprintsUiState()
+
+        assertTrue(viewModel.isSimprintsUseLastBiometricsLabel.value == true)
     }
 
     @Test
