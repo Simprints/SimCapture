@@ -7,6 +7,8 @@ import org.dhis2.commons.dialogs.bottomsheet.IssueType
 import org.dhis2.commons.periods.model.Period
 import org.dhis2.commons.prefs.Preference
 import org.dhis2.commons.prefs.PreferenceProvider
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
+import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.form.data.EnrollmentRepository.Companion.ENROLLMENT_DATE_UID
 import org.dhis2.form.model.ActionType
 import org.dhis2.form.model.FieldUiModel
@@ -53,6 +55,15 @@ class FormRepositoryImpl(
 
     private val disableCollapsableSections: Boolean? =
         dataEntryRepository.disableCollapsableSections()
+
+    private val simprintsSessionRepository = SimprintsSessionRepository(preferenceProvider)
+
+    private fun hasPendingSimprintsRegisterLastValue(fieldUiModel: FieldUiModel): Boolean =
+        SimprintsIntentUtils.hasPendingValue(
+            customIntent = fieldUiModel.customIntent,
+            value = fieldUiModel.value,
+            hasPendingEnrollment = simprintsSessionRepository.hasPendingEnrollment(),
+        )
 
     override suspend fun fetchFormItems(shouldOpenErrorLocation: Boolean): List<FieldUiModel> {
         itemList = dataEntryRepository.list().blockingFirst() ?: emptyList()
@@ -144,7 +155,8 @@ class FormRepositoryImpl(
                     !unsupportedValueTypes.contains(it.valueType)
             }
         val totalFields = fields.size
-        val fieldsWithValue = fields.filter { !it.value.isNullOrEmpty() }.size
+        val fieldsWithValue =
+            fields.filter { !it.value.isNullOrEmpty() || hasPendingSimprintsRegisterLastValue(it) }.size
         completionPercentage =
             if (totalFields == 0) {
                 0f
@@ -580,7 +592,7 @@ class FormRepositoryImpl(
                 it.programStageSection.equals(sectionFieldUiModel.uid) && it.valueType != null
             }.forEach {
                 total++
-                if (!it.value.isNullOrEmpty()) {
+                if (!it.value.isNullOrEmpty() || hasPendingSimprintsRegisterLastValue(it)) {
                     values++
                 }
             }
@@ -653,6 +665,7 @@ class FormRepositoryImpl(
                 )
         } else {
             fieldUiModel.mandatory &&
+                !hasPendingSimprintsRegisterLastValue(fieldUiModel) &&
                 fieldUiModel.value.isNullOrEmpty()
         }
 

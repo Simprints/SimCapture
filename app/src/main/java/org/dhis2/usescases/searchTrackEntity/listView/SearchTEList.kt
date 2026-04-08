@@ -268,6 +268,9 @@ class SearchTEList : FragmentGlobalAbstract() {
                     remember(viewModel.searchParametersUiState) {
                         viewModel.queryData.isNotEmpty()
                     }
+                val isSimprintsUseLastBiometricsLabel by viewModel
+                    .isSimprintsUseLastBiometricsLabel
+                    .observeAsState(false)
 
                 updateLayoutParams<CoordinatorLayout.LayoutParams> {
                     val bottomMargin =
@@ -290,6 +293,7 @@ class SearchTEList : FragmentGlobalAbstract() {
                         extended = !isScrollingDown,
                         onClick = viewModel::onEnrollClick,
                         teTypeName = teTypeName!!,
+                        isSimprintsUseLastBiometricsLabel = isSimprintsUseLastBiometricsLabel,
                     )
                 }
             }

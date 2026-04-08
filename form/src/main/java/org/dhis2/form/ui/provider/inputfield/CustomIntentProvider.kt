@@ -1,7 +1,10 @@
 package org.dhis2.form.ui.provider.inputfield
 
+import android.app.Activity.RESULT_OK
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -9,11 +12,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.form.R
+import org.dhis2.form.di.Injector
 import org.dhis2.form.extensions.inputState
 import org.dhis2.form.extensions.supportingText
 import org.dhis2.form.model.FieldUiModel
+import org.dhis2.form.simprints.rememberSimprintsCustomIntentFormPresenter
 import org.dhis2.form.ui.customintent.CustomIntentActivityResultContract
 import org.dhis2.form.ui.customintent.CustomIntentInput
 import org.dhis2.form.ui.customintent.CustomIntentResult
@@ -36,6 +42,7 @@ fun ProvideCustomIntentInput(
     reEvaluateRequestParams: Boolean,
     modifier: Modifier,
 ) {
+    val context = LocalContext.current.applicationContext
     val values =
         remember(fieldUiModel) {
             fieldUiModel.value?.takeIf { it.isNotEmpty() }?.let { value ->
@@ -62,6 +69,52 @@ fun ProvideCustomIntentInput(
         customIntentState = CustomIntentState.LAUNCH
         if (!supportingTextList.contains(fieldErrorMessage)) supportingTextList.add(fieldErrorMessage)
     }
+    val simprintsSessionRepository =
+        remember(context) {
+            Injector.provideSimprintsSessionRepository(context)
+        }
+    val simprintsCustomIntentFormPresenter =
+        rememberSimprintsCustomIntentFormPresenter(
+            fieldUiModel = fieldUiModel,
+            resources = resources,
+            sessionRepository = simprintsSessionRepository,
+        )
+    LaunchedEffect(
+        fieldUiModel.value,
+        fieldUiModel.isLoadingData,
+        simprintsCustomIntentFormPresenter.hasPendingValue,
+    ) {
+        val displayValues = simprintsCustomIntentFormPresenter.displayValues()
+        if (values != displayValues) {
+            values.clear()
+            values.addAll(displayValues)
+        }
+        customIntentState = getCustomIntentState(values, fieldUiModel.isLoadingData)
+    }
+    val simprintsLauncher =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) { result ->
+            val returnedValue =
+                simprintsCustomIntentFormPresenter.handleResult(result.resultCode, result.data)
+
+            if (result.resultCode != RESULT_OK || returnedValue == null) {
+                customIntentState = CustomIntentState.LAUNCH
+                inputShellState = InputShellState.ERROR
+                if (!supportingTextList.contains(errorGettingDataMessage)) {
+                    supportingTextList.add(
+                        errorGettingDataMessage,
+                    )
+                }
+            } else {
+                customIntentState = CustomIntentState.LOADED
+                intentHandler(
+                    FormIntent.OnSave(
+                        fieldUiModel.uid,
+                        returnedValue,
+                        fieldUiModel.valueType,
+                    ),
+                )
+            }
+        }
     val launcher =
         rememberLauncherForActivityResult(contract = CustomIntentActivityResultContract()) {
             when (it) {
@@ -95,6 +148,21 @@ fun ProvideCustomIntentInput(
         modifier = modifier,
         isRequired = fieldUiModel.mandatory,
         onLaunch = {
+            if (simprintsCustomIntentFormPresenter.hasPendingValue) {
+                return@InputCustomIntent
+            }
+            simprintsCustomIntentFormPresenter.prepareLaunch()
+
+            if (!reEvaluateRequestParams && simprintsCustomIntentFormPresenter.handlesLaunch) {
+                customIntentState = CustomIntentState.LOADING
+                if (supportingTextList.contains(errorGettingDataMessage)) {
+                    supportingTextList.remove(errorGettingDataMessage)
+                }
+                simprintsCustomIntentFormPresenter.createLaunchIntent()
+                    ?.let(simprintsLauncher::launch)
+                return@InputCustomIntent
+            }
+
             if (reEvaluateRequestParams) {
                 customIntentState = CustomIntentState.LOADING
                 uiEventHandler.invoke(
@@ -120,6 +188,7 @@ fun ProvideCustomIntentInput(
             }
         },
         onClear = {
+            simprintsCustomIntentFormPresenter.clearPendingValue()
             values.clear()
             intentHandler(FormIntent.ClearValue(fieldUiModel.uid))
         },

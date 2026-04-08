@@ -22,6 +22,10 @@ import org.dhis2.commons.resources.ColorUtils;
 import org.dhis2.commons.resources.DhisPeriodUtils;
 import org.dhis2.commons.resources.MetadataIconProvider;
 import org.dhis2.commons.resources.ResourceManager;
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository;
+import org.dhis2.commons.simprints.repository.SimprintsSessionRepository;
+import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase;
+import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase;
 import org.dhis2.commons.schedulers.SchedulerProvider;
 import org.dhis2.commons.viewmodel.DispatcherProvider;
 import org.dhis2.data.dhislogic.DhisEnrollmentUtils;
@@ -64,6 +68,7 @@ import org.dhis2.mobile.commons.customintents.CustomIntentRepositoryImpl;
 import org.dhis2.mobile.commons.reporting.CrashReportController;
 import org.dhis2.tracker.data.ProfilePictureProvider;
 import org.dhis2.ui.ThemeManager;
+import org.dhis2.simprints.SimprintsSearchViewModel;
 import org.dhis2.usescases.events.EventInfoProvider;
 import org.dhis2.usescases.searchTrackEntity.ui.mapper.TEICardMapper;
 import org.dhis2.usescases.tracker.TrackedEntityInstanceInfoProvider;
@@ -318,6 +323,58 @@ public class SearchTEModule {
 
     @Provides
     @PerActivity
+    SimprintsSessionRepository provideSimprintsSessionRepository(
+            PreferenceProvider preferenceProvider
+    ) {
+        return new SimprintsSessionRepository(preferenceProvider);
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsD2Repository provideSimprintsD2Repository(
+            D2 d2
+    ) {
+        return new SimprintsD2Repository(d2);
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsResolveConfirmIdentityCalloutUseCase provideSimprintsResolveConfirmIdentityCalloutUseCase(
+            SimprintsD2Repository simprintsD2Repository,
+            DispatcherProvider dispatcherProvider
+    ) {
+        return new SimprintsResolveConfirmIdentityCalloutUseCase(
+                simprintsD2Repository,
+                dispatcherProvider.io()
+        );
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsOrderSearchResultsByIdentifyResponseUseCase provideSimprintsOrderSearchResultsByIdentifyResponseUseCase(
+            SimprintsD2Repository simprintsD2Repository,
+            DispatcherProvider dispatcherProvider
+    ) {
+        return new SimprintsOrderSearchResultsByIdentifyResponseUseCase(
+                simprintsD2Repository,
+                dispatcherProvider.io()
+        );
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsSearchViewModel provideSimprintsSearchViewModel(
+            SimprintsResolveConfirmIdentityCalloutUseCase resolveConfirmIdentityCalloutUseCase,
+            SimprintsSessionRepository simprintsSessionRepository
+    ) {
+        return new SimprintsSearchViewModel(
+                resolveConfirmIdentityCalloutUseCase,
+                simprintsSessionRepository
+        );
+    }
+
+    @Provides
+    @PerActivity
     SearchTeiViewModelFactory providesViewModelFactory(
             SearchRepository searchRepository,
             SearchRepositoryKt searchRepositoryKt,
@@ -327,7 +384,9 @@ public class SearchTEModule {
             ResourceManager resourceManager,
             DisplayNameProvider displayNameProvider,
             FilterManager filterManager,
-            ProgramConfigurationRepository programConfigurationRepository
+            ProgramConfigurationRepository programConfigurationRepository,
+            SimprintsSearchViewModel simprintsSearchViewModel,
+            SimprintsOrderSearchResultsByIdentifyResponseUseCase orderSearchResultsByIdentifyResponse
     ) {
         return new SearchTeiViewModelFactory(
                 searchRepository,
@@ -346,7 +405,9 @@ public class SearchTEModule {
                 ),
                 resourceManager,
                 displayNameProvider,
-                filterManager
+                filterManager,
+                simprintsSearchViewModel,
+                orderSearchResultsByIdentifyResponse
         );
     }
 
