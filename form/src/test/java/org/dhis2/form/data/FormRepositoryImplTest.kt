@@ -677,7 +677,7 @@ class FormRepositoryImplTest {
         CustomIntentModel(
             uid = "register-last",
             name = "Register last",
-            packageName = "com.simprints.id.VERIFY",
+            packageName = "com.simprints.id.REGISTER",
             customIntentRequest = emptyList(),
             customIntentResponse =
                 listOf(
