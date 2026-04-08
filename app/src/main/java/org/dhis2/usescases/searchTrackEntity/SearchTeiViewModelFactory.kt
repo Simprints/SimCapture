@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.maps.usecases.MapStyleConfiguration
@@ -24,6 +25,7 @@ class SearchTeiViewModelFactory(
     private val displayNameProvider: DisplayNameProvider,
     private val filterManager: FilterManager,
     private val simprintsSearchViewModel: SimprintsSearchViewModel,
+    private val orderSearchResultsByIdentifyResponse: SimprintsOrderSearchResultsByIdentifyResponseUseCase,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
         SearchTEIViewModel(
@@ -40,5 +42,6 @@ class SearchTeiViewModelFactory(
             displayNameProvider,
             filterManager,
             simprintsSearchViewModel,
+            orderSearchResultsByIdentifyResponse,
         ) as T
 }

@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -43,6 +44,7 @@ import org.dhis2.commons.extensions.toPercentage
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase
 import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.search.SearchParametersModel
@@ -101,6 +103,7 @@ class SearchTEIViewModel(
     private val displayNameProvider: DisplayNameProvider,
     private val filterManager: FilterManager,
     private val simprintsSearchViewModel: SimprintsSearchViewModel,
+    private val orderSearchResultsByIdentifyResponse: SimprintsOrderSearchResultsByIdentifyResponseUseCase,
 ) : ViewModel() {
     private var layersVisibility: Map<String, MapLayer> = emptyMap()
 
@@ -484,6 +487,10 @@ class SearchTEIViewModel(
                     selectedProgram = searchRepository.getProgram(initialProgramUid),
                     queryData = queryData,
                 )
+            loadSimprintsBiometricSearchResults(
+                searchParametersModel = searchParametersModel,
+                isOnline = searching && networkUtils.isOnline(),
+            )?.let { return@withContext it }
             val getPagingData =
                 searchRepositoryKt.searchTrackedEntities(
                     searchParametersModel,
@@ -558,6 +565,10 @@ class SearchTEIViewModel(
                 )
 
             return@withContext if (searching) {
+                loadSimprintsBiometricSearchResults(
+                    searchParametersModel = searchParametersModel,
+                    isOnline = networkUtils.isOnline(),
+                )?.let { return@withContext it }
                 getPagingData.map { pagingData ->
                     pagingData.map { item ->
                         withContext(dispatchers.io()) {
@@ -587,6 +598,35 @@ class SearchTEIViewModel(
                 null
             }
         }
+
+    private suspend fun loadSimprintsBiometricSearchResults(
+        searchParametersModel: SearchParametersModel,
+        isOnline: Boolean,
+    ): Flow<PagingData<SearchTeiModel>>? {
+        val trackedEntities =
+            orderSearchResultsByIdentifyResponse(
+                searchFields = getSimprintsSearchFields(),
+                queryData = searchParametersModel.queryData,
+                searchTrackedEntities = {
+                    searchRepositoryKt.searchTrackedEntitiesImmediate(
+                        searchParametersModel = searchParametersModel,
+                        isOnline = isOnline,
+                    )
+                },
+            ) ?: return null
+        val offlineOnly = !(isOnline && filterManager.stateFilters.isEmpty())
+        val orderedResults =
+            trackedEntities.map { searchItem ->
+                searchRepository.transform(
+                    searchItem,
+                    searchParametersModel.selectedProgram,
+                    offlineOnly,
+                    filterManager.sortingItem,
+                )
+            }
+
+        return flowOf(PagingData.from(orderedResults))
+    }
 
     fun fetchMapResults() {
         CoroutineTracker.increment()

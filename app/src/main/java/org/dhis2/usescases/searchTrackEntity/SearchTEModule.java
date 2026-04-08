@@ -24,6 +24,7 @@ import org.dhis2.commons.resources.MetadataIconProvider;
 import org.dhis2.commons.resources.ResourceManager;
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository;
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository;
+import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase;
 import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase;
 import org.dhis2.commons.schedulers.SchedulerProvider;
 import org.dhis2.commons.viewmodel.DispatcherProvider;
@@ -350,6 +351,18 @@ public class SearchTEModule {
 
     @Provides
     @PerActivity
+    SimprintsOrderSearchResultsByIdentifyResponseUseCase provideSimprintsOrderSearchResultsByIdentifyResponseUseCase(
+            SimprintsD2Repository simprintsD2Repository,
+            DispatcherProvider dispatcherProvider
+    ) {
+        return new SimprintsOrderSearchResultsByIdentifyResponseUseCase(
+                simprintsD2Repository,
+                dispatcherProvider.io()
+        );
+    }
+
+    @Provides
+    @PerActivity
     SimprintsSearchViewModel provideSimprintsSearchViewModel(
             SimprintsResolveConfirmIdentityCalloutUseCase resolveConfirmIdentityCalloutUseCase,
             SimprintsSessionRepository simprintsSessionRepository
@@ -372,7 +385,8 @@ public class SearchTEModule {
             DisplayNameProvider displayNameProvider,
             FilterManager filterManager,
             ProgramConfigurationRepository programConfigurationRepository,
-            SimprintsSearchViewModel simprintsSearchViewModel
+            SimprintsSearchViewModel simprintsSearchViewModel,
+            SimprintsOrderSearchResultsByIdentifyResponseUseCase orderSearchResultsByIdentifyResponse
     ) {
         return new SearchTeiViewModelFactory(
                 searchRepository,
@@ -392,7 +406,8 @@ public class SearchTEModule {
                 resourceManager,
                 displayNameProvider,
                 filterManager,
-                simprintsSearchViewModel
+                simprintsSearchViewModel,
+                orderSearchResultsByIdentifyResponse
         );
     }
 
