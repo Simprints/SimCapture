@@ -11,6 +11,7 @@ import org.dhis2.usescases.searchTrackEntity.SearchAnalytics
 import org.dhis2.usescases.searchTrackEntity.SearchList
 import org.dhis2.usescases.searchTrackEntity.SearchScreenState
 import org.dhis2.usescases.searchTrackEntity.SearchTEScreenState
+import org.dhis2.usescases.searchTrackEntity.ui.BackdropManager.changeBoundsDirectIf
 import org.dhis2.usescases.searchTrackEntity.ui.BackdropManager.changeBoundsIf
 import org.dhis2.utils.isPortrait
 
@@ -86,6 +87,14 @@ class SearchScreenConfigurator(
     }
 
     fun closeBackdrop() {
+        closeBackdrop(withAnimation = true)
+    }
+
+    fun closeBackdropWithoutAnimation() {
+        closeBackdrop(withAnimation = false)
+    }
+
+    private fun closeBackdrop(withAnimation: Boolean) {
         if (isPortrait()) {
             binding.programSpinner.visibility = View.VISIBLE
             binding.title.visibility = View.GONE
@@ -93,7 +102,7 @@ class SearchScreenConfigurator(
         binding.filterRecyclerLayout.visibility = View.GONE
         binding.searchContainer.visibility = View.GONE
         filterIsOpenCallback(false)
-        changeBounds(true, R.id.backdropGuideTop, 0)
+        changeBounds(true, R.id.backdropGuideTop, 0, withAnimation)
     }
 
     private fun openSearch() {
@@ -111,13 +120,24 @@ class SearchScreenConfigurator(
         isNavigationBarVisible: Boolean,
         endID: Int,
         margin: Int,
+        withAnimation: Boolean = true,
     ) {
-        changeBoundsIf(
-            isPortrait(),
-            isNavigationBarVisible,
-            binding.backdropLayout,
-            endID,
-            margin,
-        )
+        if (withAnimation) {
+            changeBoundsIf(
+                isPortrait(),
+                isNavigationBarVisible,
+                binding.backdropLayout,
+                endID,
+                margin,
+            )
+        } else {
+            changeBoundsDirectIf(
+                isPortrait(),
+                isNavigationBarVisible,
+                binding.backdropLayout,
+                endID,
+                margin,
+            )
+        }
     }
 }

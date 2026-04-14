@@ -1,6 +1,7 @@
 package org.dhis2.usescases.searchTrackEntity.searchparameters
 
 import android.content.res.Configuration
+import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -22,10 +23,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -70,6 +75,7 @@ fun SearchParametersScreen(
     resourceManager: ResourceManager,
     uiState: SearchParametersUiState,
     intentHandler: (FormIntent) -> Unit,
+    onBiometricIdentificationResult: (String, String?, Bundle?) -> Unit,
     onShowOrgUnit: (
         uid: String,
         preselectedOrgUnits: List<String>,
@@ -84,6 +90,7 @@ fun SearchParametersScreen(
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val configuration = LocalConfiguration.current
+    var showBiometricNoMatchesMessage by remember { mutableStateOf(false) }
 
     val scanContract = remember { ScanContract() }
     val qrScanLauncher =
@@ -162,6 +169,7 @@ fun SearchParametersScreen(
     LaunchedEffect(uiState.isOnBackPressed) {
         uiState.isOnBackPressed.collectLatest {
             if (it) {
+                showBiometricNoMatchesMessage = false
                 focusManager.clearFocus()
                 onClose()
             }
@@ -256,6 +264,8 @@ fun SearchParametersScreen(
                                     focusManager = focusManager,
                                     fieldUiModel = fieldUiModel,
                                     callback = callback,
+                                    onBiometricIdentificationResult = onBiometricIdentificationResult,
+                                    onBiometricSearchNoMatchesChanged = { showBiometricNoMatchesMessage = it },
                                     onNextClicked = {
                                         val nextIndex = index + 1
                                         if (nextIndex < uiState.items.size) {
@@ -264,6 +274,16 @@ fun SearchParametersScreen(
                                     },
                                 ),
                         )
+                    }
+
+                    if (showBiometricNoMatchesMessage) {
+                        item {
+                            Text(
+                                text = resourceManager.getString(R.string.biometric_search_no_matches),
+                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                                color = Color.Black.copy(alpha = 0.6f),
+                            )
+                        }
                     }
                 }
 
@@ -286,6 +306,7 @@ fun SearchParametersScreen(
                                 },
                             ) {
                                 focusManager.clearFocus()
+                                showBiometricNoMatchesMessage = false
                                 onClear()
                             }
                         }
@@ -317,6 +338,7 @@ fun SearchParametersScreen(
                     )
                 },
             ) {
+                showBiometricNoMatchesMessage = false
                 focusManager.clearFocus()
                 onSearch()
             }
@@ -347,6 +369,7 @@ fun SearchFormPreview() {
                     },
             ),
         intentHandler = {},
+        onBiometricIdentificationResult = { _, _, _ -> },
         onShowOrgUnit = { _, _, _, _ -> },
         onSearch = {},
         onClear = {},
@@ -378,6 +401,7 @@ fun SearchFormPreviewWithClear() {
                     },
             ),
         intentHandler = {},
+        onBiometricIdentificationResult = { _, _, _ -> },
         onShowOrgUnit = { _, _, _, _ -> },
         onSearch = {},
         onClear = {},
@@ -409,6 +433,7 @@ fun initSearchScreen(
             uiState = viewModel.searchParametersUiState,
             onSearch = viewModel::onSearch,
             intentHandler = viewModel::onParameterIntent,
+            onBiometricIdentificationResult = viewModel::onBiometricIdentificationResult,
             onShowOrgUnit = onShowOrgUnit,
             onClear = {
                 onClear()

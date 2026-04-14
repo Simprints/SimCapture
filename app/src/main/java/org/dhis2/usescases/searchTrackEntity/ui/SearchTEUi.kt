@@ -188,12 +188,14 @@ fun AddNewButton(
 fun SearchButtonWithQuery(
     modifier: Modifier = Modifier,
     queryData: Map<String, String> = emptyMap(),
+    queryTextOverride: String? = null,
+    reopenSearchEnabled: Boolean = true,
     onClick: () -> Unit,
     onClearSearchQuery: () -> Unit,
 ) {
     Box(modifier) {
         SearchBar(
-            text = queryData.values.joinToString(separator = ", "),
+            text = queryTextOverride ?: queryData.values.joinToString(separator = ", "),
             modifier = Modifier.fillMaxWidth(),
             onQueryChange = {
                 if (it.isBlank()) onClearSearchQuery()
@@ -208,13 +210,21 @@ fun SearchButtonWithQuery(
                     .clip(RoundedCornerShape(50))
                     .background(Color.Unspecified)
                     .clickable(
-                        onClick = onClick,
+                        onClick = {
+                            if (reopenSearchEnabled) {
+                                onClick()
+                            }
+                        },
                         interactionSource = remember { MutableInteractionSource() },
                         indication =
-                            ripple(
-                                true,
-                                color = SurfaceColor.Primary,
-                            ),
+                            if (reopenSearchEnabled) {
+                                ripple(
+                                    bounded = true,
+                                    color = SurfaceColor.Primary,
+                                )
+                            } else {
+                                null
+                            },
                     ),
         )
     }
@@ -240,11 +250,13 @@ fun FullSearchButtonAndWorkingList(
     createButtonVisible: Boolean = false,
     closeFilterVisibility: Boolean = false,
     isLandscape: Boolean = false,
+    isBiometricSearch: Boolean = false,
     queryData: Map<String, String> = emptyMap(),
     onSearchClick: () -> Unit = {},
     onEnrollClick: () -> Unit = {},
     onCloseFilters: () -> Unit = {},
     onClearSearchQuery: () -> Unit = {},
+    onBiometricSearchFallbackClick: () -> Unit = {},
     workingListViewModel: WorkingListViewModel? = null,
 ) {
     Column(modifier = modifier) {
@@ -270,6 +282,13 @@ fun FullSearchButtonAndWorkingList(
                         SearchButtonWithQuery(
                             modifier = Modifier.fillMaxWidth(),
                             queryData = queryData,
+                            queryTextOverride =
+                                if (isBiometricSearch) {
+                                    stringResource(R.string.biometric_search)
+                                } else {
+                                    null
+                                },
+                            reopenSearchEnabled = !isBiometricSearch,
                             onClick = onSearchClick,
                             onClearSearchQuery = onClearSearchQuery,
                         )
@@ -309,6 +328,18 @@ fun FullSearchButtonAndWorkingList(
                     }
                 }
             }
+
+            if (isBiometricSearch && queryData.isNotEmpty()) {
+                BiometricSearchFallbackButton(
+                    modifier =
+                        Modifier.padding(
+                            top = Spacing.Spacing8,
+                            start = Spacing.Spacing16,
+                            end = Spacing.Spacing16,
+                        ),
+                    onClick = onBiometricSearchFallbackClick,
+                )
+            }
         }
 
         Spacer(modifier = Modifier.requiredHeight(Spacing.Spacing16))
@@ -316,6 +347,39 @@ fun FullSearchButtonAndWorkingList(
         workingListViewModel?.let {
             WorkingListChipGroup(workingListViewModel = it)
         }
+    }
+}
+
+@Composable
+private fun BiometricSearchFallbackButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .requiredHeight(56.dp),
+        onClick = onClick,
+        colors =
+            ButtonDefaults.outlinedButtonColors(
+                contentColor = SurfaceColor.Primary,
+            ),
+        border = BorderStroke(1.dp, SurfaceColor.Primary),
+        shape = RoundedCornerShape(Spacing.Spacing16),
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.ic_search),
+            contentDescription = "",
+            tint = SurfaceColor.Primary,
+        )
+
+        Spacer(modifier = Modifier.requiredWidth(Spacing.Spacing8))
+
+        Text(
+            text = stringResource(R.string.biometric_search_fallback_action),
+            style = getTextStyle(style = DHIS2TextStyle.LABEL_LARGE),
+        )
     }
 }
 

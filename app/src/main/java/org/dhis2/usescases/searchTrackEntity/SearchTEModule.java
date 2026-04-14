@@ -24,6 +24,7 @@ import org.dhis2.commons.resources.MetadataIconProvider;
 import org.dhis2.commons.resources.ResourceManager;
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository;
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository;
+import org.dhis2.commons.simprints.usecases.SimprintsHasAutoOpenEligibleIdentificationUseCase;
 import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase;
 import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase;
 import org.dhis2.commons.schedulers.SchedulerProvider;
@@ -66,6 +67,7 @@ import org.dhis2.maps.utils.DhisMapUtils;
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository;
 import org.dhis2.mobile.commons.customintents.CustomIntentRepositoryImpl;
 import org.dhis2.mobile.commons.reporting.CrashReportController;
+import org.dhis2.simprints.SimprintsResolveSingleBiometricSearchNavigationUseCase;
 import org.dhis2.tracker.data.ProfilePictureProvider;
 import org.dhis2.ui.ThemeManager;
 import org.dhis2.simprints.SimprintsSearchViewModel;
@@ -351,12 +353,36 @@ public class SearchTEModule {
 
     @Provides
     @PerActivity
+    SimprintsHasAutoOpenEligibleIdentificationUseCase provideSimprintsHasAutoOpenEligibleIdentificationUseCase() {
+        return new SimprintsHasAutoOpenEligibleIdentificationUseCase();
+    }
+
+    @Provides
+    @PerActivity
     SimprintsOrderSearchResultsByIdentifyResponseUseCase provideSimprintsOrderSearchResultsByIdentifyResponseUseCase(
             SimprintsD2Repository simprintsD2Repository,
             DispatcherProvider dispatcherProvider
     ) {
         return new SimprintsOrderSearchResultsByIdentifyResponseUseCase(
                 simprintsD2Repository,
+                dispatcherProvider.io()
+        );
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsResolveSingleBiometricSearchNavigationUseCase provideSimprintsResolveSingleBiometricSearchNavigationUseCase(
+            SearchRepository searchRepository,
+            SearchRepositoryKt searchRepositoryKt,
+            NetworkUtils networkUtils,
+            FilterManager filterManager,
+            DispatcherProvider dispatcherProvider
+    ) {
+        return new SimprintsResolveSingleBiometricSearchNavigationUseCase(
+                searchRepository,
+                searchRepositoryKt,
+                networkUtils,
+                filterManager,
                 dispatcherProvider.io()
         );
     }
@@ -386,7 +412,9 @@ public class SearchTEModule {
             FilterManager filterManager,
             ProgramConfigurationRepository programConfigurationRepository,
             SimprintsSearchViewModel simprintsSearchViewModel,
-            SimprintsOrderSearchResultsByIdentifyResponseUseCase orderSearchResultsByIdentifyResponse
+            SimprintsHasAutoOpenEligibleIdentificationUseCase hasAutoOpenEligibleIdentification,
+            SimprintsOrderSearchResultsByIdentifyResponseUseCase orderSearchResultsByIdentifyResponse,
+            SimprintsResolveSingleBiometricSearchNavigationUseCase resolveSingleBiometricSearchNavigation
     ) {
         return new SearchTeiViewModelFactory(
                 searchRepository,
@@ -407,7 +435,9 @@ public class SearchTEModule {
                 displayNameProvider,
                 filterManager,
                 simprintsSearchViewModel,
-                orderSearchResultsByIdentifyResponse
+                hasAutoOpenEligibleIdentification,
+                orderSearchResultsByIdentifyResponse,
+                resolveSingleBiometricSearchNavigation
         );
     }
 

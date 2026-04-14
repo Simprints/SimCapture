@@ -1,6 +1,7 @@
 package org.dhis2.usescases.searchTrackEntity
 
 import android.content.Intent
+import android.os.Bundle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.outlined.List
@@ -44,10 +45,13 @@ import org.dhis2.commons.extensions.toPercentage
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.usecases.SimprintsHasAutoOpenEligibleIdentificationUseCase
 import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.search.SearchParametersModel
+import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.FieldUiModelImpl
 import org.dhis2.form.ui.intent.FormIntent
 import org.dhis2.form.ui.provider.DisplayNameProvider
@@ -57,6 +61,7 @@ import org.dhis2.maps.layer.basemaps.BaseMapStyle
 import org.dhis2.maps.managers.MapManager
 import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.mobile.commons.coroutine.CoroutineTracker
+import org.dhis2.simprints.SimprintsResolveSingleBiometricSearchNavigationUseCase
 import org.dhis2.tracker.NavigationBarUIState
 import org.dhis2.simprints.SimprintsSearchViewModel
 import org.dhis2.usescases.searchTrackEntity.listView.SearchResult
@@ -103,7 +108,9 @@ class SearchTEIViewModel(
     private val displayNameProvider: DisplayNameProvider,
     private val filterManager: FilterManager,
     private val simprintsSearchViewModel: SimprintsSearchViewModel,
+    private val hasAutoOpenEligibleIdentification: SimprintsHasAutoOpenEligibleIdentificationUseCase,
     private val orderSearchResultsByIdentifyResponse: SimprintsOrderSearchResultsByIdentifyResponseUseCase,
+    private val resolveSingleBiometricSearchNavigation: SimprintsResolveSingleBiometricSearchNavigationUseCase,
 ) : ViewModel() {
     private var layersVisibility: Map<String, MapLayer> = emptyMap()
 
@@ -133,6 +140,9 @@ class SearchTEIViewModel(
     private val _mapItemClicked = MutableSharedFlow<String>()
     val mapItemClicked: Flow<String> = _mapItemClicked
 
+    private val _biometricSearchNavigation = Channel<Unit>(Channel.BUFFERED)
+    val biometricSearchNavigation: Flow<Unit> = _biometricSearchNavigation.receiveAsFlow()
+
     private val _simprintsNavigation = Channel<SimprintsNavigationAction>()
     val simprintsNavigation: Flow<SimprintsNavigationAction> = _simprintsNavigation.receiveAsFlow()
 
@@ -141,6 +151,8 @@ class SearchTEIViewModel(
 
     val createButtonScrollVisibility = MutableLiveData(false)
     val isScrollingDown = MutableLiveData(false)
+    private val _isSimprintsBiometricSearch = MutableLiveData(false)
+    val isSimprintsBiometricSearch: LiveData<Boolean> = _isSimprintsBiometricSearch
     private val _isSimprintsUseLastBiometricsLabel = MutableLiveData(false)
     val isSimprintsUseLastBiometricsLabel: LiveData<Boolean> = _isSimprintsUseLastBiometricsLabel
 
@@ -167,8 +179,14 @@ class SearchTEIViewModel(
     var mapManager: MapManager? = null
 
     private var fetchJob: Job? = null
+    private var pendingMfidBiometricIdentification: PendingBiometricIdentification? = null
 
     private val onNewSearch = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    private data class PendingBiometricIdentification(
+        val uid: String,
+        val value: String?,
+    )
 
     val searchPagingData =
         onNewSearch
@@ -444,11 +462,46 @@ class SearchTEIViewModel(
         refreshSimprintsUiState()
     }
 
-    fun clearQueryData() {
+    fun clearQueryData(performSearch: Boolean = true) {
         queryData.clear()
         clearSearchParameters()
         updateSearch()
-        performSearch()
+        if (performSearch) {
+            performSearch()
+        }
+    }
+
+    fun clearBiometricQueryData() {
+        val biometricFieldUids =
+            searchParametersUiState.items
+                .filter { field ->
+                    field.customIntent?.let(SimprintsIntentUtils::isIdentifyCallout) == true
+                }.map { it.uid }
+                .toSet()
+
+        if (biometricFieldUids.isEmpty()) {
+            return
+        }
+
+        queryData.keys.removeAll(biometricFieldUids)
+
+        val updatedItems =
+            searchParametersUiState.items.map { field ->
+                if (field.uid in biometricFieldUids) {
+                    (field as FieldUiModelImpl).copy(value = null, displayName = null)
+                } else {
+                    field
+                }
+            }
+
+        searchParametersUiState =
+            searchParametersUiState.copy(
+                items = updatedItems,
+                clearSearchEnabled = queryData.isNotEmpty(),
+                searchedItems = getFriendlyQueryData(updatedItems),
+            )
+        refreshSimprintsUiState()
+        updateSearch()
     }
 
     private fun clearSearchParameters() {
@@ -459,6 +512,7 @@ class SearchTEIViewModel(
         searchParametersUiState =
             searchParametersUiState.copy(
                 items = updatedItems,
+                clearSearchEnabled = false,
                 searchedItems = mapOf(),
             )
         searching = false
@@ -653,7 +707,13 @@ class SearchTEIViewModel(
         performSearch()
     }
 
-    private fun performSearch() {
+    fun onBiometricSearchNavigation() {
+        onNavigationPageChanged(NavigationPage.LIST_VIEW)
+        searchRepository.clearFetchedList()
+        performSearch(forceListResults = true)
+    }
+
+    private fun performSearch(forceListResults: Boolean = false) {
         viewModelScope.launch(dispatchers.io()) {
             try {
                 if (canPerformSearch()) {
@@ -664,13 +724,13 @@ class SearchTEIViewModel(
                             searchedItems = getFriendlyQueryData(),
                         )
 
-                    when (_screenState.value?.screenState) {
-                        SearchScreenState.LIST -> {
+                    when {
+                        forceListResults || _screenState.value?.screenState == SearchScreenState.LIST -> {
                             setListScreen()
                             onNewSearch.emit(Unit)
                         }
 
-                        SearchScreenState.MAP -> {
+                        _screenState.value?.screenState == SearchScreenState.MAP -> {
                             _refreshData.postValue(Unit)
                             setMapScreen()
                             fetchMapResults()
@@ -700,6 +760,74 @@ class SearchTEIViewModel(
             }
         }
     }
+
+    private fun shouldAutoNavigateToBiometricSearch(
+        uid: String,
+        value: String?,
+    ): Boolean =
+        !value.isNullOrBlank() &&
+            searchParametersUiState.items
+                .firstOrNull { it.uid == uid }
+                ?.customIntent
+                ?.let(SimprintsIntentUtils::isIdentifyCallout) == true
+
+    private fun requestBiometricSearchNavigation() {
+        _biometricSearchNavigation.trySend(Unit)
+    }
+
+    private fun handleBiometricSearchValueSaved(value: String?) {
+        viewModelScope.launch {
+            val navigationTarget =
+                runCatching {
+                    resolveSingleBiometricSearchNavigation(
+                        initialProgramUid = initialProgramUid,
+                        queryData = queryData,
+                        value = value,
+                    )
+                }.getOrElse { exception ->
+                    Timber.d(exception)
+                    null
+                }
+
+            if (navigationTarget == null) {
+                requestBiometricSearchNavigation()
+                return@launch
+            }
+
+            simprintsSearchViewModel.clearPendingSession()
+            _simprintsNavigation.send(
+                SimprintsNavigationAction.OpenDashboard(
+                    teiUid = navigationTarget.teiUid,
+                    programUid = navigationTarget.programUid,
+                    enrollmentUid = navigationTarget.enrollmentUid,
+                ),
+            )
+        }
+    }
+
+    fun onBiometricIdentificationResult(
+        uid: String,
+        value: String?,
+        extras: Bundle?,
+    ) {
+        pendingMfidBiometricIdentification =
+            if (!value.isNullOrBlank() && hasAutoOpenEligibleIdentification(extras)) {
+                PendingBiometricIdentification(uid = uid, value = value)
+            } else {
+                null
+            }
+    }
+
+    private fun consumePendingMfidBiometricIdentification(
+        uid: String,
+        value: String?,
+    ): Boolean =
+        pendingMfidBiometricIdentification
+            ?.takeIf { it.uid == uid && it.value == value }
+            ?.let {
+                pendingMfidBiometricIdentification = null
+                true
+            } ?: false
 
     private fun canPerformSearch(): Boolean = minAttributesToSearchCheck() || displayFrontPageList()
 
@@ -803,10 +931,12 @@ class SearchTEIViewModel(
     }
 
     fun refreshSimprintsUiState() {
+        val searchFields = getSimprintsSearchFields()
+        _isSimprintsBiometricSearch.postValue(
+            SimprintsSearchUtils.searchState(searchFields).hasBiometricIdentificationQuery,
+        )
         _isSimprintsUseLastBiometricsLabel.postValue(
-            simprintsSearchViewModel.shouldUseLastBiometricsLabel(
-                searchFields = getSimprintsSearchFields(),
-            ),
+            simprintsSearchViewModel.shouldUseLastBiometricsLabel(searchFields = searchFields),
         )
     }
 
@@ -1133,7 +1263,7 @@ class SearchTEIViewModel(
             }
     }
 
-    fun onParameterIntent(formIntent: FormIntent) =
+    fun onParameterIntent(formIntent: FormIntent) {
         when (formIntent) {
             is FormIntent.OnTextChange -> {
                 updateQuery(
@@ -1147,6 +1277,13 @@ class SearchTEIViewModel(
                     formIntent.uid,
                     formIntent.value?.split(","),
                 )
+                if (shouldAutoNavigateToBiometricSearch(formIntent.uid, formIntent.value)) {
+                    if (consumePendingMfidBiometricIdentification(formIntent.uid, formIntent.value)) {
+                        handleBiometricSearchValueSaved(formIntent.value)
+                    } else {
+                        requestBiometricSearchNavigation()
+                    }
+                }
             }
 
             is FormIntent.OnQrCodeScanned -> {
@@ -1197,6 +1334,7 @@ class SearchTEIViewModel(
                 // no-op
             }
         }
+    }
 
     private fun onQrCodeScanned(formIntent: FormIntent.OnQrCodeScanned) {
         viewModelScope.launch {
@@ -1269,9 +1407,11 @@ class SearchTEIViewModel(
         searchParametersUiState = searchParametersUiState.copy(items = updatedItems)
     }
 
-    fun getFriendlyQueryData(): Map<String, String> {
+    fun getFriendlyQueryData(
+        items: List<FieldUiModel> = searchParametersUiState.items,
+    ): Map<String, String> {
         val map = mutableMapOf<String, String>()
-        searchParametersUiState.items
+        items
             .filter { !it.value.isNullOrEmpty() }
             .forEach { item ->
 

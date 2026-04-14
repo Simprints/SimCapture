@@ -26,6 +26,7 @@ import org.dhis2.R
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.usecases.SimprintsHasAutoOpenEligibleIdentificationUseCase
 import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.search.SearchParametersModel
@@ -36,6 +37,7 @@ import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.maps.geometry.mapper.EventsByProgramStage
 import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.mobile.commons.model.CustomIntentModel
+import org.dhis2.simprints.SimprintsResolveSingleBiometricSearchNavigationUseCase
 import org.dhis2.simprints.SimprintsSearchViewModel
 import org.dhis2.usescases.searchTrackEntity.listView.SearchResult.SearchResultType
 import org.dhis2.utils.customviews.navigationbar.NavigationPage
@@ -81,7 +83,9 @@ class SearchTEIViewModelTest {
     private val displayNameProvider: DisplayNameProvider = mock()
     private val filterManager: FilterManager = mock()
     private val simprintsSearchViewModel: SimprintsSearchViewModel = mock()
+    private val hasAutoOpenEligibleIdentification: SimprintsHasAutoOpenEligibleIdentificationUseCase = mock()
     private val orderSearchResultsByIdentifyResponse: SimprintsOrderSearchResultsByIdentifyResponseUseCase = mock()
+    private val resolveSingleBiometricSearchNavigation: SimprintsResolveSingleBiometricSearchNavigationUseCase = mock()
 
     @ExperimentalCoroutinesApi
     private val testingDispatcher = StandardTestDispatcher()
@@ -95,6 +99,7 @@ class SearchTEIViewModelTest {
         whenever(repository.canCreateInProgramWithoutSearch()) doReturn true
         whenever(repository.getTrackedEntityType()) doReturn testingTrackedEntityType()
         whenever(repository.filtersApplyOnGlobalSearch()) doReturn true
+        whenever(filterManager.stateFilters) doReturn emptyList()
         viewModel =
             SearchTEIViewModel(
                 initialProgram,
@@ -116,7 +121,9 @@ class SearchTEIViewModelTest {
                 displayNameProvider = displayNameProvider,
                 filterManager = filterManager,
                 simprintsSearchViewModel = simprintsSearchViewModel,
+                hasAutoOpenEligibleIdentification = hasAutoOpenEligibleIdentification,
                 orderSearchResultsByIdentifyResponse = orderSearchResultsByIdentifyResponse,
+                resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
     }
@@ -965,7 +972,9 @@ class SearchTEIViewModelTest {
                 displayNameProvider = displayNameProvider,
                 filterManager = filterManager,
                 simprintsSearchViewModel = simprintsSearchViewModel,
+                hasAutoOpenEligibleIdentification = hasAutoOpenEligibleIdentification,
                 orderSearchResultsByIdentifyResponse = orderSearchResultsByIdentifyResponse,
+                resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
 
@@ -1013,7 +1022,9 @@ class SearchTEIViewModelTest {
                 displayNameProvider = displayNameProvider,
                 filterManager = filterManager,
                 simprintsSearchViewModel = simprintsSearchViewModel,
+                hasAutoOpenEligibleIdentification = hasAutoOpenEligibleIdentification,
                 orderSearchResultsByIdentifyResponse = orderSearchResultsByIdentifyResponse,
+                resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
 

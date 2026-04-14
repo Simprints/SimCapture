@@ -211,6 +211,7 @@ class SearchTEActivity :
         observeScreenState()
         observeDownload()
         observeLegacyInteractions()
+        observeBiometricSearchNavigation()
         observeSimprintsNavigation()
 
         if (intent.shouldLaunchSyncDialog()) {
@@ -597,6 +598,17 @@ class SearchTEActivity :
                     }
                 }
                 viewModel.onLegacyInteractionConsumed()
+            }
+        }
+    }
+
+    private fun observeBiometricSearchNavigation() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.biometricSearchNavigation.collect {
+                    searchScreenConfigurator.closeBackdropWithoutAnimation()
+                    viewModel.onBiometricSearchNavigation()
+                }
             }
         }
     }

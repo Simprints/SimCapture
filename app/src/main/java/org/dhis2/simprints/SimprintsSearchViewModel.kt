@@ -89,6 +89,11 @@ class SimprintsSearchViewModel(
         pendingDashboardNavigation = null
     }
 
+    fun clearPendingSession() {
+        pendingDashboardNavigation = null
+        sessionRepository.clear()
+    }
+
     fun shouldUseLastBiometricsLabel(searchFields: List<SimprintsSearchUtils.SearchField>): Boolean {
         val searchState = SimprintsSearchUtils.searchState(searchFields)
         val hasPendingSession = sessionRepository.hasPendingSession()
