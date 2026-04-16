@@ -1,5 +1,6 @@
 package org.dhis2.usescases.enrollment
 
+import android.content.Intent
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.processors.FlowableProcessor
 import io.reactivex.processors.PublishProcessor
@@ -14,6 +15,7 @@ import org.dhis2.commons.matomo.MatomoAnalyticsController
 import org.dhis2.commons.schedulers.SchedulerProvider
 import org.dhis2.commons.schedulers.defaultSubscribe
 import org.dhis2.form.model.RowAction
+import org.dhis2.simprints.SimprintsEnrollmentViewModel
 import org.dhis2.usescases.teiDashboard.TeiAttributesProvider
 import org.dhis2.utils.analytics.AnalyticsHelper
 import org.dhis2.utils.analytics.DELETE_AND_BACK
@@ -50,6 +52,7 @@ class EnrollmentPresenterImpl(
     private val eventCollectionRepository: EventCollectionRepository,
     private val teiAttributesProvider: TeiAttributesProvider,
     private val dateEditionWarningHandler: DateEditionWarningHandler,
+    private val simprintsEnrollmentViewModel: SimprintsEnrollmentViewModel,
 ) {
     private val disposable = CompositeDisposable()
     private val backButtonProcessor: FlowableProcessor<Boolean> = PublishProcessor.create()
@@ -155,6 +158,29 @@ class EnrollmentPresenterImpl(
 
             EnrollmentActivity.EnrollmentMode.CHECK -> view.setResultAndFinish()
         }
+    }
+
+    suspend fun onFinishRequested(
+        isNewEnrollment: Boolean,
+        enrollmentUid: String,
+    ): Intent? =
+        simprintsEnrollmentViewModel.onFinishRequested(
+            isNewEnrollment = isNewEnrollment,
+            enrollmentUid = enrollmentUid,
+        )
+
+    suspend fun onRegisterLastResult(
+        resultCode: Int,
+        data: Intent?,
+    ): SimprintsEnrollmentViewModel.RegisterLastResult =
+        simprintsEnrollmentViewModel.onRegisterLastResult(
+            resultCode = resultCode,
+            data = data,
+            teiUid = getEnrollment()?.trackedEntityInstance(),
+        )
+
+    fun onRegisterLastLaunchFailed() {
+        simprintsEnrollmentViewModel.onRegisterLastLaunchFailed()
     }
 
     fun updateFields(action: RowAction? = null) {

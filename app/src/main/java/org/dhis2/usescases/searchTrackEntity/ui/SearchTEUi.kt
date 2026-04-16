@@ -644,6 +644,7 @@ fun CreateNewButton(
     teTypeName: String,
     modifier: Modifier = Modifier,
     extended: Boolean = true,
+    isSimprintsUseLastBiometricsLabel: Boolean = false,
     onClick: () -> Unit,
 ) {
     val icon = @Composable {
@@ -663,7 +664,14 @@ fun CreateNewButton(
             ExtendedFAB(
                 modifier = modifier,
                 onClick = onClick,
-                text = stringResource(R.string.search_new_te_type, teTypeName.lowercase()),
+                text = stringResource(
+                    if (isSimprintsUseLastBiometricsLabel) {
+                        R.string.search_new_te_type_with_last_biometrics
+                    } else {
+                        R.string.search_new_te_type
+                    },
+                    teTypeName.lowercase(),
+                ),
                 icon = icon,
                 style = FABStyle.SECONDARY,
             )

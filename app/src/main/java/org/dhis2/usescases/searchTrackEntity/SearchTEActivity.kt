@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -124,6 +125,11 @@ class SearchTEActivity :
 
     private val viewModel: SearchTEIViewModel by viewModels<SearchTEIViewModel> { viewModelFactory }
 
+    private val simprintsConfirmIdentityLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            viewModel.onConfirmIdentityResult(result.resultCode)
+        }
+
     private var initSearchNeeded = true
     var searchComponent: SearchTEComponent? = null
 
@@ -205,6 +211,7 @@ class SearchTEActivity :
         observeScreenState()
         observeDownload()
         observeLegacyInteractions()
+        observeSimprintsNavigation()
 
         if (intent.shouldLaunchSyncDialog()) {
             openSyncDialog()
@@ -241,6 +248,7 @@ class SearchTEActivity :
         super.onResume()
         if (sessionManagerServiceImpl.isUserLoggedIn()) {
             FilterManager.getInstance().clearUnsupportedFilters()
+            viewModel.refreshSimprintsUiState()
             if (initSearchNeeded) {
                 presenter.init()
             } else {
@@ -553,7 +561,7 @@ class SearchTEActivity :
                 when (legacyInteraction.id) {
                     LegacyInteractionID.ON_ENROLL_CLICK -> {
                         val interaction = legacyInteraction as OnEnrollClick
-                        presenter.onEnrollClick(HashMap(interaction.queryData))
+                        presenter.onEnrollClick(viewModel.prepareEnrollmentQueryData(interaction.queryData))
                     }
 
                     LegacyInteractionID.ON_ADD_RELATIONSHIP -> {
@@ -575,7 +583,7 @@ class SearchTEActivity :
                         presenter.enroll(
                             interaction.initialProgramUid,
                             interaction.teiUid,
-                            HashMap(interaction.queryData),
+                            viewModel.prepareEnrollmentQueryData(interaction.queryData),
                         )
                     }
 
@@ -589,6 +597,38 @@ class SearchTEActivity :
                     }
                 }
                 viewModel.onLegacyInteractionConsumed()
+            }
+        }
+    }
+
+    private fun observeSimprintsNavigation() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.simprintsNavigation.collect { action ->
+                    when (action) {
+                        is SimprintsNavigationAction.LaunchConfirmIdentity -> {
+                            try {
+                                simprintsConfirmIdentityLauncher.launch(action.intent)
+                            } catch (e: Exception) {
+                                Timber.e(e)
+                                viewModel.onConfirmIdentityLaunchFailed()
+                                displayMessage(getString(R.string.custom_intent_error))
+                            }
+                        }
+
+                        is SimprintsNavigationAction.OpenDashboard -> {
+                            openDashboardDirectly(
+                                action.teiUid,
+                                action.programUid,
+                                action.enrollmentUid,
+                            )
+                        }
+
+                        is SimprintsNavigationAction.ShowMessage -> {
+                            displayMessage(action.message)
+                        }
+                    }
+                }
             }
         }
     }
@@ -721,6 +761,14 @@ class SearchTEActivity :
     }
 
     override fun openDashboard(
+        teiUid: String,
+        programUid: String?,
+        enrollmentUid: String?,
+    ) {
+        viewModel.onOpenDashboardRequested(teiUid, programUid, enrollmentUid)
+    }
+
+    private fun openDashboardDirectly(
         teiUid: String,
         programUid: String?,
         enrollmentUid: String?,

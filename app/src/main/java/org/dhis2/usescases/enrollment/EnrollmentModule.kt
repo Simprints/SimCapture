@@ -1,6 +1,7 @@
 package org.dhis2.usescases.enrollment
 
 import android.content.Context
+import androidx.lifecycle.ViewModelProvider
 import dagger.Module
 import dagger.Provides
 import io.reactivex.processors.FlowableProcessor
@@ -14,6 +15,9 @@ import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.EventResourcesProvider
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
+import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
+import org.dhis2.commons.simprints.usecases.SimprintsResolvePendingEnrollmentActionUseCase
 import org.dhis2.commons.schedulers.SchedulerProvider
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.dhislogic.DhisEnrollmentUtils
@@ -41,6 +45,9 @@ import org.dhis2.mobile.commons.customintents.CustomIntentRepository
 import org.dhis2.mobile.commons.customintents.CustomIntentRepositoryImpl
 import org.dhis2.mobile.commons.providers.FieldErrorMessageProvider
 import org.dhis2.mobile.commons.reporting.CrashReportController
+import org.dhis2.simprints.SimprintsCustomIntentResultMapper
+import org.dhis2.simprints.SimprintsEnrollmentViewModel
+import org.dhis2.simprints.di.SimprintsEnrollmentViewModelFactory
 import org.dhis2.usescases.teiDashboard.TeiAttributesProvider
 import org.dhis2.utils.analytics.AnalyticsHelper
 import org.hisp.dhis.android.core.D2
@@ -149,6 +156,50 @@ class EnrollmentModule(
 
     @Provides
     @PerActivity
+    fun provideSimprintsSessionRepository(preferenceProvider: PreferenceProvider) =
+        SimprintsSessionRepository(preferenceProvider)
+
+    @Provides
+    @PerActivity
+    fun provideSimprintsD2Repository(d2: D2) = SimprintsD2Repository(d2)
+
+    @Provides
+    @PerActivity
+    fun provideSimprintsResolvePendingEnrollmentActionUseCase(
+        simprintsD2Repository: SimprintsD2Repository,
+        customIntentRepository: CustomIntentRepository,
+    ) = SimprintsResolvePendingEnrollmentActionUseCase(
+        simprintsD2Repository = simprintsD2Repository,
+        customIntentRepository = customIntentRepository,
+    )
+
+    @Provides
+    @PerActivity
+    fun provideSimprintsCustomIntentResultMapper() = SimprintsCustomIntentResultMapper()
+
+    @Provides
+    @PerActivity
+    fun provideSimprintsEnrollmentViewModelFactory(
+        simprintsD2Repository: SimprintsD2Repository,
+        resolvePendingEnrollmentAction: SimprintsResolvePendingEnrollmentActionUseCase,
+        simprintsSessionRepository: SimprintsSessionRepository,
+        simprintsCustomIntentResultMapper: SimprintsCustomIntentResultMapper,
+    ) = SimprintsEnrollmentViewModelFactory(
+        simprintsD2Repository = simprintsD2Repository,
+        resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
+        sessionRepository = simprintsSessionRepository,
+        resultMapper = simprintsCustomIntentResultMapper,
+    )
+
+    @Provides
+    @PerActivity
+    fun provideSimprintsEnrollmentViewModel(
+        simprintsEnrollmentViewModelFactory: SimprintsEnrollmentViewModelFactory,
+    ): SimprintsEnrollmentViewModel =
+        ViewModelProvider(activityContext as EnrollmentActivity, simprintsEnrollmentViewModelFactory)[SimprintsEnrollmentViewModel::class.java]
+
+    @Provides
+    @PerActivity
     fun providePresenter(
         d2: D2,
         enrollmentObjectRepository: EnrollmentObjectRepository,
@@ -161,6 +212,7 @@ class EnrollmentModule(
         eventCollectionRepository: EventCollectionRepository,
         teiAttributesProvider: TeiAttributesProvider,
         dateEditionWarningHandler: DateEditionWarningHandler,
+        simprintsEnrollmentViewModel: SimprintsEnrollmentViewModel,
     ): EnrollmentPresenterImpl =
         EnrollmentPresenterImpl(
             enrollmentView,
@@ -175,6 +227,7 @@ class EnrollmentModule(
             eventCollectionRepository,
             teiAttributesProvider,
             dateEditionWarningHandler,
+            simprintsEnrollmentViewModel,
         )
 
     @Provides

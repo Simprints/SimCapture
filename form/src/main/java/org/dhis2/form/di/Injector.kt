@@ -10,6 +10,7 @@ import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.EventResourcesProvider
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.data.DataEntryRepository
 import org.dhis2.form.data.EnrollmentRepository
@@ -263,6 +264,9 @@ object Injector {
         )
 
     private fun providePreferenceProvider(context: Context) = PreferenceProviderImpl(context)
+
+    fun provideSimprintsSessionRepository(context: Context) =
+        SimprintsSessionRepository(providePreferenceProvider(context))
 
     private fun provideRuleEngineRepository(
         entryMode: EntryMode,

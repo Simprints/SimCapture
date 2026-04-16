@@ -1,10 +1,13 @@
 package org.dhis2.usescases.enrollment
 
+import android.content.Intent
 import io.reactivex.Single
 import io.reactivex.processors.PublishProcessor
+import kotlinx.coroutines.test.runTest
 import org.dhis2.commons.matomo.MatomoAnalyticsController
 import org.dhis2.commons.schedulers.SchedulerProvider
 import org.dhis2.data.schedulers.TrampolineSchedulerProvider
+import org.dhis2.simprints.SimprintsEnrollmentViewModel
 import org.dhis2.usescases.enrollment.EnrollmentActivity.EnrollmentMode.CHECK
 import org.dhis2.usescases.enrollment.EnrollmentActivity.EnrollmentMode.NEW
 import org.dhis2.usescases.teiDashboard.TeiAttributesProvider
@@ -15,6 +18,7 @@ import org.hisp.dhis.android.core.common.Access
 import org.hisp.dhis.android.core.common.DataAccess
 import org.hisp.dhis.android.core.common.FeatureType
 import org.hisp.dhis.android.core.common.Geometry
+import org.hisp.dhis.android.core.enrollment.Enrollment
 import org.hisp.dhis.android.core.enrollment.EnrollmentAccess
 import org.hisp.dhis.android.core.enrollment.EnrollmentObjectRepository
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
@@ -47,6 +51,7 @@ class EnrollmentPresenterImplTest {
     private val eventCollectionRepository: EventCollectionRepository = mock()
     private val teiAttributesProvider: TeiAttributesProvider = mock()
     private val dateEntryWarningHelper: DateEditionWarningHandler = mock()
+    private val simprintsEnrollmentViewModel: SimprintsEnrollmentViewModel = mock()
 
     @Before
     fun setUp() {
@@ -64,6 +69,7 @@ class EnrollmentPresenterImplTest {
                 eventCollectionRepository,
                 teiAttributesProvider,
                 dateEntryWarningHelper,
+                simprintsEnrollmentViewModel,
             )
     }
 
@@ -251,6 +257,49 @@ class EnrollmentPresenterImplTest {
         whenever(eventCollectionRepository.uid("uid")) doReturn mock()
         whenever(eventCollectionRepository.uid("uid").blockingGet()) doReturn event
         assert(!presenter.isEventScheduleOrSkipped("uid"))
+    }
+
+    @Test
+    fun `Should delegate finish request to Simprints enrollment view model`() = runTest {
+        val intent: Intent = mock()
+        whenever(
+            simprintsEnrollmentViewModel.onFinishRequested(
+                isNewEnrollment = true,
+                enrollmentUid = "enrollmentUid",
+            ),
+        ) doReturn intent
+
+        val result = presenter.onFinishRequested(true, "enrollmentUid")
+
+        assert(result == intent)
+    }
+
+    @Test
+    fun `Should delegate register last result using current enrollment tei to Simprints enrollment view model`() =
+        runTest {
+            val enrollment: Enrollment =
+                mock {
+                    on { trackedEntityInstance() } doReturn "teiUid"
+                }
+            whenever(enrollmentRepository.blockingGet()) doReturn enrollment
+            whenever(
+                simprintsEnrollmentViewModel.onRegisterLastResult(
+                    resultCode = 1,
+                    data = null,
+                    teiUid = "teiUid",
+                ),
+            ) doReturn SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH
+
+            val result = presenter.onRegisterLastResult(resultCode = 1, data = null)
+
+            assert(result == SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH)
+        }
+
+    @Test
+    fun `Should notify Simprints enrollment view model when register last launch fails`() {
+        presenter.onRegisterLastLaunchFailed()
+
+        verify(simprintsEnrollmentViewModel).onRegisterLastLaunchFailed()
     }
 
     @Test
