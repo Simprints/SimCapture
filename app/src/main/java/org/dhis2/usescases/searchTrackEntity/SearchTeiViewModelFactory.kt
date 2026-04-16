@@ -10,6 +10,7 @@ import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.simprints.SimprintsSearchViewModel
+import org.dhis2.simprints.di.SimprintsSearchViewModelFactory
 
 class SearchTeiViewModelFactory(
     private val searchRepository: SearchRepository,
@@ -24,7 +25,8 @@ class SearchTeiViewModelFactory(
     private val resourceManager: ResourceManager,
     private val displayNameProvider: DisplayNameProvider,
     private val filterManager: FilterManager,
-    private val simprintsSearchViewModel: SimprintsSearchViewModel,
+    private val searchActivity: SearchTEActivity,
+    private val simprintsSearchViewModelFactory: SimprintsSearchViewModelFactory,
     private val orderSearchResultsByIdentifyResponse: SimprintsOrderSearchResultsByIdentifyResponseUseCase,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
@@ -41,7 +43,7 @@ class SearchTeiViewModelFactory(
             resourceManager,
             displayNameProvider,
             filterManager,
-            simprintsSearchViewModel,
+            ViewModelProvider(searchActivity, simprintsSearchViewModelFactory)[SimprintsSearchViewModel::class.java],
             orderSearchResultsByIdentifyResponse,
         ) as T
 }

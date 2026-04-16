@@ -2,6 +2,7 @@ package org.dhis2.simprints
 
 import android.app.Activity.RESULT_OK
 import android.content.Intent
+import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,7 +16,7 @@ class SimprintsEnrollmentViewModel(
     private val sessionRepository: SimprintsSessionRepository,
     private val resultMapper: SimprintsCustomIntentResultMapper,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-) {
+) : ViewModel() {
     enum class RegisterLastResult {
         NONE,
         CONTINUE_FINISH,

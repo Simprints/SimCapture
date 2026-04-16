@@ -2,6 +2,7 @@ package org.dhis2.simprints
 
 import android.app.Activity.RESULT_OK
 import android.content.Intent
+import androidx.lifecycle.ViewModel
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase
 import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
@@ -9,7 +10,7 @@ import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
 class SimprintsSearchViewModel(
     private val resolveConfirmIdentityCallout: SimprintsResolveConfirmIdentityCalloutUseCase,
     private val sessionRepository: SimprintsSessionRepository,
-) {
+) : ViewModel() {
     data class PendingDashboardNavigation(
         val teiUid: String,
         val programUid: String?,

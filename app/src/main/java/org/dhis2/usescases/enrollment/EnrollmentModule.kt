@@ -1,6 +1,7 @@
 package org.dhis2.usescases.enrollment
 
 import android.content.Context
+import androidx.lifecycle.ViewModelProvider
 import dagger.Module
 import dagger.Provides
 import io.reactivex.processors.FlowableProcessor
@@ -46,6 +47,7 @@ import org.dhis2.mobile.commons.providers.FieldErrorMessageProvider
 import org.dhis2.mobile.commons.reporting.CrashReportController
 import org.dhis2.simprints.SimprintsCustomIntentResultMapper
 import org.dhis2.simprints.SimprintsEnrollmentViewModel
+import org.dhis2.simprints.di.SimprintsEnrollmentViewModelFactory
 import org.dhis2.usescases.teiDashboard.TeiAttributesProvider
 import org.dhis2.utils.analytics.AnalyticsHelper
 import org.hisp.dhis.android.core.D2
@@ -177,17 +179,24 @@ class EnrollmentModule(
 
     @Provides
     @PerActivity
-    fun provideSimprintsEnrollmentViewModel(
+    fun provideSimprintsEnrollmentViewModelFactory(
         simprintsD2Repository: SimprintsD2Repository,
         resolvePendingEnrollmentAction: SimprintsResolvePendingEnrollmentActionUseCase,
         simprintsSessionRepository: SimprintsSessionRepository,
         simprintsCustomIntentResultMapper: SimprintsCustomIntentResultMapper,
-    ) = SimprintsEnrollmentViewModel(
+    ) = SimprintsEnrollmentViewModelFactory(
         simprintsD2Repository = simprintsD2Repository,
         resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
         sessionRepository = simprintsSessionRepository,
         resultMapper = simprintsCustomIntentResultMapper,
     )
+
+    @Provides
+    @PerActivity
+    fun provideSimprintsEnrollmentViewModel(
+        simprintsEnrollmentViewModelFactory: SimprintsEnrollmentViewModelFactory,
+    ): SimprintsEnrollmentViewModel =
+        ViewModelProvider(activityContext as EnrollmentActivity, simprintsEnrollmentViewModelFactory)[SimprintsEnrollmentViewModel::class.java]
 
     @Provides
     @PerActivity
