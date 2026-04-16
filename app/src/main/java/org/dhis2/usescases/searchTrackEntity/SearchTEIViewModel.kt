@@ -804,10 +804,10 @@ class SearchTEIViewModel(
     }
 
     fun refreshSimprintsUiState() {
+        val searchFields = getSimprintsSearchFields()
+        simprintsSearchViewModel.clearPendingSessionIfNeeded(searchFields)
         _isSimprintsUseLastBiometricsLabel.postValue(
-            simprintsSearchViewModel.shouldUseLastBiometricsLabel(
-                searchFields = getSimprintsSearchFields(),
-            ),
+            simprintsSearchViewModel.shouldUseLastBiometricsLabel(searchFields),
         )
     }
 

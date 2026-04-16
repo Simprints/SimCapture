@@ -171,7 +171,23 @@ class SimprintsSearchViewModelTest {
     }
 
     @Test
-    fun `shouldUseLastBiometricsLabel should clear pending session when query is no longer biometric`() {
+    fun `clearPendingSessionIfNeeded should clear pending session when query is no longer biometric`() {
+        whenever(sessionRepository.hasPendingSession()) doReturn true
+        val viewModel =
+            SimprintsSearchViewModel(
+                resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+                sessionRepository = sessionRepository,
+            )
+
+        viewModel.clearPendingSessionIfNeeded(
+            searchFields = listOf(textField(uid = "name", value = "Name")),
+        )
+
+        verify(sessionRepository).clear()
+    }
+
+    @Test
+    fun `shouldUseLastBiometricsLabel should return false for non biometric search`() {
         whenever(sessionRepository.hasPendingSession()) doReturn true
         val viewModel =
             SimprintsSearchViewModel(
@@ -185,7 +201,7 @@ class SimprintsSearchViewModelTest {
             )
 
         assertFalse(shouldUseLastBiometricsLabel)
-        verify(sessionRepository).clear()
+        verify(sessionRepository, never()).clear()
     }
 
     @Test

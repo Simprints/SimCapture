@@ -53,6 +53,7 @@ import org.junit.Test
 import org.maplibre.geojson.BoundingBox
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.clearInvocations
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
@@ -587,10 +588,12 @@ class SearchTEIViewModelTest {
     @Test
     fun `Should refresh Simprints last biometrics label state`() {
         whenever(simprintsSearchViewModel.shouldUseLastBiometricsLabel(any())) doReturn true
+        clearInvocations(simprintsSearchViewModel)
 
         viewModel.refreshSimprintsUiState()
 
         assertTrue(viewModel.isSimprintsUseLastBiometricsLabel.value == true)
+        verify(simprintsSearchViewModel).clearPendingSessionIfNeeded(any())
     }
 
     @Test
