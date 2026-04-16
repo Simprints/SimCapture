@@ -3,6 +3,8 @@ package org.dhis2.simprints
 import android.app.Activity.RESULT_OK
 import android.content.Intent
 import androidx.lifecycle.ViewModel
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -10,6 +12,7 @@ import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.simprints.usecases.SimprintsResolvePendingEnrollmentActionUseCase
 
+@OptIn(ExperimentalAtomicApi::class)
 class SimprintsEnrollmentViewModel(
     private val simprintsD2Repository: SimprintsD2Repository,
     private val resolvePendingEnrollmentAction: SimprintsResolvePendingEnrollmentActionUseCase,
@@ -23,7 +26,8 @@ class SimprintsEnrollmentViewModel(
         ERROR,
     }
 
-    private var pendingAction: SimprintsResolvePendingEnrollmentActionUseCase.PendingEnrollmentAction? = null
+    private val pendingAction =
+        AtomicReference<SimprintsResolvePendingEnrollmentActionUseCase.PendingEnrollmentAction?>(null)
 
     suspend fun onFinishRequested(
         isNewEnrollment: Boolean,
@@ -41,7 +45,7 @@ class SimprintsEnrollmentViewModel(
                 )
             } ?: return null
 
-        pendingAction = resolvedAction
+        pendingAction.store(resolvedAction)
         return resolvedAction.callout.launchIntent
     }
 
@@ -50,8 +54,7 @@ class SimprintsEnrollmentViewModel(
         data: Intent?,
         teiUid: String?,
     ): RegisterLastResult {
-        val resolvedAction = pendingAction ?: return RegisterLastResult.NONE
-        pendingAction = null
+        val resolvedAction = pendingAction.exchange(null) ?: return RegisterLastResult.NONE
 
         val saved =
             if (resultCode == RESULT_OK && teiUid != null) {
@@ -81,6 +84,6 @@ class SimprintsEnrollmentViewModel(
     }
 
     fun onRegisterLastLaunchFailed() {
-        pendingAction = null
+        pendingAction.store(null)
     }
 }

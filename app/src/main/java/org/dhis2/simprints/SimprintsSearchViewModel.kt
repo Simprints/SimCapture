@@ -3,10 +3,13 @@ package org.dhis2.simprints
 import android.app.Activity.RESULT_OK
 import android.content.Intent
 import androidx.lifecycle.ViewModel
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase
 import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
 
+@OptIn(ExperimentalAtomicApi::class)
 class SimprintsSearchViewModel(
     private val resolveConfirmIdentityCallout: SimprintsResolveConfirmIdentityCalloutUseCase,
     private val sessionRepository: SimprintsSessionRepository,
@@ -27,7 +30,7 @@ class SimprintsSearchViewModel(
         ) : DashboardAction()
     }
 
-    private var pendingDashboardNavigation: PendingDashboardNavigation? = null
+    private val pendingDashboardNavigation = AtomicReference<PendingDashboardNavigation?>(null)
 
     suspend fun onDashboardRequested(
         searchFields: List<SimprintsSearchUtils.SearchField>,
@@ -57,8 +60,7 @@ class SimprintsSearchViewModel(
             return DashboardAction.OpenDashboard(navigation)
         }
 
-        pendingDashboardNavigation =
-            navigation
+        pendingDashboardNavigation.store(navigation)
         sessionRepository.clear()
         return DashboardAction.LaunchConfirmIdentity(confirmIdentityIntent)
     }
@@ -80,14 +82,11 @@ class SimprintsSearchViewModel(
     }
 
     fun onConfirmIdentityResult(resultCode: Int): PendingDashboardNavigation? =
-        pendingDashboardNavigation
+        pendingDashboardNavigation.exchange(null)
             ?.takeIf { resultCode == RESULT_OK }
-            .also {
-                pendingDashboardNavigation = null
-            }
 
     fun onConfirmIdentityLaunchFailed() {
-        pendingDashboardNavigation = null
+        pendingDashboardNavigation.store(null)
     }
 
     fun shouldUseLastBiometricsLabel(searchFields: List<SimprintsSearchUtils.SearchField>): Boolean {
