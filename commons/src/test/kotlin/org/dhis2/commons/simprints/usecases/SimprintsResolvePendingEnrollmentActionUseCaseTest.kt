@@ -1,7 +1,6 @@
 package org.dhis2.commons.simprints.usecases
 
 import android.content.Intent
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository
@@ -54,7 +53,6 @@ class SimprintsResolvePendingEnrollmentActionUseCaseTest {
                 SimprintsResolvePendingEnrollmentActionUseCase(
                     simprintsD2Repository = repository,
                     customIntentRepository = customIntentRepository,
-                    ioDispatcher = Dispatchers.Unconfined,
                 )
 
             val intentActions = mutableListOf<String?>()

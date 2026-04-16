@@ -2,7 +2,6 @@ package org.dhis2.simprints
 
 import android.app.Activity.RESULT_OK
 import android.content.Intent
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
@@ -37,7 +36,6 @@ class SimprintsEnrollmentViewModelTest {
                     resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
                     sessionRepository = sessionRepository,
                     resultMapper = resultMapper,
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
             val launchIntent =
@@ -60,7 +58,6 @@ class SimprintsEnrollmentViewModelTest {
                     resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
                     sessionRepository = sessionRepository,
                     resultMapper = resultMapper,
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
             val launchIntent =
@@ -109,7 +106,6 @@ class SimprintsEnrollmentViewModelTest {
                     resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
                     sessionRepository = sessionRepository,
                     resultMapper = resultMapper,
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
             val preparedIntent =
@@ -169,7 +165,6 @@ class SimprintsEnrollmentViewModelTest {
                     resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
                     sessionRepository = sessionRepository,
                     resultMapper = resultMapper,
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
             viewModel.onFinishRequested(
@@ -217,7 +212,6 @@ class SimprintsEnrollmentViewModelTest {
                     resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
                     sessionRepository = sessionRepository,
                     resultMapper = resultMapper,
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
             viewModel.onFinishRequested(
@@ -244,7 +238,6 @@ class SimprintsEnrollmentViewModelTest {
                     resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
                     sessionRepository = sessionRepository,
                     resultMapper = resultMapper,
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
             val result =
@@ -282,7 +275,6 @@ class SimprintsEnrollmentViewModelTest {
                     resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
                     sessionRepository = sessionRepository,
                     resultMapper = resultMapper,
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
             viewModel.onFinishRequested(

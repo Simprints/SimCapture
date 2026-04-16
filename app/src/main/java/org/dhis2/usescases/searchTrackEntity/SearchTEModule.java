@@ -340,25 +340,17 @@ public class SearchTEModule {
     @Provides
     @PerActivity
     SimprintsResolveConfirmIdentityCalloutUseCase provideSimprintsResolveConfirmIdentityCalloutUseCase(
-            SimprintsD2Repository simprintsD2Repository,
-            DispatcherProvider dispatcherProvider
+            SimprintsD2Repository simprintsD2Repository
     ) {
-        return new SimprintsResolveConfirmIdentityCalloutUseCase(
-                simprintsD2Repository,
-                dispatcherProvider.io()
-        );
+        return new SimprintsResolveConfirmIdentityCalloutUseCase(simprintsD2Repository);
     }
 
     @Provides
     @PerActivity
     SimprintsOrderSearchResultsByIdentifyResponseUseCase provideSimprintsOrderSearchResultsByIdentifyResponseUseCase(
-            SimprintsD2Repository simprintsD2Repository,
-            DispatcherProvider dispatcherProvider
+            SimprintsD2Repository simprintsD2Repository
     ) {
-        return new SimprintsOrderSearchResultsByIdentifyResponseUseCase(
-                simprintsD2Repository,
-                dispatcherProvider.io()
-        );
+        return new SimprintsOrderSearchResultsByIdentifyResponseUseCase(simprintsD2Repository);
     }
 
     @Provides

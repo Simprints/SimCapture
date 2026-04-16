@@ -1,7 +1,6 @@
 package org.dhis2.commons.simprints.usecases
 
 import android.content.Intent
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
@@ -35,7 +34,6 @@ class SimprintsResolveConfirmIdentityCalloutUseCaseTest {
             val useCase =
                 SimprintsResolveConfirmIdentityCalloutUseCase(
                     simprintsD2Repository = repository,
-                    ioDispatcher = Dispatchers.Unconfined,
                 )
 
             val intentActions = mutableListOf<String?>()

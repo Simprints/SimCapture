@@ -1,6 +1,5 @@
 package org.dhis2.commons.simprints.usecases
 
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
@@ -23,7 +22,6 @@ class SimprintsOrderSearchResultsByIdentifyResponseUseCaseTest {
     private val useCase =
         SimprintsOrderSearchResultsByIdentifyResponseUseCase(
             simprintsD2Repository = repository,
-            ioDispatcher = Dispatchers.Unconfined,
         )
 
     @Test

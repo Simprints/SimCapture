@@ -1,5 +1,7 @@
 package org.dhis2.commons.simprints.repository
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.StringFilterConnector
 import org.hisp.dhis.android.core.common.ObjectWithUid
@@ -23,10 +25,10 @@ import org.mockito.kotlin.whenever
 
 class SimprintsD2RepositoryTest {
     private val d2: D2 = Mockito.mock(D2::class.java, Mockito.RETURNS_DEEP_STUBS)
-    private val repository = SimprintsD2Repository(d2)
+    private val repository = SimprintsD2Repository(d2, Dispatchers.Unconfined)
 
     @Test
-    fun `getEnrollmentContext should map enrollment fields`() {
+    fun `getEnrollmentContext should map enrollment fields`() = runBlocking {
         whenever(
             d2
                 .enrollmentModule()
@@ -55,7 +57,7 @@ class SimprintsD2RepositoryTest {
     }
 
     @Test
-    fun `getEnrollmentContext should return null when enrollment is missing`() {
+    fun `getEnrollmentContext should return null when enrollment is missing`() = runBlocking {
         whenever(
             d2
                 .enrollmentModule()
@@ -70,7 +72,7 @@ class SimprintsD2RepositoryTest {
     }
 
     @Test
-    fun `getEnrollmentContext should return null when tracked entity instance is missing`() {
+    fun `getEnrollmentContext should return null when tracked entity instance is missing`() = runBlocking {
         whenever(
             d2
                 .enrollmentModule()
@@ -91,7 +93,7 @@ class SimprintsD2RepositoryTest {
     }
 
     @Test
-    fun `getProgramAttributeUids should map non null tracked entity attributes`() {
+    fun `getProgramAttributeUids should map non null tracked entity attributes`() = runBlocking {
         val programFilter: StringFilterConnector<ProgramTrackedEntityAttributeCollectionRepository> =
             mock()
         val programAttributeRepository: ProgramTrackedEntityAttributeCollectionRepository = mock()
@@ -123,7 +125,7 @@ class SimprintsD2RepositoryTest {
     }
 
     @Test
-    fun `getTrackedEntityTypeAttributeUids should map type attribute uids`() {
+    fun `getTrackedEntityTypeAttributeUids should map type attribute uids`() = runBlocking {
         whenever(
             d2
                 .trackedEntityModule()
@@ -173,7 +175,7 @@ class SimprintsD2RepositoryTest {
     }
 
     @Test
-    fun `getTrackedEntityTypeAttributeUids should return empty list when tracked entity instance is missing`() {
+    fun `getTrackedEntityTypeAttributeUids should return empty list when tracked entity instance is missing`() = runBlocking {
         whenever(
             d2
                 .trackedEntityModule()
@@ -188,7 +190,7 @@ class SimprintsD2RepositoryTest {
     }
 
     @Test
-    fun `getTrackedEntityAttributeValue should return stored attribute value`() {
+    fun `getTrackedEntityAttributeValue should return stored attribute value`() = runBlocking {
         whenever(
             d2
                 .trackedEntityModule()
@@ -213,7 +215,7 @@ class SimprintsD2RepositoryTest {
     }
 
     @Test
-    fun `saveTrackedEntityAttributeValue should write attribute value`() {
+    fun `saveTrackedEntityAttributeValue should write attribute value`() = runBlocking {
         val attributeValueRepository: TrackedEntityAttributeValueObjectRepository = mock()
         whenever(
             d2
