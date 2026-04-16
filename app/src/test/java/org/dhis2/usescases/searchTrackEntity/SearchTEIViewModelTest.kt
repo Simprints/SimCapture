@@ -594,6 +594,29 @@ class SearchTEIViewModelTest {
     }
 
     @Test
+    fun `Should preserve entered search parameter values when parameters are refetched`() =
+        runTest {
+            whenever(repositoryKt.searchParameters(initialProgram, "teiTypeUid")) doReturn
+                listOf(simprintsBiometricSearchField())
+            viewModel.searchParametersUiState =
+                viewModel.searchParametersUiState.copy(
+                    items =
+                        listOf(
+                            simprintsBiometricSearchField().copy(
+                                value = "guid-1",
+                                displayName = "guid-1",
+                            ),
+                        ),
+                )
+
+            viewModel.fetchSearchParameters(initialProgram, "teiTypeUid")
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("guid-1", viewModel.searchParametersUiState.items.single().value)
+            assertEquals("guid-1", viewModel.searchParametersUiState.items.single().displayName)
+        }
+
+    @Test
     fun `Should enroll on click`() {
         viewModel.onEnrollClick()
         testingDispatcher.scheduler.advanceUntilIdle()

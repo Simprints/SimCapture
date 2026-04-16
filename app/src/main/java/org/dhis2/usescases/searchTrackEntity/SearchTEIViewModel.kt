@@ -48,6 +48,7 @@ import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentif
 import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.search.SearchParametersModel
+import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.FieldUiModelImpl
 import org.dhis2.form.ui.intent.FormIntent
 import org.dhis2.form.ui.provider.DisplayNameProvider
@@ -1128,9 +1129,26 @@ class SearchTEIViewModel(
             viewModelScope.launch {
                 val fieldUiModels =
                     searchRepositoryKt.searchParameters(programUid, teiTypeUid)
-                searchParametersUiState = searchParametersUiState.copy(items = fieldUiModels)
+                searchParametersUiState = searchParametersUiState.copy(
+                    items = preserveExistingSearchParameterValues(fieldUiModels),
+                )
                 refreshSimprintsUiState()
             }
+    }
+
+    private fun preserveExistingSearchParameterValues(fieldUiModels: List<FieldUiModel>): List<FieldUiModel> {
+        val currentItemsByUid = searchParametersUiState.items.associateBy(FieldUiModel::uid)
+        return fieldUiModels.map { fieldUiModel ->
+            val currentItem = currentItemsByUid[fieldUiModel.uid]
+            if (fieldUiModel is FieldUiModelImpl && currentItem is FieldUiModelImpl) {
+                fieldUiModel.copy(
+                    value = currentItem.value,
+                    displayName = currentItem.displayName,
+                )
+            } else {
+                fieldUiModel
+            }
+        }
     }
 
     fun onParameterIntent(formIntent: FormIntent) =
