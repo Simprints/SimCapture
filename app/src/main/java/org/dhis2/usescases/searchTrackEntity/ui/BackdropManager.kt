@@ -15,10 +15,13 @@ object BackdropManager {
         backdropLayout: ConstraintLayout,
         endID: Int,
         margin: Int,
+        withAnimation: Boolean = true,
     ) {
-        val transition: Transition = ChangeBounds()
-        transition.duration = CHANGE_BOUND_DURATION
-        TransitionManager.beginDelayedTransition(backdropLayout, transition)
+        if (withAnimation) {
+            val transition: Transition = ChangeBounds()
+            transition.duration = CHANGE_BOUND_DURATION
+            TransitionManager.beginDelayedTransition(backdropLayout, transition)
+        }
 
         val initSet = ConstraintSet()
         initSet.clone(backdropLayout)
@@ -50,7 +53,8 @@ object BackdropManager {
         backdropLayout: ConstraintLayout,
         endID: Int,
         margin: Int,
+        withAnimation: Boolean = true,
     ) {
-        if (condition) changeBounds(isNavigationBarVisible, backdropLayout, endID, margin)
+        if (condition) changeBounds(isNavigationBarVisible, backdropLayout, endID, margin, withAnimation)
     }
 }
