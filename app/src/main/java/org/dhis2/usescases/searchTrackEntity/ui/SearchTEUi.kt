@@ -188,12 +188,14 @@ fun AddNewButton(
 fun SearchButtonWithQuery(
     modifier: Modifier = Modifier,
     queryData: Map<String, String> = emptyMap(),
+    simprintsQueryTextOverride: String? = null,
+    isSimprintsBiometricSearch: Boolean = false,
     onClick: () -> Unit,
     onClearSearchQuery: () -> Unit,
 ) {
     Box(modifier) {
         SearchBar(
-            text = queryData.values.joinToString(separator = ", "),
+            text = simprintsQueryTextOverride ?: queryData.values.joinToString(separator = ", "),
             modifier = Modifier.fillMaxWidth(),
             onQueryChange = {
                 if (it.isBlank()) onClearSearchQuery()
@@ -207,15 +209,22 @@ fun SearchButtonWithQuery(
                     .padding(end = 48.dp)
                     .clip(RoundedCornerShape(50))
                     .background(Color.Unspecified)
-                    .clickable(
-                        onClick = onClick,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication =
-                            ripple(
-                                true,
-                                color = SurfaceColor.Primary,
-                            ),
-                    ),
+                    .run {
+                        if (isSimprintsBiometricSearch) {
+                            this
+                        } else {
+                            clickable(
+                                onClick = onClick,
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication =
+                                    ripple(
+                                        true,
+                                        color = SurfaceColor.Primary,
+                                    ),
+                            )
+                        }
+                    }
+
         )
     }
 }
@@ -245,6 +254,8 @@ fun FullSearchButtonAndWorkingList(
     onEnrollClick: () -> Unit = {},
     onCloseFilters: () -> Unit = {},
     onClearSearchQuery: () -> Unit = {},
+    isSimprintsBiometricSearch: Boolean = false,
+    onSimprintsBiometricSearchFallbackClick: () -> Unit = {},
     workingListViewModel: WorkingListViewModel? = null,
 ) {
     Column(modifier = modifier) {
@@ -270,6 +281,13 @@ fun FullSearchButtonAndWorkingList(
                         SearchButtonWithQuery(
                             modifier = Modifier.fillMaxWidth(),
                             queryData = queryData,
+                            simprintsQueryTextOverride =
+                                if (isSimprintsBiometricSearch) {
+                                    stringResource(R.string.biometric_search)
+                                } else {
+                                    null
+                                },
+                            isSimprintsBiometricSearch = isSimprintsBiometricSearch,
                             onClick = onSearchClick,
                             onClearSearchQuery = onClearSearchQuery,
                         )
@@ -309,6 +327,18 @@ fun FullSearchButtonAndWorkingList(
                     }
                 }
             }
+
+            if (isSimprintsBiometricSearch && queryData.isNotEmpty()) {
+                SimprintsBiometricSearchFallbackButton(
+                    modifier =
+                        Modifier.padding(
+                            top = Spacing.Spacing8,
+                            start = Spacing.Spacing16,
+                            end = Spacing.Spacing16,
+                        ),
+                    onClick = onSimprintsBiometricSearchFallbackClick,
+                )
+            }
         }
 
         Spacer(modifier = Modifier.requiredHeight(Spacing.Spacing16))
@@ -316,6 +346,39 @@ fun FullSearchButtonAndWorkingList(
         workingListViewModel?.let {
             WorkingListChipGroup(workingListViewModel = it)
         }
+    }
+}
+
+@Composable
+private fun SimprintsBiometricSearchFallbackButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .requiredHeight(56.dp),
+        onClick = onClick,
+        colors =
+            ButtonDefaults.outlinedButtonColors(
+                contentColor = SurfaceColor.Primary,
+            ),
+        border = BorderStroke(1.dp, SurfaceColor.Primary),
+        shape = RoundedCornerShape(Spacing.Spacing16),
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.ic_search),
+            contentDescription = "",
+            tint = SurfaceColor.Primary,
+        )
+
+        Spacer(modifier = Modifier.requiredWidth(Spacing.Spacing8))
+
+        Text(
+            text = stringResource(R.string.biometric_search_fallback_action),
+            style = getTextStyle(style = DHIS2TextStyle.LABEL_LARGE),
+        )
     }
 }
 

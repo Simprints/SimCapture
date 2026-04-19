@@ -22,10 +22,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -70,6 +74,7 @@ fun SearchParametersScreen(
     resourceManager: ResourceManager,
     uiState: SearchParametersUiState,
     intentHandler: (FormIntent) -> Unit,
+    onSimprintsBiometricIdentificationResult: (String, String?, Boolean) -> Unit,
     onShowOrgUnit: (
         uid: String,
         preselectedOrgUnits: List<String>,
@@ -84,6 +89,7 @@ fun SearchParametersScreen(
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val configuration = LocalConfiguration.current
+    var showSimprintsBiometricNoMatchesMessage by remember { mutableStateOf(false) }
 
     val scanContract = remember { ScanContract() }
     val qrScanLauncher =
@@ -162,6 +168,7 @@ fun SearchParametersScreen(
     LaunchedEffect(uiState.isOnBackPressed) {
         uiState.isOnBackPressed.collectLatest {
             if (it) {
+                showSimprintsBiometricNoMatchesMessage = false
                 focusManager.clearFocus()
                 onClose()
             }
@@ -256,6 +263,10 @@ fun SearchParametersScreen(
                                     focusManager = focusManager,
                                     fieldUiModel = fieldUiModel,
                                     callback = callback,
+                                    onSimprintsBiometricIdentificationResult = onSimprintsBiometricIdentificationResult,
+                                    onSimprintsBiometricSearchNoMatchesChanged = {
+                                        showSimprintsBiometricNoMatchesMessage = it
+                                    },
                                     onNextClicked = {
                                         val nextIndex = index + 1
                                         if (nextIndex < uiState.items.size) {
@@ -264,6 +275,16 @@ fun SearchParametersScreen(
                                     },
                                 ),
                         )
+                    }
+
+                    if (showSimprintsBiometricNoMatchesMessage) {
+                        item {
+                            Text(
+                                text = resourceManager.getString(R.string.biometric_search_no_matches),
+                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                                color = Color.Black.copy(alpha = 0.6f),
+                            )
+                        }
                     }
                 }
 
@@ -286,6 +307,7 @@ fun SearchParametersScreen(
                                 },
                             ) {
                                 focusManager.clearFocus()
+                                showSimprintsBiometricNoMatchesMessage = false
                                 onClear()
                             }
                         }
@@ -317,6 +339,7 @@ fun SearchParametersScreen(
                     )
                 },
             ) {
+                showSimprintsBiometricNoMatchesMessage = false
                 focusManager.clearFocus()
                 onSearch()
             }
@@ -347,6 +370,7 @@ fun SearchFormPreview() {
                     },
             ),
         intentHandler = {},
+        onSimprintsBiometricIdentificationResult = { _, _, _ -> },
         onShowOrgUnit = { _, _, _, _ -> },
         onSearch = {},
         onClear = {},
@@ -378,6 +402,7 @@ fun SearchFormPreviewWithClear() {
                     },
             ),
         intentHandler = {},
+        onSimprintsBiometricIdentificationResult = { _, _, _ -> },
         onShowOrgUnit = { _, _, _, _ -> },
         onSearch = {},
         onClear = {},
@@ -409,6 +434,7 @@ fun initSearchScreen(
             uiState = viewModel.searchParametersUiState,
             onSearch = viewModel::onSearch,
             intentHandler = viewModel::onParameterIntent,
+            onSimprintsBiometricIdentificationResult = viewModel::onSimprintsBiometricIdentificationResult,
             onShowOrgUnit = onShowOrgUnit,
             onClear = {
                 onClear()

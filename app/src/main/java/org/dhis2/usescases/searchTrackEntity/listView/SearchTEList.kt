@@ -229,6 +229,9 @@ class SearchTEList : FragmentGlobalAbstract() {
                         remember(viewModel.searchParametersUiState) {
                             viewModel.searchParametersUiState.searchedItems
                         }
+                    val isSimprintsBiometricSearch by viewModel
+                        .isSimprintsBiometricSearch
+                        .observeAsState(false)
 
                     FullSearchButtonAndWorkingList(
                         teTypeName = teTypeName!!,
@@ -243,6 +246,12 @@ class SearchTEList : FragmentGlobalAbstract() {
                         onClearSearchQuery = {
                             viewModel.clearQueryData()
                             viewModel.clearFocus()
+                        },
+                        isSimprintsBiometricSearch = isSimprintsBiometricSearch,
+                        onSimprintsBiometricSearchFallbackClick = {
+                            viewModel.clearSimprintsBiometricQueryData()
+                            viewModel.clearFocus()
+                            viewModel.setSearchScreen()
                         },
                         workingListViewModel = workingListViewModel,
                     )

@@ -5,10 +5,10 @@ import androidx.lifecycle.ViewModelProvider
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.resources.ResourceManager
-import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.maps.usecases.MapStyleConfiguration
+import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
 import org.dhis2.simprints.SimprintsSearchViewModel
 import org.dhis2.simprints.di.SimprintsSearchViewModelFactory
 
@@ -27,7 +27,7 @@ class SearchTeiViewModelFactory(
     private val filterManager: FilterManager,
     private val searchActivity: SearchTEActivity,
     private val simprintsSearchViewModelFactory: SimprintsSearchViewModelFactory,
-    private val orderSearchResultsByIdentifyResponse: SimprintsOrderSearchResultsByIdentifyResponseUseCase,
+    private val loadSimprintsBiometricSearchResultsUseCase: SimprintsLoadBiometricSearchResultsUseCase,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
         SearchTEIViewModel(
@@ -44,6 +44,6 @@ class SearchTeiViewModelFactory(
             displayNameProvider,
             filterManager,
             ViewModelProvider(searchActivity, simprintsSearchViewModelFactory)[SimprintsSearchViewModel::class.java],
-            orderSearchResultsByIdentifyResponse,
+            loadSimprintsBiometricSearchResultsUseCase,
         ) as T
 }
