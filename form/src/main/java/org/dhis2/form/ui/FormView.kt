@@ -12,6 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -41,6 +42,7 @@ import org.dhis2.commons.extensions.serializable
 import org.dhis2.commons.locationprovider.LocationProvider
 import org.dhis2.commons.orgunitselector.OUTreeFragment
 import org.dhis2.commons.periods.ui.PeriodSelectorContent
+import org.dhis2.commons.simprints.usecases.SimprintsResolvePossibleDuplicatesSearchUseCase.SimprintsPossibleDuplicatesSearch
 import org.dhis2.form.R
 import org.dhis2.form.data.RulesUtilsProviderConfigurationError
 import org.dhis2.form.data.scan.ScanContract
@@ -52,6 +54,7 @@ import org.dhis2.form.model.InfoUiModel
 import org.dhis2.form.model.RowAction
 import org.dhis2.form.model.UiRenderType
 import org.dhis2.form.model.exception.RepositoryRecordsException
+import org.dhis2.form.simprints.LocalSimprintsPossibleDuplicatesSearchHandler
 import org.dhis2.form.ui.customintent.CustomIntentActivityResultContract
 import org.dhis2.form.ui.customintent.CustomIntentInput
 import org.dhis2.form.ui.customintent.CustomIntentResult
@@ -77,6 +80,7 @@ class FormView : Fragment() {
     private var onFocused: (() -> Unit)? = null
     private var onFinishDataEntry: (() -> Unit)? = null
     private var onActivityForResult: (() -> Unit)? = null
+    private var onLaunchSimprintsPossibleDuplicatesSearch: ((SimprintsPossibleDuplicatesSearch) -> Unit)? = null
     private var completionListener: ((percentage: Float) -> Unit)? = null
     private var onFieldItemsRendered: ((fieldsEmpty: Boolean) -> Unit)? = null
     private var actionIconsActivate: Boolean = true
@@ -215,12 +219,14 @@ class FormView : Fragment() {
                     }
                 }
 
-                Form(
-                    sections = sections,
-                    intentHandler = ::intentHandler,
-                    uiEventHandler = ::uiEventHandler,
-                    resources = Injector.provideResourcesManager(context),
-                )
+                CompositionLocalProvider(LocalSimprintsPossibleDuplicatesSearchHandler provides onLaunchSimprintsPossibleDuplicatesSearch) {
+                    Form(
+                        sections = sections,
+                        intentHandler = ::intentHandler,
+                        uiEventHandler = ::uiEventHandler,
+                        resources = Injector.provideResourcesManager(context),
+                    )
+                }
 
                 resultDialogData?.let {
                     DataEntryBottomSheet(
@@ -620,6 +626,7 @@ class FormView : Fragment() {
         onFocused: (() -> Unit)?,
         onFinishDataEntry: (() -> Unit)?,
         onActivityForResult: (() -> Unit)?,
+        onLaunchSimprintsPossibleDuplicatesSearch: ((SimprintsPossibleDuplicatesSearch) -> Unit)?,
         onFieldItemsRendered: ((fieldsEmpty: Boolean) -> Unit)?,
     ) {
         this.onItemChangeListener = onItemChangeListener
@@ -627,6 +634,7 @@ class FormView : Fragment() {
         this.onFocused = onFocused
         this.onFinishDataEntry = onFinishDataEntry
         this.onActivityForResult = onActivityForResult
+        this.onLaunchSimprintsPossibleDuplicatesSearch = onLaunchSimprintsPossibleDuplicatesSearch
         this.onFieldItemsRendered = onFieldItemsRendered
     }
 
@@ -639,6 +647,7 @@ class FormView : Fragment() {
         private var onFocused: (() -> Unit)? = null
         private var onActivityForResult: (() -> Unit)? = null
         private var onFinishDataEntry: (() -> Unit)? = null
+        private var onLaunchSimprintsPossibleDuplicatesSearch: ((SimprintsPossibleDuplicatesSearch) -> Unit)? = null
         private var onPercentageUpdate: ((percentage: Float) -> Unit)? = null
         private var onFieldItemsRendered: ((fieldsEmpty: Boolean) -> Unit)? = null
         private var actionIconsActive: Boolean = true
@@ -673,6 +682,9 @@ class FormView : Fragment() {
 
         fun onFinishDataEntry(callback: () -> Unit) = apply { this.onFinishDataEntry = callback }
 
+        fun onLaunchSimprintsPossibleDuplicatesSearch(callback: (SimprintsPossibleDuplicatesSearch) -> Unit) =
+            apply { this.onLaunchSimprintsPossibleDuplicatesSearch = callback }
+
         fun onPercentageUpdate(callback: (percentage: Float) -> Unit) = apply { this.onPercentageUpdate = callback }
 
         fun setRecords(records: FormRepositoryRecords) = apply { this.records = records }
@@ -696,6 +708,7 @@ class FormView : Fragment() {
                     onFocused,
                     onFinishDataEntry,
                     onActivityForResult,
+                    onLaunchSimprintsPossibleDuplicatesSearch,
                     onPercentageUpdate,
                     onFieldItemsRendered,
                     actionIconsActive,

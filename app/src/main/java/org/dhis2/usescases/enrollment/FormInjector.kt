@@ -7,6 +7,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import org.dhis2.R
 import org.dhis2.commons.locationprovider.LocationProvider
+import org.dhis2.commons.simprints.usecases.SimprintsResolvePossibleDuplicatesSearchUseCase.SimprintsPossibleDuplicatesSearch
 import org.dhis2.form.model.EnrollmentMode
 import org.dhis2.form.model.EnrollmentRecords
 import org.dhis2.form.ui.FormView
@@ -26,6 +27,7 @@ fun AppCompatActivity.buildEnrollmentForm(
     config: EnrollmentFormBuilderConfig,
     locationProvider: LocationProvider,
     dateEditionWarningHandler: DateEditionWarningHandler,
+    onLaunchSimprintsPossibleDuplicatesSearch: ((SimprintsPossibleDuplicatesSearch) -> Unit)? = null,
     onFinish: () -> Unit,
 ): FormView =
     FormView
@@ -46,7 +48,13 @@ fun AppCompatActivity.buildEnrollmentForm(
                 )
             }
         }.onFinishDataEntry(onFinish)
-        .factory(supportFragmentManager)
+        .run {
+            if (onLaunchSimprintsPossibleDuplicatesSearch != null) {
+                this.onLaunchSimprintsPossibleDuplicatesSearch(onLaunchSimprintsPossibleDuplicatesSearch)
+            } else {
+                this
+            }
+        }.factory(supportFragmentManager)
         .setRecords(
             EnrollmentRecords(
                 enrollmentUid = config.enrollmentUid,

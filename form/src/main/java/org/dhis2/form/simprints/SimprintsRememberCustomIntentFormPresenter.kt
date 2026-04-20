@@ -28,7 +28,12 @@ fun rememberSimprintsCustomIntentFormPresenter(
                 ?.takeIf(SimprintsIntentUtils::isCallout)
                 ?.let(SimprintsIntentUtils::prepareCallout)
         }
-    val placeholderValue = resources.getString(R.string.from_last_biometric_search)
+    val placeholderValue =
+        if (sessionRepository.hasPendingEnrollmentFromPossibleDuplicates()) {
+            resources.getString(R.string.simprints_using_last_biometrics)
+        } else {
+            resources.getString(R.string.simprints_from_last_biometric_search)
+        }
 
     return remember(
         fieldUiModel.value,

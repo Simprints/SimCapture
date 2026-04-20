@@ -42,6 +42,7 @@ import org.dhis2.usescases.searchTrackEntity.SearchTeiViewModelFactory
 import org.dhis2.usescases.searchTrackEntity.adapters.SearchTeiLiveAdapter
 import org.dhis2.usescases.searchTrackEntity.ui.CreateNewButton
 import org.dhis2.usescases.searchTrackEntity.ui.FullSearchButtonAndWorkingList
+import org.dhis2.usescases.searchTrackEntity.ui.SimprintsNoneOfTheAboveButton
 import org.dhis2.usescases.searchTrackEntity.ui.mapper.TEICardMapper
 import org.dhis2.utils.isLandscape
 import javax.inject.Inject
@@ -232,6 +233,9 @@ class SearchTEList : FragmentGlobalAbstract() {
                     val isSimprintsBiometricSearch by viewModel
                         .isSimprintsBiometricSearch
                         .observeAsState(false)
+                    val isSimprintsPossibleDuplicatesSearch by viewModel
+                        .isSimprintsPossibleDuplicatesSearch
+                        .observeAsState(false)
 
                     FullSearchButtonAndWorkingList(
                         teTypeName = teTypeName!!,
@@ -244,10 +248,15 @@ class SearchTEList : FragmentGlobalAbstract() {
                         onEnrollClick = { viewModel.onEnrollClick() },
                         onCloseFilters = { viewModel.onFiltersClick(isLandscape()) },
                         onClearSearchQuery = {
-                            viewModel.clearQueryData()
-                            viewModel.clearFocus()
+                            if (isSimprintsPossibleDuplicatesSearch) {
+                                requireActivity().finish()
+                            } else {
+                                viewModel.clearQueryData()
+                                viewModel.clearFocus()
+                            }
                         },
                         isSimprintsBiometricSearch = isSimprintsBiometricSearch,
+                        isSimprintsPossibleDuplicatesSearch = isSimprintsPossibleDuplicatesSearch,
                         onSimprintsBiometricSearchFallbackClick = {
                             viewModel.clearSimprintsBiometricQueryData()
                             viewModel.clearFocus()
@@ -280,6 +289,9 @@ class SearchTEList : FragmentGlobalAbstract() {
                 val isSimprintsUseLastBiometricsLabel by viewModel
                     .isSimprintsUseLastBiometricsLabel
                     .observeAsState(false)
+                val isSimprintsPossibleDuplicatesSearch by viewModel
+                    .isSimprintsPossibleDuplicatesSearch
+                    .observeAsState(false)
 
                 updateLayoutParams<CoordinatorLayout.LayoutParams> {
                     val bottomMargin =
@@ -292,7 +304,17 @@ class SearchTEList : FragmentGlobalAbstract() {
                 }
 
                 val orientation = LocalConfiguration.current.orientation
-                if ((hasQueryData || orientation == Configuration.ORIENTATION_LANDSCAPE) &&
+                if (isSimprintsPossibleDuplicatesSearch &&
+                    hasQueryData &&
+                    !filtersOpened &&
+                    !teTypeName.isNullOrBlank()
+                ) {
+                    SimprintsNoneOfTheAboveButton(
+                        modifier = Modifier,
+                        onClick = viewModel::onSimprintsPossibleDuplicatesNoneOfAboveClick,
+                    )
+                } else if (
+                    (hasQueryData || orientation == Configuration.ORIENTATION_LANDSCAPE) &&
                     createButtonVisibility &&
                     !filtersOpened &&
                     !teTypeName.isNullOrBlank()

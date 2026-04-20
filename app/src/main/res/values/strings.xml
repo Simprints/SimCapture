@@ -81,9 +81,11 @@
     <string name="search">Search</string>
     <string name="search_add_new_te_type">Search / Add new %s</string>
     <string name="search_te_type">Search for %s</string>
-    <string name="biometric_search">Biometric search</string>
-    <string name="biometric_search_fallback_action">No biometric match?\nSearch by name instead</string>
-    <string name="biometric_search_no_matches">No biometric search matches. Try searching by name, etc.</string>
+    <string name="simprints_biometric_search">Biometric search</string>
+    <string name="simprints_possible_duplicates">Possible duplicates</string>
+    <string name="simprints_biometric_search_fallback_action">No biometric match?\nSearch by name instead</string>
+    <string name="simprints_biometric_search_no_matches">No biometric search matches. Try searching by name, etc.</string>
+    <string name="simprints_none_of_the_above">None of the above</string>
     <string name="add_te_type">Add new %s</string>
     <string name="enter_text">Enter text</string>
     <string name="enter_long_text">Enter long text</string>

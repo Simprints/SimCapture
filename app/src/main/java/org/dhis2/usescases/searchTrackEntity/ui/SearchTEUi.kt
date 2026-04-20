@@ -188,14 +188,13 @@ fun AddNewButton(
 fun SearchButtonWithQuery(
     modifier: Modifier = Modifier,
     queryData: Map<String, String> = emptyMap(),
-    simprintsQueryTextOverride: String? = null,
     isSimprintsBiometricSearch: Boolean = false,
     onClick: () -> Unit,
     onClearSearchQuery: () -> Unit,
 ) {
     Box(modifier) {
         SearchBar(
-            text = simprintsQueryTextOverride ?: queryData.values.joinToString(separator = ", "),
+            text = queryData.values.joinToString(separator = ", "),
             modifier = Modifier.fillMaxWidth(),
             onQueryChange = {
                 if (it.isBlank()) onClearSearchQuery()
@@ -223,8 +222,7 @@ fun SearchButtonWithQuery(
                                     ),
                             )
                         }
-                    }
-
+                    },
         )
     }
 }
@@ -255,6 +253,7 @@ fun FullSearchButtonAndWorkingList(
     onCloseFilters: () -> Unit = {},
     onClearSearchQuery: () -> Unit = {},
     isSimprintsBiometricSearch: Boolean = false,
+    isSimprintsPossibleDuplicatesSearch: Boolean = false,
     onSimprintsBiometricSearchFallbackClick: () -> Unit = {},
     workingListViewModel: WorkingListViewModel? = null,
 ) {
@@ -281,13 +280,8 @@ fun FullSearchButtonAndWorkingList(
                         SearchButtonWithQuery(
                             modifier = Modifier.fillMaxWidth(),
                             queryData = queryData,
-                            simprintsQueryTextOverride =
-                                if (isSimprintsBiometricSearch) {
-                                    stringResource(R.string.biometric_search)
-                                } else {
-                                    null
-                                },
-                            isSimprintsBiometricSearch = isSimprintsBiometricSearch,
+                            isSimprintsBiometricSearch =
+                                isSimprintsBiometricSearch || isSimprintsPossibleDuplicatesSearch,
                             onClick = onSearchClick,
                             onClearSearchQuery = onClearSearchQuery,
                         )
@@ -328,7 +322,7 @@ fun FullSearchButtonAndWorkingList(
                 }
             }
 
-            if (isSimprintsBiometricSearch && queryData.isNotEmpty()) {
+            if (isSimprintsBiometricSearch && !isSimprintsPossibleDuplicatesSearch && queryData.isNotEmpty()) {
                 SimprintsBiometricSearchFallbackButton(
                     modifier =
                         Modifier.padding(
@@ -376,7 +370,7 @@ private fun SimprintsBiometricSearchFallbackButton(
         Spacer(modifier = Modifier.requiredWidth(Spacing.Spacing8))
 
         Text(
-            text = stringResource(R.string.biometric_search_fallback_action),
+            text = stringResource(R.string.simprints_biometric_search_fallback_action),
             style = getTextStyle(style = DHIS2TextStyle.LABEL_LARGE),
         )
     }
@@ -747,6 +741,21 @@ fun CreateNewButton(
             )
         }
     }
+}
+
+@ExperimentalAnimationApi
+@Composable
+fun SimprintsNoneOfTheAboveButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    ExtendedFAB(
+        modifier = modifier,
+        onClick = onClick,
+        text = stringResource(R.string.simprints_none_of_the_above),
+        icon = {},
+        style = FABStyle.SECONDARY,
+    )
 }
 
 @ExperimentalAnimationApi

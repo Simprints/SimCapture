@@ -25,14 +25,7 @@ class SimprintsEnrollmentViewModel(
     private val pendingAction =
         AtomicReference<SimprintsResolvePendingEnrollmentActionUseCase.PendingEnrollmentAction?>(null)
 
-    suspend fun onFinishRequested(
-        isNewEnrollment: Boolean,
-        enrollmentUid: String,
-    ): Intent? {
-        if (!isNewEnrollment) {
-            return null
-        }
-
+    suspend fun onFinishRequested(enrollmentUid: String): Intent? {
         val resolvedAction =
             sessionRepository.pendingEnrollmentSessionId()?.let {
                 resolvePendingEnrollmentAction(
@@ -40,6 +33,19 @@ class SimprintsEnrollmentViewModel(
                     sessionId = it,
                 )
             } ?: return null
+
+        pendingAction.store(resolvedAction)
+        return resolvedAction.callout.launchIntent
+    }
+
+    suspend fun onAutoEnrollLastRequested(enrollmentUid: String): Intent? {
+        sessionRepository.clearPendingEnrollment()
+        val sessionId = sessionRepository.get()?.takeIf(String::isNotBlank) ?: return null
+        val resolvedAction =
+            resolvePendingEnrollmentAction(
+                enrollmentUid = enrollmentUid,
+                sessionId = sessionId,
+            ) ?: return null
 
         pendingAction.store(resolvedAction)
         return resolvedAction.callout.launchIntent
