@@ -77,6 +77,36 @@ class SimprintsSearchViewModelTest {
         }
 
     @Test
+    fun `onDashboardRequested should keep session when requested`() =
+        runTest {
+            val launchIntent: Intent = mock()
+            whenever(sessionRepository.get()) doReturn "session-id"
+            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any())) doReturn
+                SimprintsIntentUtils.PreparedCallout(
+                    launchIntent = launchIntent,
+                    responseData = emptyList(),
+                )
+            val viewModel =
+                SimprintsSearchViewModel(
+                    resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+                    sessionRepository = sessionRepository,
+                    resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                )
+
+            val action =
+                viewModel.onDashboardRequested(
+                    searchItems = listOf(identifyField(value = "guid-1")),
+                    teiUid = "tei-uid",
+                    programUid = "program-uid",
+                    enrollmentUid = "enrollment-uid",
+                    keepSession = true,
+                )
+
+            assertTrue(action is SimprintsSearchViewModel.DashboardAction.LaunchConfirmIdentity)
+            verify(sessionRepository, never()).clear()
+        }
+
+    @Test
     fun `onDashboardRequested should open dashboard directly after confirm identity already cleared session`() =
         runTest {
             whenever(sessionRepository.get()).thenReturn("session-id").thenReturn(null)

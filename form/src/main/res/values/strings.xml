@@ -92,7 +92,8 @@
     <string name="storage_permission_denied">Storage permission is not granted.\nYou need to enable it to use this feature.</string>
     <string name="select_app_intent">Select an app to launch intent</string>
     <string name="custom_intent_error">Couldn\'t retrieve data</string>
-    <string name="from_last_biometric_search">(From last biometric search)</string>
+    <string name="simprints_from_last_biometric_search">(From last biometric search)</string>
+    <string name="simprints_using_last_biometrics">(Using last biometrics)</string>
     <string name="custom_intent_launch">Launch</string>
 
 </resources>

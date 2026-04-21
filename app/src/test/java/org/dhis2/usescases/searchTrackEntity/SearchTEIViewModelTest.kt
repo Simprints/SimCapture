@@ -61,6 +61,7 @@ import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -439,6 +440,87 @@ class SearchTEIViewModelTest {
             verify(repositoryKt).searchTrackedEntities(any(), any())
         }
 
+    @Test
+    fun `Should return Simprints possible duplicates search results when query contains multiple GUIDs`() =
+        runTest {
+            val testingProgram = testingProgram(displayFrontPageList = false)
+            setCurrentProgram(testingProgram)
+            setAllowCreateBeforeSearch(false)
+            whenever(networkUtils.isOnline()) doReturn true
+            viewModel.setSimprintsPossibleDuplicatesSearch(true)
+
+            viewModel.queryData["biometric"] = listOf("guid-1", "guid-2")
+
+            val searchItem1 = trackedEntitySearchItem("tei-1")
+            val searchItem2 = trackedEntitySearchItem("tei-2")
+            whenever(repositoryKt.searchTrackedEntitiesImmediate(any(), any())).thenAnswer {
+                val params = it.arguments[0] as SearchParametersModel
+                when (params.queryData?.get("biometric")?.firstOrNull()) {
+                    "guid-1" -> listOf(searchItem1)
+                    "guid-2" -> listOf(searchItem2)
+                    else -> emptyList()
+                }
+            }
+
+            val model1 = searchTeiModel("model-1", teiUid = "tei-1")
+            val model2 = searchTeiModel("model-2", teiUid = "tei-2")
+            whenever(repository.transform(searchItem1, testingProgram, false, null)) doReturn model1
+            whenever(repository.transform(searchItem2, testingProgram, false, null)) doReturn model2
+
+            viewModel.setListScreen()
+            viewModel.setSearchScreen()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            val result =
+                async {
+                    viewModel.searchPagingData
+                        .drop(1)
+                        .take(1)
+                        .asSnapshot()
+                }
+            viewModel.onSearch()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf(model1, model2), result.await())
+            verify(repositoryKt, times(2)).searchTrackedEntitiesImmediate(any(), any())
+            verify(repositoryKt, times(0)).searchTrackedEntities(any(), any())
+        }
+
+    @Test
+    fun `Should auto finish Simprints possible duplicates search when there are no DHIS2 matches`() =
+        runTest {
+            val testingProgram = testingProgram(displayFrontPageList = false, minAttributesToSearch = 2)
+            setCurrentProgram(testingProgram)
+            setAllowCreateBeforeSearch(false)
+            whenever(networkUtils.isOnline()) doReturn true
+            viewModel.setSimprintsPossibleDuplicatesSearch(true)
+
+            viewModel.queryData["biometric"] = listOf("guid-1", "guid-2")
+            whenever(repositoryKt.searchTrackedEntitiesImmediate(any(), any())) doReturn emptyList()
+
+            viewModel.setListScreen()
+            viewModel.setSearchScreen()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.simprintsNavigation.test {
+                val snapshot =
+                    async {
+                        viewModel.searchPagingData
+                            .drop(1)
+                            .take(1)
+                            .asSnapshot()
+                    }
+                viewModel.onSearch()
+                testingDispatcher.scheduler.advanceUntilIdle()
+
+                assertTrue(awaitItem() is SimprintsNavigationAction.AutoEnrollLastBiometricsFromSimprintsPossibleDuplicates)
+                snapshot.await()
+                cancelAndIgnoreRemainingEvents()
+            }
+            verify(simprintsSearchViewModel, never()).markPendingEnrollmentFromSimprintsPossibleDuplicates()
+            verify(repositoryKt, times(0)).searchTrackedEntities(any(), any())
+        }
+
     @ExperimentalCoroutinesApi
     @Test
     fun `Should fetch map results`() {
@@ -551,7 +633,7 @@ class SearchTEIViewModelTest {
         runTest {
             val intent: Intent = mock()
             whenever(
-                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any()),
+                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any(), any()),
             ) doReturn SimprintsSearchViewModel.DashboardAction.LaunchConfirmIdentity(intent)
 
             viewModel.simprintsNavigation.test {
@@ -569,7 +651,7 @@ class SearchTEIViewModelTest {
     fun `Should emit open dashboard navigation when Simprints dashboard request resolves directly`() =
         runTest {
             whenever(
-                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any()),
+                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any(), any()),
             ) doReturn
                 SimprintsSearchViewModel.DashboardAction.OpenDashboard(
                     SimprintsSearchViewModel.PendingDashboardNavigation(
@@ -621,7 +703,7 @@ class SearchTEIViewModelTest {
     fun `Should emit error message when Simprints confirm identity setup fails`() =
         runTest {
             whenever(
-                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any()),
+                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any(), any()),
             ).thenThrow(RuntimeException())
             whenever(resourceManager.getString(R.string.custom_intent_error)) doReturn "Custom intent error"
 

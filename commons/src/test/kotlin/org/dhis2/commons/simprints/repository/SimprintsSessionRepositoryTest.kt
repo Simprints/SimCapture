@@ -23,6 +23,7 @@ class SimprintsSessionRepositoryTest {
             "session-id",
         )
         verify(preferenceProvider).removeValue(SimprintsSessionRepository.PENDING_ENROLL_LAST)
+        verify(preferenceProvider).removeValue(SimprintsSessionRepository.PENDING_ENROLL_LAST_SOURCE)
     }
 
     @Test
@@ -37,6 +38,10 @@ class SimprintsSessionRepositoryTest {
         repository.markPendingEnrollment()
 
         verify(preferenceProvider).setValue(SimprintsSessionRepository.PENDING_ENROLL_LAST, true)
+        verify(preferenceProvider).setValue(
+            SimprintsSessionRepository.PENDING_ENROLL_LAST_SOURCE,
+            SimprintsSessionRepository.PendingEnrollmentSource.BIOMETRIC_SEARCH.name,
+        )
     }
 
     @Test
@@ -53,6 +58,49 @@ class SimprintsSessionRepositoryTest {
         verify(preferenceProvider, never()).setValue(
             SimprintsSessionRepository.PENDING_ENROLL_LAST,
             true,
+        )
+        verify(preferenceProvider, never()).setValue(
+            SimprintsSessionRepository.PENDING_ENROLL_LAST_SOURCE,
+            SimprintsSessionRepository.PendingEnrollmentSource.BIOMETRIC_SEARCH.name,
+        )
+    }
+
+    @Test
+    fun `markPendingEnrollmentFromPossibleDuplicates should persist flag only when session exists`() {
+        whenever(
+            preferenceProvider.getString(
+                SimprintsSessionRepository.LAST_IDENTIFICATION_SESSION_ID,
+                null,
+            ),
+        ) doReturn "session-id"
+
+        repository.markPendingEnrollmentFromPossibleDuplicates()
+
+        verify(preferenceProvider).setValue(SimprintsSessionRepository.PENDING_ENROLL_LAST, true)
+        verify(preferenceProvider).setValue(
+            SimprintsSessionRepository.PENDING_ENROLL_LAST_SOURCE,
+            SimprintsSessionRepository.PendingEnrollmentSource.POSSIBLE_DUPLICATES.name,
+        )
+    }
+
+    @Test
+    fun `markPendingEnrollmentFromPossibleDuplicates should not persist flag when session is missing`() {
+        whenever(
+            preferenceProvider.getString(
+                SimprintsSessionRepository.LAST_IDENTIFICATION_SESSION_ID,
+                null,
+            ),
+        ) doReturn null
+
+        repository.markPendingEnrollmentFromPossibleDuplicates()
+
+        verify(preferenceProvider, never()).setValue(
+            SimprintsSessionRepository.PENDING_ENROLL_LAST,
+            true,
+        )
+        verify(preferenceProvider, never()).setValue(
+            SimprintsSessionRepository.PENDING_ENROLL_LAST_SOURCE,
+            SimprintsSessionRepository.PendingEnrollmentSource.POSSIBLE_DUPLICATES.name,
         )
     }
 
@@ -96,5 +144,6 @@ class SimprintsSessionRepositoryTest {
 
         verify(preferenceProvider).removeValue(SimprintsSessionRepository.LAST_IDENTIFICATION_SESSION_ID)
         verify(preferenceProvider).removeValue(SimprintsSessionRepository.PENDING_ENROLL_LAST)
+        verify(preferenceProvider).removeValue(SimprintsSessionRepository.PENDING_ENROLL_LAST_SOURCE)
     }
 }

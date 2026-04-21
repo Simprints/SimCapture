@@ -31,6 +31,7 @@ import org.dhis2.maps.views.MapSelectorActivity
 import org.dhis2.usescases.events.ScheduledEventActivity
 import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.EventCaptureActivity
 import org.dhis2.usescases.general.ActivityGlobalAbstract
+import org.dhis2.usescases.searchTrackEntity.SearchTEActivity
 import org.dhis2.usescases.teiDashboard.TeiDashboardMobileActivity
 import org.dhis2.utils.granularsync.OPEN_ERROR_LOCATION
 import org.dhis2.simprints.SimprintsEnrollmentViewModel.RegisterLastResult
@@ -85,6 +86,78 @@ class EnrollmentActivity :
                     Timber.e(e)
                     displayMessage(getString(custom_intent_error))
                     formView.reload()
+                }
+            }
+        }
+
+    private val simprintsAutoRegisterLastBiometricsLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            lifecycleScope.launch {
+                try {
+                    when (
+                        presenter.onRegisterLastResult(
+                            resultCode = result.resultCode,
+                            data = result.data,
+                        )
+                    ) {
+                        RegisterLastResult.CONTINUE_FINISH -> {
+                            formView.reload()
+                        }
+
+                        RegisterLastResult.ERROR -> {
+                            displayMessage(getString(custom_intent_error))
+                        }
+
+                        RegisterLastResult.NONE -> {
+                            // no-op
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e)
+                    displayMessage(getString(custom_intent_error))
+                }
+            }
+        }
+
+    private val simprintsPossibleDuplicatesSearchLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val shouldAutoEnrollLast =
+                result.resultCode == RESULT_OK &&
+                    result.data?.getBooleanExtra(
+                        SearchTEActivity.SIMPRINTS_AUTO_ENROLL_LAST_BIOMETRICS_RESULT,
+                        false,
+                    ) == true
+            if (!shouldAutoEnrollLast) {
+                return@registerForActivityResult
+            }
+
+            val enrollmentUid = intent.getStringExtra(ENROLLMENT_UID_EXTRA).orEmpty()
+            if (enrollmentUid.isBlank()) {
+                displayMessage(getString(custom_intent_error))
+                return@registerForActivityResult
+            }
+
+            lifecycleScope.launch {
+                val simprintsRegisterLastIntent =
+                    try {
+                        presenter.onSimprintsAutoEnrollLastRequested(enrollmentUid)
+                    } catch (e: Exception) {
+                        Timber.e(e)
+                        displayMessage(getString(custom_intent_error))
+                        return@launch
+                    }
+
+                if (simprintsRegisterLastIntent == null) {
+                    displayMessage(getString(custom_intent_error))
+                    return@launch
+                }
+
+                try {
+                    simprintsAutoRegisterLastBiometricsLauncher.launch(simprintsRegisterLastIntent)
+                } catch (e: Exception) {
+                    Timber.e(e)
+                    presenter.onRegisterLastLaunchFailed()
+                    displayMessage(getString(custom_intent_error))
                 }
             }
         }
@@ -167,12 +240,28 @@ class EnrollmentActivity :
                     ),
                 locationProvider = locationProvider,
                 dateEditionWarningHandler = dateEditionWarningHandler,
+                onLaunchSimprintsPossibleDuplicatesSearch = { search ->
+                    val teiTypeToAdd = presenter.getProgram()?.trackedEntityType()?.uid()
+                    if (teiTypeToAdd.isNullOrBlank()) {
+                        Timber.e("Failed to launch Simprints Possible duplicates search: tracked entity type is missing")
+                        displayMessage(getString(custom_intent_error))
+                        return@buildEnrollmentForm
+                    }
+                    simprintsPossibleDuplicatesSearchLauncher.launch(
+                        SearchTEActivity.getSimprintsPossibleDuplicatesIntent(
+                            context = this,
+                            programUid = programUid,
+                            teiTypeToAdd = teiTypeToAdd,
+                            fieldUid = search.fieldUid,
+                            guidValues = search.guidValues,
+                        ),
+                    )
+                },
             ) {
                 lifecycleScope.launch {
                     val simprintsRegisterLastIntent =
                         try {
                             presenter.onFinishRequested(
-                                isNewEnrollment = enrollmentMode == EnrollmentMode.NEW,
                                 enrollmentUid = enrollmentUid,
                             )
                         } catch (e: Exception) {

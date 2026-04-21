@@ -60,6 +60,7 @@ class SimprintsSearchViewModel(
         teiUid: String,
         programUid: String?,
         enrollmentUid: String?,
+        keepSession: Boolean = false,
     ): DashboardAction {
         val searchFields = searchItems.toSearchFields()
         val searchState = SimprintsSearchUtils.searchState(searchFields)
@@ -85,7 +86,9 @@ class SimprintsSearchViewModel(
         }
 
         pendingDashboardNavigation.store(navigation)
-        sessionRepository.clear()
+        if (!keepSession) {
+            sessionRepository.clear()
+        }
         return DashboardAction.LaunchConfirmIdentity(confirmIdentityIntent)
     }
 
@@ -106,8 +109,13 @@ class SimprintsSearchViewModel(
         )
     }
 
+    fun markPendingEnrollmentFromSimprintsPossibleDuplicates() {
+        sessionRepository.markPendingEnrollmentFromPossibleDuplicates()
+    }
+
     fun onConfirmIdentityResult(resultCode: Int): PendingDashboardNavigation? =
-        pendingDashboardNavigation.exchange(null)
+        pendingDashboardNavigation
+            .exchange(null)
             ?.takeIf { resultCode == RESULT_OK }
 
     fun onConfirmIdentityLaunchFailed() {

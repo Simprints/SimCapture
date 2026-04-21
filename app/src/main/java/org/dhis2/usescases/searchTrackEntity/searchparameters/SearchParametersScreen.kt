@@ -280,7 +280,7 @@ fun SearchParametersScreen(
                     if (showSimprintsBiometricNoMatchesMessage) {
                         item {
                             Text(
-                                text = resourceManager.getString(R.string.biometric_search_no_matches),
+                                text = resourceManager.getString(R.string.simprints_biometric_search_no_matches),
                                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
                                 color = Color.Black.copy(alpha = 0.6f),
                             )

@@ -28,27 +28,6 @@ class SimprintsEnrollmentViewModelTest {
     private val resultMapper: SimprintsCustomIntentResultMapper = mock()
 
     @Test
-    fun `onFinishRequested should return null when enrollment is not new`() =
-        runTest {
-            val viewModel =
-                SimprintsEnrollmentViewModel(
-                    simprintsD2Repository = simprintsD2Repository,
-                    resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
-                    sessionRepository = sessionRepository,
-                    resultMapper = resultMapper,
-                )
-
-            val launchIntent =
-                viewModel.onFinishRequested(
-                    isNewEnrollment = false,
-                    enrollmentUid = "enrollment-uid",
-                )
-
-            assertNull(launchIntent)
-            verify(resolvePendingEnrollmentAction, never()).invoke(any(), any())
-        }
-
-    @Test
     fun `onFinishRequested should return null when there is no pending enrollment session`() =
         runTest {
             whenever(sessionRepository.pendingEnrollmentSessionId()) doReturn null
@@ -62,7 +41,27 @@ class SimprintsEnrollmentViewModelTest {
 
             val launchIntent =
                 viewModel.onFinishRequested(
-                    isNewEnrollment = true,
+                    enrollmentUid = "enrollment-uid",
+                )
+
+            assertNull(launchIntent)
+            verify(resolvePendingEnrollmentAction, never()).invoke(any(), any())
+        }
+
+    @Test
+    fun `onAutoEnrollLastRequested should return null when there is no session`() =
+        runTest {
+            whenever(sessionRepository.get()) doReturn null
+            val viewModel =
+                SimprintsEnrollmentViewModel(
+                    simprintsD2Repository = simprintsD2Repository,
+                    resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
+                    sessionRepository = sessionRepository,
+                    resultMapper = resultMapper,
+                )
+
+            val launchIntent =
+                viewModel.onAutoEnrollLastRequested(
                     enrollmentUid = "enrollment-uid",
                 )
 
@@ -110,7 +109,65 @@ class SimprintsEnrollmentViewModelTest {
 
             val preparedIntent =
                 viewModel.onFinishRequested(
-                    isNewEnrollment = true,
+                    enrollmentUid = "enrollment-uid",
+                )
+            val result =
+                viewModel.onRegisterLastResult(
+                    resultCode = RESULT_OK,
+                    data = resultIntent,
+                    teiUid = "tei-uid",
+                )
+
+            assertSame(launchIntent, preparedIntent)
+            assertEquals(SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH, result)
+            verify(simprintsD2Repository).saveTrackedEntityAttributeValue(
+                teiUid = "tei-uid",
+                attributeUid = "attribute-uid",
+                value = "subject-guid",
+            )
+            verify(sessionRepository).clear()
+        }
+
+    @Test
+    fun `onAutoEnrollLastRequested should save mapped value clear session and continue finish`() =
+        runTest {
+            val launchIntent: Intent = mock()
+            val resultIntent: Intent = mock()
+            val responseData =
+                listOf(
+                    CustomIntentResponseDataModel(
+                        name = "subjectId",
+                        extraType = CustomIntentResponseExtraType.STRING,
+                        key = null,
+                    ),
+                )
+            val pendingAction =
+                SimprintsResolvePendingEnrollmentActionUseCase.PendingEnrollmentAction(
+                    fieldUid = "attribute-uid",
+                    callout =
+                        SimprintsIntentUtils.PreparedCallout(
+                            launchIntent = launchIntent,
+                            responseData = responseData,
+                        ),
+                )
+            whenever(sessionRepository.get()) doReturn "session-id"
+            whenever(
+                resolvePendingEnrollmentAction.invoke(
+                    "enrollment-uid",
+                    "session-id",
+                ),
+            ) doReturn pendingAction
+            whenever(resultMapper.map(responseData, resultIntent)) doReturn "subject-guid"
+            val viewModel =
+                SimprintsEnrollmentViewModel(
+                    simprintsD2Repository = simprintsD2Repository,
+                    resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
+                    sessionRepository = sessionRepository,
+                    resultMapper = resultMapper,
+                )
+
+            val preparedIntent =
+                viewModel.onAutoEnrollLastRequested(
                     enrollmentUid = "enrollment-uid",
                 )
             val result =
@@ -168,7 +225,6 @@ class SimprintsEnrollmentViewModelTest {
                 )
 
             viewModel.onFinishRequested(
-                isNewEnrollment = true,
                 enrollmentUid = "enrollment-uid",
             )
             val result =
@@ -215,7 +271,6 @@ class SimprintsEnrollmentViewModelTest {
                 )
 
             viewModel.onFinishRequested(
-                isNewEnrollment = true,
                 enrollmentUid = "enrollment-uid",
             )
             val result =
@@ -278,7 +333,6 @@ class SimprintsEnrollmentViewModelTest {
                 )
 
             viewModel.onFinishRequested(
-                isNewEnrollment = true,
                 enrollmentUid = "enrollment-uid",
             )
             viewModel.onRegisterLastLaunchFailed()

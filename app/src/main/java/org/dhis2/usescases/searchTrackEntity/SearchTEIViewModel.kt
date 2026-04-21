@@ -43,6 +43,7 @@ import org.dhis2.commons.extensions.toPercentage
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.search.SearchParametersModel
 import org.dhis2.form.model.FieldUiModel
@@ -57,6 +58,7 @@ import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.mobile.commons.coroutine.CoroutineTracker
 import org.dhis2.tracker.NavigationBarUIState
 import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
+import org.dhis2.simprints.SimprintsLoadPossibleDuplicatesSearchResultsUseCase
 import org.dhis2.simprints.SimprintsSearchViewModel
 import org.dhis2.usescases.searchTrackEntity.listView.SearchResult
 import org.dhis2.usescases.searchTrackEntity.searchparameters.model.SearchParametersUiState
@@ -86,6 +88,10 @@ sealed class SimprintsNavigationAction {
     data class ShowMessage(
         val message: String,
     ) : SimprintsNavigationAction()
+
+    object FinishSimprintsPossibleDuplicatesSearch : SimprintsNavigationAction()
+
+    object AutoEnrollLastBiometricsFromSimprintsPossibleDuplicates : SimprintsNavigationAction()
 }
 
 class SearchTEIViewModel(
@@ -146,6 +152,8 @@ class SearchTEIViewModel(
         simprintsSearchViewModel.isSimprintsBiometricSearch
     val isSimprintsUseLastBiometricsLabel: LiveData<Boolean> =
         simprintsSearchViewModel.isSimprintsUseLastBiometricsLabel
+    private val _isSimprintsPossibleDuplicatesSearch = MutableLiveData(false)
+    val isSimprintsPossibleDuplicatesSearch: LiveData<Boolean> = _isSimprintsPossibleDuplicatesSearch
 
     private var searching: Boolean = false
     private val filtersActive = MutableLiveData(false)
@@ -172,6 +180,11 @@ class SearchTEIViewModel(
     private var fetchJob: Job? = null
 
     private val onNewSearch = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    private var simprintsPossibleDuplicatesAutoNoneOfAboveTriggered: Boolean = false
+
+    private val loadSimprintsPossibleDuplicatesSearchResultsUseCase =
+        SimprintsLoadPossibleDuplicatesSearchResultsUseCase(searchRepository, searchRepositoryKt)
 
     val searchPagingData =
         onNewSearch
@@ -204,6 +217,14 @@ class SearchTEIViewModel(
             )
         }
         refreshSimprintsUiState()
+    }
+
+    fun clearSimprintsSession() {
+        simprintsSearchViewModel.clearPendingSession()
+    }
+
+    fun setSimprintsPossibleDuplicatesSearch(isSimprintsPossibleDuplicatesSearch: Boolean) {
+        _isSimprintsPossibleDuplicatesSearch.value = isSimprintsPossibleDuplicatesSearch
     }
 
     private fun loadNavigationBarItems() {
@@ -474,6 +495,13 @@ class SearchTEIViewModel(
         updateSearch()
     }
 
+    fun onSimprintsPossibleDuplicatesNoneOfAboveClick() {
+        simprintsSearchViewModel.markPendingEnrollmentFromSimprintsPossibleDuplicates()
+        viewModelScope.launch {
+            _simprintsNavigation.send(SimprintsNavigationAction.FinishSimprintsPossibleDuplicatesSearch)
+        }
+    }
+
     fun onSimprintsBiometricSearchNavigation() {
         onNavigationPageChanged(NavigationPage.LIST_VIEW)
         setListScreen()
@@ -518,14 +546,34 @@ class SearchTEIViewModel(
                     selectedProgram = searchRepository.getProgram(initialProgramUid),
                     queryData = queryData,
                 )
-            loadSimprintsBiometricSearchResults(
-                searchParametersModel = searchParametersModel,
-                isOnline = searching && networkUtils.isOnline(),
-            )?.let { return@withContext it }
+            val isSimprintsPossibleDuplicatesSearch = _isSimprintsPossibleDuplicatesSearch.value == true
+            val isOnline = searching && networkUtils.isOnline()
+
+            if (isSimprintsPossibleDuplicatesSearch) {
+                val simprintsPossibleDuplicatesResults =
+                    loadSimprintsPossibleDuplicatesSearchResultsUseCase(
+                        searchParametersModel = searchParametersModel,
+                        isOnline = isOnline,
+                        offlineOnly = !(isOnline && filterManager.stateFilters.isEmpty()),
+                        sortingItem = filterManager.sortingItem,
+                    ) ?: emptyList()
+
+                if (simprintsPossibleDuplicatesResults.isEmpty() && !simprintsPossibleDuplicatesAutoNoneOfAboveTriggered) {
+                    simprintsPossibleDuplicatesAutoNoneOfAboveTriggered = true
+                    onSimprintsPossibleDuplicatesAutoEnrollLastClick()
+                }
+
+                return@withContext flow { emit(PagingData.from(simprintsPossibleDuplicatesResults)) }
+            } else {
+                loadSimprintsBiometricSearchResults(
+                    searchParametersModel = searchParametersModel,
+                    isOnline = isOnline,
+                )?.let { return@withContext it }
+            }
             val getPagingData =
                 searchRepositoryKt.searchTrackedEntities(
                     searchParametersModel,
-                    searching && networkUtils.isOnline(),
+                    isOnline,
                 )
 
             return@withContext getPagingData.map { pagingData ->
@@ -554,6 +602,12 @@ class SearchTEIViewModel(
                 }
             }
         }
+
+    private fun onSimprintsPossibleDuplicatesAutoEnrollLastClick() {
+        viewModelScope.launch {
+            _simprintsNavigation.send(SimprintsNavigationAction.AutoEnrollLastBiometricsFromSimprintsPossibleDuplicates)
+        }
+    }
 
     private suspend fun loadDisplayInListResults() =
         withContext(dispatchers.io()) {
@@ -681,7 +735,9 @@ class SearchTEIViewModel(
                         )
 
                     when (_screenState.value?.screenState) {
-                        SearchScreenState.LIST -> {
+                        SearchScreenState.LIST,
+                        SearchScreenState.NONE,
+                        null -> {
                             setListScreen()
                             onNewSearch.emit(Unit)
                         }
@@ -717,7 +773,10 @@ class SearchTEIViewModel(
         }
     }
 
-    private fun canPerformSearch(): Boolean = minAttributesToSearchCheck() || displayFrontPageList()
+    private fun canPerformSearch(): Boolean =
+        (_isSimprintsPossibleDuplicatesSearch.value == true && queryData.isNotEmpty()) ||
+            minAttributesToSearchCheck() ||
+            displayFrontPageList()
 
     private fun minAttributesToSearchCheck(): Boolean =
         searchRepository.getProgram(initialProgramUid)?.let { program ->
@@ -769,6 +828,7 @@ class SearchTEIViewModel(
                             teiUid = teiUid,
                             programUid = programUid,
                             enrollmentUid = enrollmentUid,
+                            keepSession = _isSimprintsPossibleDuplicatesSearch.value == true,
                         )
                 ) {
                     is SimprintsSearchViewModel.DashboardAction.LaunchConfirmIdentity -> {
@@ -1363,6 +1423,14 @@ class SearchTEIViewModel(
         searchParametersUiState.items
             .filter { !it.value.isNullOrEmpty() }
             .forEach { item ->
+                if (SimprintsIntentUtils.isIdentifyCallout(item.customIntent)) {
+                    val isSimprintsPossibleDuplicatesSearch = _isSimprintsPossibleDuplicatesSearch.value == true
+                    map[item.uid] =
+                        resourceManager.getString(
+                            if (isSimprintsPossibleDuplicatesSearch) R.string.simprints_possible_duplicates else R.string.simprints_biometric_search,
+                        )
+                    return@forEach
+                }
 
                 when (item.valueType) {
                     ValueType.ORGANISATION_UNIT, ValueType.MULTI_TEXT -> {

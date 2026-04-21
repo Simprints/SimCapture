@@ -1,6 +1,7 @@
 package org.dhis2.usescases.enrollment
 
 import android.content.Intent
+import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import io.reactivex.Single
 import io.reactivex.processors.PublishProcessor
 import kotlinx.coroutines.test.runTest
@@ -29,15 +30,21 @@ import org.hisp.dhis.android.core.program.Program
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstance
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstanceObjectRepository
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.mockito.Mockito
+import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.whenever
 
 class EnrollmentPresenterImplTest {
+    @get:Rule
+    val instantTaskExecutorRule = InstantTaskExecutorRule()
+
     private val enrollmentFormRepository: EnrollmentFormRepository = mock()
     private val programRepository: ReadOnlyOneObjectRepositoryFinalImpl<Program> = mock()
     private val teiRepository: TrackedEntityInstanceObjectRepository = mock()
@@ -264,12 +271,11 @@ class EnrollmentPresenterImplTest {
         val intent: Intent = mock()
         whenever(
             simprintsEnrollmentViewModel.onFinishRequested(
-                isNewEnrollment = true,
                 enrollmentUid = "enrollmentUid",
             ),
         ) doReturn intent
 
-        val result = presenter.onFinishRequested(true, "enrollmentUid")
+        val result = presenter.onFinishRequested("enrollmentUid")
 
         assert(result == intent)
     }
@@ -284,14 +290,19 @@ class EnrollmentPresenterImplTest {
             whenever(enrollmentRepository.blockingGet()) doReturn enrollment
             whenever(
                 simprintsEnrollmentViewModel.onRegisterLastResult(
-                    resultCode = 1,
-                    data = null,
-                    teiUid = "teiUid",
+                    resultCode = any(),
+                    data = anyOrNull(),
+                    teiUid = anyOrNull(),
                 ),
             ) doReturn SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH
 
             val result = presenter.onRegisterLastResult(resultCode = 1, data = null)
 
+            verify(simprintsEnrollmentViewModel).onRegisterLastResult(
+                resultCode = 1,
+                data = null,
+                teiUid = "teiUid",
+            )
             assert(result == SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH)
         }
 

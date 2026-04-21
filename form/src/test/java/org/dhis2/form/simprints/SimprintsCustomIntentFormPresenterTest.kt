@@ -112,6 +112,24 @@ class SimprintsCustomIntentFormPresenterTest {
     }
 
     @Test
+    fun `prepareLaunch should clear session when pending value exists and presenter handles launch`() {
+        val presenter =
+            SimprintsCustomIntentFormPresenter(
+                fieldValue = null,
+                callout = preparedCallout(responseData()),
+                capturesSessionId = false,
+                sessionRepository = sessionRepository,
+                contract = contract,
+                placeholderValue = "From last biometric search",
+                hasPendingValue = true,
+            )
+
+        presenter.prepareLaunch()
+
+        verify(sessionRepository).clear()
+    }
+
+    @Test
     fun `clearPendingValue should clear session when pending value exists`() {
         val presenter =
             SimprintsCustomIntentFormPresenter(
