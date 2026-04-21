@@ -1,14 +1,17 @@
 package org.dhis2.form.ui.customintent
 
 import android.content.Intent
+import android.os.Bundle
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import org.dhis2.mobile.commons.model.CustomIntentModel
 import org.dhis2.mobile.commons.model.CustomIntentRequestArgumentModel
 import org.dhis2.mobile.commons.model.CustomIntentResponseDataModel
 import org.dhis2.mobile.commons.model.CustomIntentResponseExtraType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.doReturn
@@ -471,5 +474,83 @@ class CustomIntentActivityResultContractTest {
         assertNotNull(result)
         assertEquals(3, result?.size)
         assertEquals(listOf("test", "42", "123"), result)
+    }
+
+    @Test
+    fun `parseResult should return possible duplicates for Simprints identifications`() {
+        prepareParseResult(
+            fieldUid = "field-uid",
+            customIntent = simprintsRegisterIntent(),
+        )
+        val bundleExtras =
+            Bundle().apply {
+                putString("sessionId", "session-id")
+                putString("identifications", """[{"guid":"g1"},{"guid":"g2"}]""")
+            }
+        val intent =
+            mock<Intent> {
+                on { hasExtra("guid") } doReturn false
+                on { hasExtra("identification") } doReturn false
+                on { hasExtra("identifications") } doReturn true
+                on { getStringExtra("identifications") } doReturn """[{"guid":"g1"},{"guid":"g2"}]"""
+                on { extras } doReturn bundleExtras
+            }
+
+        val result = contract.parseResult(android.app.Activity.RESULT_OK, intent)
+
+        assertTrue(result is CustomIntentResult.PossibleDuplicates)
+        result as CustomIntentResult.PossibleDuplicates
+        assertEquals("field-uid", result.fieldUid)
+        assertEquals(listOf("g1", "g2"), result.guidValues)
+    }
+
+    @Test
+    fun `parseResult should not treat Simprints identify result as possible duplicates`() {
+        prepareParseResult(
+            fieldUid = "field-uid",
+            customIntent = simprintsIdentifyIntent(),
+        )
+        val intent =
+            Intent().apply {
+                putExtra("identifications", """[{"guid":"g1"}]""")
+            }
+
+        val result = contract.parseResult(android.app.Activity.RESULT_OK, intent)
+
+        assertTrue(result is CustomIntentResult.Error)
+    }
+
+    private fun simprintsRegisterIntent() = simprintsIntent("com.simprints.id.REGISTER")
+
+    private fun simprintsIdentifyIntent() = simprintsIntent("com.simprints.id.IDENTIFY")
+
+    private fun simprintsIntent(packageName: String) =
+        CustomIntentModel(
+            uid = packageName,
+            name = packageName,
+            packageName = packageName,
+            customIntentRequest = emptyList(),
+            customIntentResponse =
+                listOf(
+                    CustomIntentResponseDataModel(
+                        name = "guid",
+                        extraType = CustomIntentResponseExtraType.STRING,
+                        key = null,
+                    ),
+                ),
+        )
+
+    private fun prepareParseResult(
+        fieldUid: String,
+        customIntent: CustomIntentModel,
+    ) {
+        CustomIntentActivityResultContract::class.java
+            .getDeclaredField("fieldUid")
+            .apply { isAccessible = true }
+            .set(null, fieldUid)
+        CustomIntentActivityResultContract::class.java
+            .getDeclaredField("customIntent")
+            .apply { isAccessible = true }
+            .set(null, customIntent)
     }
 }

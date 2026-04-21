@@ -173,11 +173,13 @@ class EnrollmentPresenterImpl(
     suspend fun onRegisterLastResult(
         resultCode: Int,
         data: Intent?,
+        enrollmentUid: String?,
     ): SimprintsEnrollmentViewModel.RegisterLastResult =
         simprintsEnrollmentViewModel.onRegisterLastResult(
             resultCode = resultCode,
             data = data,
             teiUid = getEnrollment()?.trackedEntityInstance(),
+            enrollmentUid = enrollmentUid ?: getEnrollment()?.uid(),
         )
 
     fun onRegisterLastLaunchFailed() {

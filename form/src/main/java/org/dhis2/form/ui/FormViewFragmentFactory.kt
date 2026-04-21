@@ -5,6 +5,7 @@ import androidx.fragment.app.FragmentFactory
 import org.dhis2.commons.locationprovider.LocationProvider
 import org.dhis2.commons.simprints.usecases.SimprintsResolvePossibleDuplicatesSearchUseCase.SimprintsPossibleDuplicatesSearch
 import org.dhis2.form.model.RowAction
+import org.dhis2.form.ui.customintent.CustomIntentInput
 
 class FormViewFragmentFactory(
     val locationProvider: LocationProvider?,
@@ -13,6 +14,7 @@ class FormViewFragmentFactory(
     private val onFocused: (() -> Unit)?,
     private val onFinishDataEntry: (() -> Unit)?,
     private val onActivityForResult: (() -> Unit)?,
+    private val onLaunchSimprintsCustomIntent: ((CustomIntentInput) -> Unit)?,
     private val onLaunchSimprintsPossibleDuplicatesSearch: ((SimprintsPossibleDuplicatesSearch) -> Unit)?,
     private val completionListener: ((percentage: Float) -> Unit)?,
     private val onFieldItemsRendered: ((fieldsEmpty: Boolean) -> Unit)?,
@@ -33,6 +35,7 @@ class FormViewFragmentFactory(
                         onFocused = onFocused,
                         onFinishDataEntry = onFinishDataEntry,
                         onActivityForResult = onActivityForResult,
+                        onLaunchSimprintsCustomIntent = onLaunchSimprintsCustomIntent,
                         onLaunchSimprintsPossibleDuplicatesSearch = onLaunchSimprintsPossibleDuplicatesSearch,
                         onFieldItemsRendered = onFieldItemsRendered,
                     )

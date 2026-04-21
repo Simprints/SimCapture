@@ -70,6 +70,7 @@ class SimprintsResolveSingleBiometricSearchNavigationUseCaseTest {
                     teiUid = "teiUid",
                     programUid = "matchedProgramUid",
                     enrollmentUid = "enrollmentUid",
+                    isOnline = true,
                 ),
                 result,
             )
@@ -107,6 +108,7 @@ class SimprintsResolveSingleBiometricSearchNavigationUseCaseTest {
                     teiUid = "teiUid",
                     programUid = "initialProgramUid",
                     enrollmentUid = null,
+                    isOnline = true,
                 ),
                 result,
             )

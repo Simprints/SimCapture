@@ -1,8 +1,6 @@
 package org.dhis2.form.ui.provider.inputfield
 
-import android.app.Activity.RESULT_OK
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -19,15 +17,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import org.dhis2.commons.resources.ResourceManager
-import org.dhis2.commons.simprints.usecases.SimprintsExtractIdentificationMatchesUseCase
-import org.dhis2.commons.simprints.usecases.SimprintsResolvePossibleDuplicatesSearchUseCase
-import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.form.R
 import org.dhis2.form.di.Injector
 import org.dhis2.form.extensions.inputState
 import org.dhis2.form.extensions.supportingText
 import org.dhis2.form.model.FieldUiModel
-import org.dhis2.form.simprints.LocalSimprintsPossibleDuplicatesSearchHandler
 import org.dhis2.form.simprints.rememberSimprintsCustomIntentFormPresenter
 import org.dhis2.form.ui.customintent.CustomIntentActivityResultContract
 import org.dhis2.form.ui.customintent.CustomIntentInput
@@ -52,7 +46,6 @@ fun ProvideCustomIntentInput(
     modifier: Modifier,
 ) {
     val context = LocalContext.current.applicationContext
-    val simprintsPossibleDuplicatesSearchHandler = LocalSimprintsPossibleDuplicatesSearchHandler.current
     val values =
         remember(fieldUiModel) {
             fieldUiModel.value?.takeIf { it.isNotEmpty() }?.let { value ->
@@ -104,14 +97,6 @@ fun ProvideCustomIntentInput(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-
-    val simprintsResolvePossibleDuplicatesSearchUseCase =
-        remember(simprintsSessionRepository) {
-            SimprintsResolvePossibleDuplicatesSearchUseCase(
-                extractIdentificationMatches = SimprintsExtractIdentificationMatchesUseCase(),
-                sessionRepository = simprintsSessionRepository,
-            )
-        }
     LaunchedEffect(
         fieldUiModel.value,
         fieldUiModel.isLoadingData,
@@ -125,55 +110,6 @@ fun ProvideCustomIntentInput(
         }
         customIntentState = getCustomIntentState(values, fieldUiModel.isLoadingData)
     }
-    val simprintsLauncher =
-        rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) { result ->
-            val returnedValue =
-                simprintsCustomIntentFormPresenter.handleResult(result.resultCode, result.data)
-
-            val possibleDuplicatesSearch =
-                if (
-                    result.resultCode == RESULT_OK &&
-                    returnedValue == null &&
-                    SimprintsIntentUtils.isRegisterCallout(fieldUiModel.customIntent)
-                ) {
-                    simprintsResolvePossibleDuplicatesSearchUseCase(
-                        fieldUid = fieldUiModel.uid,
-                        resultCode = result.resultCode,
-                        data = result.data,
-                    )
-                } else {
-                    null
-                }
-
-            if (possibleDuplicatesSearch != null && simprintsPossibleDuplicatesSearchHandler != null) {
-                customIntentState = CustomIntentState.LAUNCH
-                inputShellState = fieldUiModel.inputState()
-                if (supportingTextList.contains(errorGettingDataMessage)) {
-                    supportingTextList.remove(errorGettingDataMessage)
-                }
-                simprintsPossibleDuplicatesSearchHandler(possibleDuplicatesSearch)
-            } else if (result.resultCode != RESULT_OK || returnedValue == null) {
-                customIntentState = CustomIntentState.LAUNCH
-                inputShellState = InputShellState.ERROR
-                if (!supportingTextList.contains(errorGettingDataMessage)) {
-                    supportingTextList.add(
-                        errorGettingDataMessage,
-                    )
-                }
-            } else {
-                customIntentState = CustomIntentState.LOADED
-                intentHandler(
-                    FormIntent.OnSave(
-                        fieldUiModel.uid,
-                        returnedValue,
-                        fieldUiModel.valueType,
-                    ),
-                )
-                if (simprintsCustomIntentFormPresenter.hasPendingValue) {
-                    simprintsSessionRepository.clear()
-                }
-            }
-        }
     val launcher =
         rememberLauncherForActivityResult(contract = CustomIntentActivityResultContract()) {
             when (it) {
@@ -196,6 +132,15 @@ fun ProvideCustomIntentInput(
                         ),
                     )
                 }
+                is CustomIntentResult.PossibleDuplicates -> {
+                    customIntentState = CustomIntentState.LAUNCH
+                    inputShellState = InputShellState.ERROR
+                    if (!supportingTextList.contains(errorGettingDataMessage)) {
+                        supportingTextList.add(
+                            errorGettingDataMessage,
+                        )
+                    }
+                }
             }
         }
     InputCustomIntent(
@@ -214,9 +159,12 @@ fun ProvideCustomIntentInput(
                 if (supportingTextList.contains(errorGettingDataMessage)) {
                     supportingTextList.remove(errorGettingDataMessage)
                 }
-                simprintsCustomIntentFormPresenter
-                    .createLaunchIntent()
-                    ?.let(simprintsLauncher::launch)
+                uiEventHandler.invoke(
+                    RecyclerViewUiEvents.LaunchCustomIntent(
+                        fieldUiModel.customIntent,
+                        fieldUiModel.uid,
+                    ),
+                )
                 return@InputCustomIntent
             }
 

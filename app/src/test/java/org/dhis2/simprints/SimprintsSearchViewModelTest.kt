@@ -380,6 +380,7 @@ class SimprintsSearchViewModelTest {
                     teiUid = "teiUid",
                     programUid = "programUid",
                     enrollmentUid = "enrollmentUid",
+                    isOnline = false,
                 )
             val viewModel =
                 SimprintsSearchViewModel(
@@ -418,6 +419,7 @@ class SimprintsSearchViewModelTest {
                     teiUid = "teiUid",
                     programUid = "programUid",
                     enrollmentUid = "enrollmentUid",
+                    isOnline = false,
                 )
             val viewModel =
                 SimprintsSearchViewModel(
@@ -467,6 +469,7 @@ class SimprintsSearchViewModelTest {
                     teiUid = "teiUid",
                     programUid = "programUid",
                     enrollmentUid = "enrollmentUid",
+                    isOnline = false,
                 )
             val viewModel =
                 SimprintsSearchViewModel(
@@ -496,6 +499,50 @@ class SimprintsSearchViewModelTest {
         }
 
     @Test
+    fun `onSimprintsParameterSaved should open pending MFID biometric result directly even before search items are restored`() =
+        runTest {
+            whenever(
+                resolveSingleBiometricSearchNavigation(
+                    initialProgramUid = any(),
+                    queryData = any(),
+                    value = any(),
+                ),
+            ) doReturn
+                SimprintsResolveSingleBiometricSearchNavigationUseCase.NavigationTarget(
+                    teiUid = "teiUid",
+                    programUid = "programUid",
+                    enrollmentUid = "enrollmentUid",
+                    isOnline = true,
+                )
+            val viewModel =
+                SimprintsSearchViewModel(
+                    resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+                    sessionRepository = sessionRepository,
+                    resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                )
+            viewModel.onSimprintsBiometricIdentificationResult(
+                uid = "biometric",
+                value = "guid-1",
+                hasAutoOpenEligibleSimprintsIdentification = true,
+            )
+
+            val navigation =
+                viewModel.onSimprintsParameterSaved(
+                    uid = "biometric",
+                    value = "guid-1",
+                    searchItems = emptyList(),
+                    initialProgramUid = "program-uid",
+                    queryData = mapOf("biometric" to listOf("guid-1")),
+                )
+
+            assertEquals("teiUid", navigation?.teiUid)
+            assertEquals("programUid", navigation?.programUid)
+            assertEquals("enrollmentUid", navigation?.enrollmentUid)
+            assertTrue(navigation?.isOnline == true)
+            verify(sessionRepository).clear()
+        }
+
+    @Test
     fun `clearSimprintsBiometricQueryData should clear only biometric search items`() {
         val viewModel =
             SimprintsSearchViewModel(
@@ -503,10 +550,11 @@ class SimprintsSearchViewModelTest {
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
             )
-        val queryData = mutableMapOf<String, List<String>?>(
-            "biometric" to listOf("guid-1"),
-            "name" to listOf("Name"),
-        )
+        val queryData =
+            mutableMapOf<String, List<String>?>(
+                "biometric" to listOf("guid-1"),
+                "name" to listOf("Name"),
+            )
 
         val updatedItems =
             viewModel.clearSimprintsBiometricQueryData(

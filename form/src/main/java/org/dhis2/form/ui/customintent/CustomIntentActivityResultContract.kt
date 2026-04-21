@@ -3,10 +3,12 @@ package org.dhis2.form.ui.customintent
 import android.app.Activity.RESULT_OK
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.runtime.mutableStateListOf
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.mobile.commons.model.CustomIntentModel
 import org.dhis2.mobile.commons.model.CustomIntentRequestArgumentModel
 import org.dhis2.mobile.commons.model.CustomIntentResponseDataModel
@@ -18,6 +20,8 @@ class CustomIntentActivityResultContract : ActivityResultContract<CustomIntentIn
     companion object {
         private var fieldUid: String = ""
         private var customIntent: CustomIntentModel? = null
+        private val SIMPRINTS_IDENTIFICATION_EXTRA_NAMES = listOf("identification", "identifications")
+        private const val SIMPRINTS_GUID_KEY = "guid"
     }
 
     override fun createIntent(
@@ -45,18 +49,52 @@ class CustomIntentActivityResultContract : ActivityResultContract<CustomIntentIn
                     mapIntentResponseData(it.customIntentResponse, intent)
                 }
             if (customIntentResponseParsedData.isNullOrEmpty()) {
-                CustomIntentResult.Error(fieldUid = fieldUid)
+                mapPossibleSimprintsDuplicateResult(intent)
+                    ?: CustomIntentResult.Error(fieldUid = fieldUid)
             } else {
                 returnedValues = mutableStateListOf(*customIntentResponseParsedData.toTypedArray())
 
                 CustomIntentResult.Success(
                     fieldUid = fieldUid,
                     value = returnedValues.joinToString(separator = ","),
+                    action = customIntent?.packageName,
+                    extras = intent?.extras,
                 )
             }
         } else {
             CustomIntentResult.Error(fieldUid = fieldUid)
         }
+
+    private fun mapPossibleSimprintsDuplicateResult(intent: Intent?): CustomIntentResult.PossibleDuplicates? {
+        val launchedCustomIntent = customIntent
+        if (
+            !SimprintsIntentUtils.isCallout(launchedCustomIntent) ||
+            SimprintsIntentUtils.isIdentifyCallout(launchedCustomIntent)
+        ) {
+            return null
+        }
+
+        val guidValues =
+            SIMPRINTS_IDENTIFICATION_EXTRA_NAMES.firstNotNullOfOrNull { extraName ->
+                mapIntentResponseData(
+                    customIntentResponse =
+                        listOf(
+                            CustomIntentResponseDataModel(
+                                name = extraName,
+                                extraType = CustomIntentResponseExtraType.LIST_OF_OBJECTS,
+                                key = SIMPRINTS_GUID_KEY,
+                            ),
+                        ),
+                    intent = intent,
+                )
+            } ?: return null
+
+        return CustomIntentResult.PossibleDuplicates(
+            fieldUid = fieldUid,
+            guidValues = guidValues,
+            extras = intent?.extras,
+        )
+    }
 
     fun mapIntentData(
         packageName: String,
@@ -193,9 +231,17 @@ sealed class CustomIntentResult {
     data class Success(
         val fieldUid: String,
         val value: String,
+        val action: String?,
+        val extras: Bundle?,
     ) : CustomIntentResult()
 
     data class Error(
         val fieldUid: String,
+    ) : CustomIntentResult()
+
+    data class PossibleDuplicates(
+        val fieldUid: String,
+        val guidValues: List<String>,
+        val extras: Bundle?,
     ) : CustomIntentResult()
 }

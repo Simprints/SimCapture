@@ -116,6 +116,7 @@ class SimprintsEnrollmentViewModelTest {
                     resultCode = RESULT_OK,
                     data = resultIntent,
                     teiUid = "tei-uid",
+                    enrollmentUid = "enrollment-uid",
                 )
 
             assertSame(launchIntent, preparedIntent)
@@ -175,6 +176,7 @@ class SimprintsEnrollmentViewModelTest {
                     resultCode = RESULT_OK,
                     data = resultIntent,
                     teiUid = "tei-uid",
+                    enrollmentUid = "enrollment-uid",
                 )
 
             assertSame(launchIntent, preparedIntent)
@@ -232,6 +234,7 @@ class SimprintsEnrollmentViewModelTest {
                     resultCode = RESULT_OK,
                     data = resultIntent,
                     teiUid = "tei-uid",
+                    enrollmentUid = "enrollment-uid",
                 )
 
             assertEquals(SimprintsEnrollmentViewModel.RegisterLastResult.ERROR, result)
@@ -240,6 +243,7 @@ class SimprintsEnrollmentViewModelTest {
                 any(),
                 any(),
             )
+            verify(sessionRepository).clearPendingEnrollment()
             verify(sessionRepository, never()).clear()
         }
 
@@ -278,10 +282,13 @@ class SimprintsEnrollmentViewModelTest {
                     resultCode = RESULT_OK,
                     data = mock(),
                     teiUid = null,
+                    enrollmentUid = "enrollment-uid",
                 )
 
             assertEquals(SimprintsEnrollmentViewModel.RegisterLastResult.ERROR, result)
             verify(resultMapper, never()).map(any(), any())
+            verify(sessionRepository).clearPendingEnrollment()
+            verify(sessionRepository, never()).clear()
         }
 
     @Test
@@ -300,13 +307,66 @@ class SimprintsEnrollmentViewModelTest {
                     resultCode = RESULT_OK,
                     data = mock(),
                     teiUid = "tei-uid",
+                    enrollmentUid = null,
                 )
 
             assertEquals(SimprintsEnrollmentViewModel.RegisterLastResult.NONE, result)
         }
 
     @Test
-    fun `onRegisterLastLaunchFailed should discard pending action`() =
+    fun `onRegisterLastResult should recover lost pending action after recreation and clear pending enrollment on error`() =
+        runTest {
+            val responseData =
+                listOf(
+                    CustomIntentResponseDataModel(
+                        name = "subjectId",
+                        extraType = CustomIntentResponseExtraType.STRING,
+                        key = null,
+                    ),
+                )
+            val pendingAction =
+                SimprintsResolvePendingEnrollmentActionUseCase.PendingEnrollmentAction(
+                    fieldUid = "attribute-uid",
+                    callout =
+                        SimprintsIntentUtils.PreparedCallout(
+                            launchIntent = mock(),
+                            responseData = responseData,
+                        ),
+                )
+            whenever(sessionRepository.pendingEnrollmentSessionId()) doReturn "session-id"
+            whenever(
+                resolvePendingEnrollmentAction.invoke(
+                    "enrollment-uid",
+                    "session-id",
+                ),
+            ) doReturn pendingAction
+            val viewModel =
+                SimprintsEnrollmentViewModel(
+                    simprintsD2Repository = simprintsD2Repository,
+                    resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
+                    sessionRepository = sessionRepository,
+                    resultMapper = resultMapper,
+                )
+
+            val result =
+                viewModel.onRegisterLastResult(
+                    resultCode = 0,
+                    data = mock(),
+                    teiUid = "tei-uid",
+                    enrollmentUid = "enrollment-uid",
+                )
+
+            assertEquals(SimprintsEnrollmentViewModel.RegisterLastResult.ERROR, result)
+            verify(sessionRepository).clearPendingEnrollment()
+            verify(simprintsD2Repository, never()).saveTrackedEntityAttributeValue(
+                any(),
+                any(),
+                any(),
+            )
+        }
+
+    @Test
+    fun `onRegisterLastLaunchFailed should clear pending enrollment`() =
         runTest {
             val pendingAction =
                 SimprintsResolvePendingEnrollmentActionUseCase.PendingEnrollmentAction(
@@ -336,13 +396,7 @@ class SimprintsEnrollmentViewModelTest {
                 enrollmentUid = "enrollment-uid",
             )
             viewModel.onRegisterLastLaunchFailed()
-            val result =
-                viewModel.onRegisterLastResult(
-                    resultCode = RESULT_OK,
-                    data = mock(),
-                    teiUid = "tei-uid",
-                )
 
-            assertEquals(SimprintsEnrollmentViewModel.RegisterLastResult.NONE, result)
+            verify(sessionRepository).clearPendingEnrollment()
         }
 }

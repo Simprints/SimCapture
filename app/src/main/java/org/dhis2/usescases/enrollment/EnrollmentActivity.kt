@@ -27,14 +27,16 @@ import org.dhis2.form.data.GeometryController
 import org.dhis2.form.data.GeometryParserImpl
 import org.dhis2.form.model.EventMode
 import org.dhis2.form.ui.FormView
+import org.dhis2.form.ui.customintent.CustomIntentActivityResultContract
+import org.dhis2.form.ui.customintent.CustomIntentResult
 import org.dhis2.maps.views.MapSelectorActivity
+import org.dhis2.simprints.SimprintsEnrollmentViewModel.RegisterLastResult
 import org.dhis2.usescases.events.ScheduledEventActivity
 import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.EventCaptureActivity
 import org.dhis2.usescases.general.ActivityGlobalAbstract
 import org.dhis2.usescases.searchTrackEntity.SearchTEActivity
 import org.dhis2.usescases.teiDashboard.TeiDashboardMobileActivity
 import org.dhis2.utils.granularsync.OPEN_ERROR_LOCATION
-import org.dhis2.simprints.SimprintsEnrollmentViewModel.RegisterLastResult
 import org.hisp.dhis.android.core.common.FeatureType
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
 import timber.log.Timber
@@ -59,6 +61,25 @@ class EnrollmentActivity :
 
     lateinit var binding: EnrollmentActivityBinding
     lateinit var mode: EnrollmentMode
+    private val simprintsCustomIntentActivityResultContract = CustomIntentActivityResultContract()
+    private val simprintsCustomIntentLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            try {
+                supportFragmentManager.executePendingTransactions()
+                formView.handleCustomIntentResult(
+                    simprintsCustomIntentActivityResultContract.parseResult(
+                        resultCode = result.resultCode,
+                        intent = result.data,
+                    ),
+                )
+            } catch (e: Exception) {
+                Timber.e(e)
+                displayMessage(getString(custom_intent_error))
+                if (::formView.isInitialized) {
+                    formView.reload()
+                }
+            }
+        }
     private val simprintsRegisterLastBiometricsLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             lifecycleScope.launch {
@@ -67,6 +88,7 @@ class EnrollmentActivity :
                         presenter.onRegisterLastResult(
                             resultCode = result.resultCode,
                             data = result.data,
+                            enrollmentUid = intent.getStringExtra(ENROLLMENT_UID_EXTRA),
                         )
                     ) {
                         RegisterLastResult.CONTINUE_FINISH -> {
@@ -98,6 +120,7 @@ class EnrollmentActivity :
                         presenter.onRegisterLastResult(
                             resultCode = result.resultCode,
                             data = result.data,
+                            enrollmentUid = intent.getStringExtra(ENROLLMENT_UID_EXTRA),
                         )
                     ) {
                         RegisterLastResult.CONTINUE_FINISH -> {
@@ -240,6 +263,21 @@ class EnrollmentActivity :
                     ),
                 locationProvider = locationProvider,
                 dateEditionWarningHandler = dateEditionWarningHandler,
+                onLaunchSimprintsCustomIntent = { input ->
+                    try {
+                        simprintsCustomIntentLauncher.launch(
+                            simprintsCustomIntentActivityResultContract.createIntent(this, input),
+                        )
+                    } catch (e: Exception) {
+                        Timber.e(e)
+                        displayMessage(getString(custom_intent_error))
+                        if (::formView.isInitialized) {
+                            formView.handleCustomIntentResult(
+                                CustomIntentResult.Error(fieldUid = input.fieldUid),
+                            )
+                        }
+                    }
+                },
                 onLaunchSimprintsPossibleDuplicatesSearch = { search ->
                     val teiTypeToAdd = presenter.getProgram()?.trackedEntityType()?.uid()
                     if (teiTypeToAdd.isNullOrBlank()) {

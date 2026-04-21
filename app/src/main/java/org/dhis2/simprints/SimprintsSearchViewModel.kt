@@ -32,6 +32,7 @@ class SimprintsSearchViewModel(
         val teiUid: String,
         val programUid: String?,
         val enrollmentUid: String?,
+        val isOnline: Boolean = false,
     )
 
     sealed class DashboardAction {
@@ -171,7 +172,15 @@ class SimprintsSearchViewModel(
         queryData: Map<String, List<String>?>,
     ): PendingDashboardNavigation? {
         val searchFields = searchItems.toSearchFields()
-        if (!shouldAutoNavigateToSimprintsBiometricSearch(uid, value, searchFields)) {
+        val hasPendingMfidBiometricIdentification =
+            pendingSimprintsMfidBiometricIdentification?.let {
+                it.uid == uid && it.value == value
+            } == true
+
+        if (
+            !hasPendingMfidBiometricIdentification &&
+            !shouldAutoNavigateToSimprintsBiometricSearch(uid, value, searchFields)
+        ) {
             return null
         }
 
@@ -185,6 +194,7 @@ class SimprintsSearchViewModel(
                     teiUid = navigationTarget.teiUid,
                     programUid = navigationTarget.programUid,
                     enrollmentUid = navigationTarget.enrollmentUid,
+                    isOnline = navigationTarget.isOnline,
                 )
             }?.also {
                 clearPendingSession()

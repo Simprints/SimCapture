@@ -19,6 +19,7 @@ class SimprintsResolveSingleBiometricSearchNavigationUseCase(
         val teiUid: String,
         val programUid: String?,
         val enrollmentUid: String?,
+        val isOnline: Boolean,
     )
 
     suspend operator fun invoke(
@@ -63,6 +64,7 @@ class SimprintsResolveSingleBiometricSearchNavigationUseCase(
                 teiUid = searchTeiModel.uid(),
                 programUid = searchTeiModel.selectedEnrollment?.program() ?: initialProgramUid,
                 enrollmentUid = searchTeiModel.selectedEnrollment?.uid(),
+                isOnline = searchTeiModel.isOnline,
             )
         }
 }

@@ -34,11 +34,11 @@ import org.junit.Rule
 import org.junit.Test
 import org.mockito.Mockito
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
-import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.whenever
 
 class EnrollmentPresenterImplTest {
@@ -267,18 +267,19 @@ class EnrollmentPresenterImplTest {
     }
 
     @Test
-    fun `Should delegate finish request to Simprints enrollment view model`() = runTest {
-        val intent: Intent = mock()
-        whenever(
-            simprintsEnrollmentViewModel.onFinishRequested(
-                enrollmentUid = "enrollmentUid",
-            ),
-        ) doReturn intent
+    fun `Should delegate finish request to Simprints enrollment view model`() =
+        runTest {
+            val intent: Intent = mock()
+            whenever(
+                simprintsEnrollmentViewModel.onFinishRequested(
+                    enrollmentUid = "enrollmentUid",
+                ),
+            ) doReturn intent
 
-        val result = presenter.onFinishRequested("enrollmentUid")
+            val result = presenter.onFinishRequested("enrollmentUid")
 
-        assert(result == intent)
-    }
+            assert(result == intent)
+        }
 
     @Test
     fun `Should delegate register last result using current enrollment tei to Simprints enrollment view model`() =
@@ -286,6 +287,7 @@ class EnrollmentPresenterImplTest {
             val enrollment: Enrollment =
                 mock {
                     on { trackedEntityInstance() } doReturn "teiUid"
+                    on { uid() } doReturn "enrollmentUid"
                 }
             whenever(enrollmentRepository.blockingGet()) doReturn enrollment
             whenever(
@@ -293,15 +295,22 @@ class EnrollmentPresenterImplTest {
                     resultCode = any(),
                     data = anyOrNull(),
                     teiUid = anyOrNull(),
+                    enrollmentUid = anyOrNull(),
                 ),
             ) doReturn SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH
 
-            val result = presenter.onRegisterLastResult(resultCode = 1, data = null)
+            val result =
+                presenter.onRegisterLastResult(
+                    resultCode = 1,
+                    data = null,
+                    enrollmentUid = "enrollmentUidExtra",
+                )
 
             verify(simprintsEnrollmentViewModel).onRegisterLastResult(
                 resultCode = 1,
                 data = null,
                 teiUid = "teiUid",
+                enrollmentUid = "enrollmentUidExtra",
             )
             assert(result == SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH)
         }

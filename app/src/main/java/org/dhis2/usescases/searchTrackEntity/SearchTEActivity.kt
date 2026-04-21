@@ -80,8 +80,8 @@ import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit
 import org.hisp.dhis.mobile.ui.designsystem.component.navigationBar.NavigationBar
 import org.hisp.dhis.mobile.ui.designsystem.theme.DHIS2Theme
+import org.json.JSONObject
 import timber.log.Timber
-import java.io.Serializable
 import javax.inject.Inject
 
 class SearchTEActivity :
@@ -322,7 +322,7 @@ class SearchTEActivity :
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putSerializable(Constants.QUERY_DATA, viewModel.queryData as Serializable)
+        outState.putString(Constants.QUERY_DATA, JSONObject(viewModel.queryData).toString())
         outState.putString(CURRENT_SCREEN, currentContent?.name)
     }
 

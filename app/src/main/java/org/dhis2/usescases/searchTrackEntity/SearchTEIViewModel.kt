@@ -1287,12 +1287,10 @@ class SearchTEIViewModel(
                             onNavigationPageChanged(NavigationPage.LIST_VIEW)
                             setListScreen()
                             clearQueryData()
-                            _simprintsNavigation.send(
-                                SimprintsNavigationAction.OpenDashboard(
-                                    teiUid = navigation.teiUid,
-                                    programUid = navigation.programUid,
-                                    enrollmentUid = navigation.enrollmentUid,
-                                ),
+                            onTeiClick(
+                                teiUid = navigation.teiUid,
+                                enrollmentUid = navigation.enrollmentUid,
+                                online = navigation.isOnline,
                             )
                         }
                 }

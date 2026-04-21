@@ -872,6 +872,7 @@ class SearchTEIViewModelTest {
                     teiUid = "teiUid",
                     programUid = "matchedProgramUid",
                     enrollmentUid = "enrollmentUid",
+                    isOnline = true,
                 )
             viewModel.onNavigationPageChanged(NavigationPage.MAP_VIEW)
             viewModel.setMapScreen()
@@ -888,31 +889,28 @@ class SearchTEIViewModelTest {
                         ),
                 )
 
-            viewModel.simprintsNavigation.test {
-                viewModel.onParameterIntent(
-                    FormIntent.OnSave(
-                        uid = "biometric",
-                        value = "guid-1",
-                        valueType = ValueType.TEXT,
-                    ),
-                )
-                testingDispatcher.scheduler.advanceUntilIdle()
+            viewModel.onParameterIntent(
+                FormIntent.OnSave(
+                    uid = "biometric",
+                    value = "guid-1",
+                    valueType = ValueType.TEXT,
+                ),
+            )
+            testingDispatcher.scheduler.advanceUntilIdle()
 
-                val action = awaitItem()
-                assertTrue(action is SimprintsNavigationAction.OpenDashboard)
-                action as SimprintsNavigationAction.OpenDashboard
-                assertEquals("teiUid", action.teiUid)
-                assertEquals("matchedProgramUid", action.programUid)
-                assertEquals("enrollmentUid", action.enrollmentUid)
-                assertEquals(NavigationPage.LIST_VIEW, viewModel.navigationBarUIState.value.selectedItem)
-                assertEquals(SearchScreenState.LIST, viewModel.screenState.value?.screenState)
-                assertTrue(viewModel.queryData.isEmpty())
-                assertTrue(!viewModel.searchParametersUiState.clearSearchEnabled)
-                assertTrue(viewModel.searchParametersUiState.searchedItems.isEmpty())
-                assertEquals(null, viewModel.searchParametersUiState.items.single().value)
-                assertEquals(null, viewModel.searchParametersUiState.items.single().displayName)
-                cancelAndIgnoreRemainingEvents()
-            }
+            val action = viewModel.legacyInteraction.value
+            assertTrue(action is LegacyInteraction.OnTeiClick)
+            action as LegacyInteraction.OnTeiClick
+            assertEquals("teiUid", action.teiUid)
+            assertEquals("enrollmentUid", action.enrollmentUid)
+            assertTrue(action.online)
+            assertEquals(NavigationPage.LIST_VIEW, viewModel.navigationBarUIState.value.selectedItem)
+            assertEquals(SearchScreenState.LIST, viewModel.screenState.value?.screenState)
+            assertTrue(viewModel.queryData.isEmpty())
+            assertTrue(!viewModel.searchParametersUiState.clearSearchEnabled)
+            assertTrue(viewModel.searchParametersUiState.searchedItems.isEmpty())
+            assertEquals(null, viewModel.searchParametersUiState.items.single().value)
+            assertEquals(null, viewModel.searchParametersUiState.items.single().displayName)
         }
 
     @Test

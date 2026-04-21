@@ -11,6 +11,7 @@ import org.dhis2.commons.simprints.usecases.SimprintsResolvePossibleDuplicatesSe
 import org.dhis2.form.model.EnrollmentMode
 import org.dhis2.form.model.EnrollmentRecords
 import org.dhis2.form.ui.FormView
+import org.dhis2.form.ui.customintent.CustomIntentInput
 
 data class EnrollmentFormBuilderConfig(
     val enrollmentUid: String,
@@ -27,6 +28,7 @@ fun AppCompatActivity.buildEnrollmentForm(
     config: EnrollmentFormBuilderConfig,
     locationProvider: LocationProvider,
     dateEditionWarningHandler: DateEditionWarningHandler,
+    onLaunchSimprintsCustomIntent: ((CustomIntentInput) -> Unit)? = null,
     onLaunchSimprintsPossibleDuplicatesSearch: ((SimprintsPossibleDuplicatesSearch) -> Unit)? = null,
     onFinish: () -> Unit,
 ): FormView =
@@ -48,23 +50,20 @@ fun AppCompatActivity.buildEnrollmentForm(
                 )
             }
         }.onFinishDataEntry(onFinish)
-        .run {
-            if (onLaunchSimprintsPossibleDuplicatesSearch != null) {
-                onLaunchSimprintsPossibleDuplicatesSearch(onLaunchSimprintsPossibleDuplicatesSearch)
-            } else {
-                this
-            }
-        }
-        .factory(supportFragmentManager)
-        .setRecords(
-            EnrollmentRecords(
-                enrollmentUid = config.enrollmentUid,
-                enrollmentMode = config.enrollmentMode,
-            ),
-        ).openErrorLocation(config.openErrorLocation)
-        .setProgramUid(config.programUid)
-        .build()
-        .also { formView ->
+        .let { builder ->
+            onLaunchSimprintsCustomIntent?.let(builder::onLaunchSimprintsCustomIntent)
+            onLaunchSimprintsPossibleDuplicatesSearch?.let(builder::onLaunchSimprintsPossibleDuplicatesSearch)
+            builder
+                .factory(supportFragmentManager)
+                .setRecords(
+                    EnrollmentRecords(
+                        enrollmentUid = config.enrollmentUid,
+                        enrollmentMode = config.enrollmentMode,
+                    ),
+                ).openErrorLocation(config.openErrorLocation)
+                .setProgramUid(config.programUid)
+                .build()
+        }.also { formView ->
 
             config.saveButton.setOnClickListener { formView.onSaveClick() }
 

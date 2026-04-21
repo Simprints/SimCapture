@@ -1,7 +1,11 @@
 package org.dhis2.usescases.searchTrackEntity.searchparameters
 
+import android.app.Activity.RESULT_OK
+import android.content.Intent
 import android.content.res.Configuration
+import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +47,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -49,11 +56,15 @@ import org.dhis2.R
 import org.dhis2.commons.Constants
 import org.dhis2.commons.resources.ColorUtils
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.form.data.scan.ScanContract
+import org.dhis2.form.di.Injector
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.FieldUiModelImpl
+import org.dhis2.form.ui.customintent.CustomIntentActivityResultContract
 import org.dhis2.form.ui.event.RecyclerViewUiEvents
 import org.dhis2.form.ui.intent.FormIntent
+import org.dhis2.mobile.commons.model.CustomIntentResponseDataModel
 import org.dhis2.mobile.commons.orgunit.OrgUnitSelectorScope
 import org.dhis2.usescases.searchTrackEntity.SearchTEIViewModel
 import org.dhis2.usescases.searchTrackEntity.searchparameters.model.SearchParametersUiState
@@ -88,8 +99,56 @@ fun SearchParametersScreen(
     val snackBarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current.applicationContext
     val configuration = LocalConfiguration.current
     var showSimprintsBiometricNoMatchesMessage by remember { mutableStateOf(false) }
+    var pendingSimprintsFieldUid by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingSimprintsValueTypeName by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingSimprintsResponseDataJson by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingSimprintsCapturesSessionId by rememberSaveable { mutableStateOf(false) }
+
+    val simprintsSessionRepository =
+        remember(context) {
+            Injector.provideSimprintsSessionRepository(context)
+        }
+    val simprintsIdentifyLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val uid = pendingSimprintsFieldUid
+            val valueType =
+                pendingSimprintsValueTypeName
+                    ?.let(ValueType::valueOf)
+            val returnedValue =
+                mapPendingSimprintsSearchResult(
+                    responseDataJson = pendingSimprintsResponseDataJson,
+                    resultCode = result.resultCode,
+                    data = result.data,
+                    capturesSessionId = pendingSimprintsCapturesSessionId,
+                    sessionRepository = simprintsSessionRepository,
+                )
+
+            pendingSimprintsFieldUid = null
+            pendingSimprintsValueTypeName = null
+            pendingSimprintsResponseDataJson = null
+            pendingSimprintsCapturesSessionId = false
+
+            if (uid != null && result.resultCode == RESULT_OK && returnedValue != null) {
+                showSimprintsBiometricNoMatchesMessage = false
+                onSimprintsBiometricIdentificationResult(
+                    uid,
+                    returnedValue,
+                    result.data?.extras.hasSimprintsAutoOpenEligibleIdentification(),
+                )
+                intentHandler(
+                    FormIntent.OnSave(
+                        uid = uid,
+                        value = returnedValue,
+                        valueType = valueType,
+                    ),
+                )
+            } else {
+                showSimprintsBiometricNoMatchesMessage = result.resultCode == RESULT_OK
+            }
+        }
 
     val scanContract = remember { ScanContract() }
     val qrScanLauncher =
@@ -263,9 +322,19 @@ fun SearchParametersScreen(
                                     focusManager = focusManager,
                                     fieldUiModel = fieldUiModel,
                                     callback = callback,
-                                    onSimprintsBiometricIdentificationResult = onSimprintsBiometricIdentificationResult,
-                                    onSimprintsBiometricSearchNoMatchesChanged = {
-                                        showSimprintsBiometricNoMatchesMessage = it
+                                    onSimprintsBiometricIdentificationLaunch = {
+                                        uid,
+                                        valueType,
+                                        responseDataJson,
+                                        capturesSessionId,
+                                        launchIntent,
+                                        ->
+                                        showSimprintsBiometricNoMatchesMessage = false
+                                        pendingSimprintsFieldUid = uid
+                                        pendingSimprintsValueTypeName = valueType?.name
+                                        pendingSimprintsResponseDataJson = responseDataJson
+                                        pendingSimprintsCapturesSessionId = capturesSessionId
+                                        simprintsIdentifyLauncher.launch(launchIntent)
                                     },
                                     onNextClicked = {
                                         val nextIndex = index + 1
@@ -377,6 +446,54 @@ fun SearchFormPreview() {
         onClose = {},
     )
 }
+
+private fun mapPendingSimprintsSearchResult(
+    responseDataJson: String?,
+    resultCode: Int,
+    data: Intent?,
+    capturesSessionId: Boolean,
+    sessionRepository: org.dhis2.commons.simprints.repository.SimprintsSessionRepository,
+): String? {
+    if (resultCode != RESULT_OK) {
+        return null
+    }
+
+    val responseData =
+        responseDataJson
+            ?.let {
+                Gson().fromJson<List<CustomIntentResponseDataModel>>(
+                    it,
+                    object : TypeToken<List<CustomIntentResponseDataModel>>() {}.type,
+                )
+            } ?: return null
+
+    val returnedValue =
+        CustomIntentActivityResultContract()
+            .mapIntentResponseData(responseData, data)
+            ?.takeUnless(List<String>::isEmpty)
+            ?.joinToString(separator = ",") ?: return null
+
+    if (capturesSessionId) {
+        SimprintsIntentUtils.extractSessionId(data?.extras)?.let(sessionRepository::save)
+    }
+
+    return returnedValue
+}
+
+internal fun Bundle?.hasSimprintsAutoOpenEligibleIdentification(): Boolean =
+    this?.keySet()?.any { extraName ->
+        getString(extraName)?.hasSimprintsAutoOpenEligibleIdentification() == true
+    } == true
+
+internal fun String.hasSimprintsAutoOpenEligibleIdentification(): Boolean =
+    SIMPRINTS_IDENTIFICATION_JSON_OBJECT.findAll(this).any { identification ->
+        SIMPRINTS_MFID_CREDENTIAL_LINKED_KEY.containsMatchIn(identification.value) &&
+            !SIMPRINTS_MFID_CREDENTIAL_VERIFIED_FALSE_KEY.containsMatchIn(identification.value)
+    }
+
+private val SIMPRINTS_IDENTIFICATION_JSON_OBJECT = Regex("\\{[^{}]*\\}")
+private val SIMPRINTS_MFID_CREDENTIAL_LINKED_KEY = Regex("\"isLinkedToCredential\"\\s*:\\s*true")
+private val SIMPRINTS_MFID_CREDENTIAL_VERIFIED_FALSE_KEY = Regex("\"isVerified\"\\s*:\\s*false")
 
 @Preview(showBackground = true)
 @Composable
