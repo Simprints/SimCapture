@@ -86,6 +86,7 @@ fun SearchParametersScreen(
     uiState: SearchParametersUiState,
     intentHandler: (FormIntent) -> Unit,
     onSimprintsBiometricIdentificationResult: (String, String?, Boolean) -> Unit,
+    onSimprintsBiometricNoMatches: () -> Unit,
     onShowOrgUnit: (
         uid: String,
         preselectedOrgUnits: List<String>,
@@ -101,7 +102,7 @@ fun SearchParametersScreen(
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current.applicationContext
     val configuration = LocalConfiguration.current
-    var showSimprintsBiometricNoMatchesMessage by remember { mutableStateOf(false) }
+    var showSimprintsBiometricNoMatchesMessage by rememberSaveable { mutableStateOf(false) }
     var pendingSimprintsFieldUid by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingSimprintsValueTypeName by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingSimprintsResponseDataJson by rememberSaveable { mutableStateOf<String?>(null) }
@@ -131,6 +132,11 @@ fun SearchParametersScreen(
             pendingSimprintsResponseDataJson = null
             pendingSimprintsCapturesSessionId = false
 
+            val shouldShowNoMatchesMessage =
+                shouldShowSimprintsBiometricNoMatchesMessage(
+                    resultCode = result.resultCode,
+                    returnedValue = returnedValue,
+                )
             if (uid != null && result.resultCode == RESULT_OK && returnedValue != null) {
                 showSimprintsBiometricNoMatchesMessage = false
                 onSimprintsBiometricIdentificationResult(
@@ -146,7 +152,10 @@ fun SearchParametersScreen(
                     ),
                 )
             } else {
-                showSimprintsBiometricNoMatchesMessage = result.resultCode == RESULT_OK
+                if (shouldShowNoMatchesMessage) {
+                    onSimprintsBiometricNoMatches()
+                }
+                showSimprintsBiometricNoMatchesMessage = shouldShowNoMatchesMessage
             }
         }
 
@@ -440,6 +449,7 @@ fun SearchFormPreview() {
             ),
         intentHandler = {},
         onSimprintsBiometricIdentificationResult = { _, _, _ -> },
+        onSimprintsBiometricNoMatches = {},
         onShowOrgUnit = { _, _, _, _ -> },
         onSearch = {},
         onClear = {},
@@ -479,6 +489,11 @@ private fun mapPendingSimprintsSearchResult(
 
     return returnedValue
 }
+
+internal fun shouldShowSimprintsBiometricNoMatchesMessage(
+    resultCode: Int,
+    returnedValue: String?,
+): Boolean = resultCode == RESULT_OK && returnedValue == null
 
 internal fun Bundle?.hasSimprintsAutoOpenEligibleIdentification(): Boolean =
     this?.keySet()?.any { extraName ->
@@ -520,6 +535,7 @@ fun SearchFormPreviewWithClear() {
             ),
         intentHandler = {},
         onSimprintsBiometricIdentificationResult = { _, _, _ -> },
+        onSimprintsBiometricNoMatches = {},
         onShowOrgUnit = { _, _, _, _ -> },
         onSearch = {},
         onClear = {},
@@ -552,13 +568,17 @@ fun initSearchScreen(
             onSearch = viewModel::onSearch,
             intentHandler = viewModel::onParameterIntent,
             onSimprintsBiometricIdentificationResult = viewModel::onSimprintsBiometricIdentificationResult,
+            onSimprintsBiometricNoMatches = viewModel::onSimprintsBiometricNoMatches,
             onShowOrgUnit = onShowOrgUnit,
             onClear = {
                 onClear()
                 viewModel.clearQueryData()
                 viewModel.clearFocus()
             },
-            onClose = { viewModel.clearFocus() },
+            onClose = {
+                viewModel.clearSimprintsBiometricNoMatchesState()
+                viewModel.clearFocus()
+            },
         )
     }
 }

@@ -49,6 +49,8 @@ import org.hisp.dhis.android.core.trackedentity.search.TrackedEntitySearchItem
 import org.hisp.dhis.mobile.ui.designsystem.component.navigationBar.NavigationBarItem
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -202,6 +204,28 @@ class SearchTEIViewModelTest {
 
         val screenState = viewModel.screenState.value
         assertTrue(screenState is SearchList)
+    }
+
+    @Test
+    fun `Should keep Search screen open after Simprints biometric no matches when list screen is refreshed`() {
+        viewModel.onSimprintsBiometricNoMatches()
+
+        viewModel.setListScreen()
+
+        val screenState = viewModel.screenState.value as SearchList
+        assertTrue(screenState.searchForm.isOpened)
+        assertFalse(screenState.searchForm.isForced)
+    }
+
+    @Test
+    fun `Should stop keeping Search screen open after follow up search`() {
+        viewModel.onSimprintsBiometricNoMatches()
+
+        viewModel.onSearch()
+        testingDispatcher.scheduler.advanceUntilIdle()
+
+        val screenState = viewModel.screenState.value as SearchList
+        assertFalse(screenState.searchForm.isOpened)
     }
 
     @Test
@@ -909,8 +933,9 @@ class SearchTEIViewModelTest {
             assertTrue(viewModel.queryData.isEmpty())
             assertTrue(!viewModel.searchParametersUiState.clearSearchEnabled)
             assertTrue(viewModel.searchParametersUiState.searchedItems.isEmpty())
-            assertEquals(null, viewModel.searchParametersUiState.items.single().value)
-            assertEquals(null, viewModel.searchParametersUiState.items.single().displayName)
+            val searchItem = viewModel.searchParametersUiState.items.single()
+            assertNull(searchItem.value)
+            assertNull(searchItem.displayName)
         }
 
     @Test
@@ -1616,12 +1641,13 @@ class SearchTEIViewModelTest {
         teiUid: String = header,
     ) = SearchTeiModel().apply {
         setHeader(header)
-        tei = TrackedEntityInstance
-            .builder()
-            .uid(teiUid)
-            .trackedEntityType("teiType")
-            .organisationUnit("orgUnit")
-            .build()
+        tei =
+            TrackedEntityInstance
+                .builder()
+                .uid(teiUid)
+                .trackedEntityType("teiType")
+                .organisationUnit("orgUnit")
+                .build()
     }
 
     private fun testingProgram(

@@ -56,10 +56,10 @@ import org.dhis2.maps.layer.basemaps.BaseMapStyle
 import org.dhis2.maps.managers.MapManager
 import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.mobile.commons.coroutine.CoroutineTracker
-import org.dhis2.tracker.NavigationBarUIState
 import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
 import org.dhis2.simprints.SimprintsLoadPossibleDuplicatesSearchResultsUseCase
 import org.dhis2.simprints.SimprintsSearchViewModel
+import org.dhis2.tracker.NavigationBarUIState
 import org.dhis2.usescases.searchTrackEntity.listView.SearchResult
 import org.dhis2.usescases.searchTrackEntity.searchparameters.model.SearchParametersUiState
 import org.dhis2.usescases.searchTrackEntity.ui.UnableToSearchOutsideData
@@ -182,6 +182,7 @@ class SearchTEIViewModel(
     private val onNewSearch = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     private var simprintsPossibleDuplicatesAutoNoneOfAboveTriggered: Boolean = false
+    private var keepSearchScreenOpenForSimprintsBiometricNoMatches: Boolean = false
 
     private val loadSimprintsPossibleDuplicatesSearchResultsUseCase =
         SimprintsLoadPossibleDuplicatesSearchResultsUseCase(searchRepository, searchRepositoryKt)
@@ -289,11 +290,13 @@ class SearchTEIViewModel(
         }
         val displayFrontPageList =
             searchRepository.getProgram(initialProgramUid)?.displayFrontPageList() ?: true
-        val shouldOpenSearch =
+        val shouldForceSearch =
             !displayFrontPageList &&
                 !searchRepository.canCreateInProgramWithoutSearch() &&
                 !searching &&
                 filtersActive.value == false
+        val shouldOpenSearch =
+            shouldForceSearch || keepSearchScreenOpenForSimprintsBiometricNoMatches
 
         createButtonScrollVisibility.postValue(
             if (searching) {
@@ -320,7 +323,7 @@ class SearchTEIViewModel(
                                 .getProgram(initialProgramUid)
                                 ?.minAttributesRequiredToSearch()
                                 ?: 1,
-                        isForced = shouldOpenSearch,
+                        isForced = shouldForceSearch,
                         isOpened = shouldOpenSearch,
                     ),
                 searchFilters =
@@ -469,6 +472,7 @@ class SearchTEIViewModel(
     }
 
     fun clearQueryData() {
+        clearSimprintsBiometricNoMatchesState()
         queryData.clear()
         clearSearchParameters()
         simprintsSearchViewModel.clearPendingSession()
@@ -503,6 +507,7 @@ class SearchTEIViewModel(
     }
 
     fun onSimprintsBiometricSearchNavigation() {
+        clearSimprintsBiometricNoMatchesState()
         onNavigationPageChanged(NavigationPage.LIST_VIEW)
         setListScreen()
         searchRepository.clearFetchedList()
@@ -719,6 +724,7 @@ class SearchTEIViewModel(
     }
 
     fun onSearch() {
+        clearSimprintsBiometricNoMatchesState()
         searchRepository.clearFetchedList()
         performSearch()
     }
@@ -737,7 +743,8 @@ class SearchTEIViewModel(
                     when (_screenState.value?.screenState) {
                         SearchScreenState.LIST,
                         SearchScreenState.NONE,
-                        null -> {
+                        null,
+                        -> {
                             setListScreen()
                             onNewSearch.emit(Unit)
                         }
@@ -883,11 +890,21 @@ class SearchTEIViewModel(
         value: String?,
         hasAutoOpenEligibleSimprintsIdentification: Boolean,
     ) {
+        clearSimprintsBiometricNoMatchesState()
         simprintsSearchViewModel.onSimprintsBiometricIdentificationResult(
             uid = uid,
             value = value,
             hasAutoOpenEligibleSimprintsIdentification = hasAutoOpenEligibleSimprintsIdentification,
         )
+    }
+
+    fun onSimprintsBiometricNoMatches() {
+        keepSearchScreenOpenForSimprintsBiometricNoMatches = true
+        setSearchScreen()
+    }
+
+    fun clearSimprintsBiometricNoMatchesState() {
+        keepSearchScreenOpenForSimprintsBiometricNoMatches = false
     }
 
     fun refreshSimprintsUiState() {
@@ -1425,7 +1442,11 @@ class SearchTEIViewModel(
                     val isSimprintsPossibleDuplicatesSearch = _isSimprintsPossibleDuplicatesSearch.value == true
                     map[item.uid] =
                         resourceManager.getString(
-                            if (isSimprintsPossibleDuplicatesSearch) R.string.simprints_possible_duplicates else R.string.simprints_biometric_search,
+                            if (isSimprintsPossibleDuplicatesSearch) {
+                                R.string.simprints_possible_duplicates
+                            } else {
+                                R.string.simprints_biometric_search
+                            },
                         )
                     return@forEach
                 }
