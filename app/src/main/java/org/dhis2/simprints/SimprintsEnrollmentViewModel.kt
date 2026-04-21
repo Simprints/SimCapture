@@ -39,7 +39,6 @@ class SimprintsEnrollmentViewModel(
     }
 
     suspend fun onAutoEnrollLastRequested(enrollmentUid: String): Intent? {
-        sessionRepository.clearPendingEnrollment()
         val sessionId = sessionRepository.get()?.takeIf(String::isNotBlank) ?: return null
         val resolvedAction =
             resolvePendingEnrollmentAction(
@@ -48,6 +47,7 @@ class SimprintsEnrollmentViewModel(
             ) ?: return null
 
         pendingAction.store(resolvedAction)
+        sessionRepository.markPendingEnrollmentFromPossibleDuplicates()
         return resolvedAction.callout.launchIntent
     }
 

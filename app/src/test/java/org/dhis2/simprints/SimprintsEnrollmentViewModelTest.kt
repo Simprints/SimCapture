@@ -181,6 +181,61 @@ class SimprintsEnrollmentViewModelTest {
 
             assertSame(launchIntent, preparedIntent)
             assertEquals(SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH, result)
+            verify(sessionRepository).markPendingEnrollmentFromPossibleDuplicates()
+            verify(simprintsD2Repository).saveTrackedEntityAttributeValue(
+                teiUid = "tei-uid",
+                attributeUid = "attribute-uid",
+                value = "subject-guid",
+            )
+            verify(sessionRepository).clear()
+        }
+
+    @Test
+    fun `onRegisterLastResult should recover auto enroll last after recreation and save mapped value`() =
+        runTest {
+            val resultIntent: Intent = mock()
+            val responseData =
+                listOf(
+                    CustomIntentResponseDataModel(
+                        name = "subjectId",
+                        extraType = CustomIntentResponseExtraType.STRING,
+                        key = null,
+                    ),
+                )
+            val pendingAction =
+                SimprintsResolvePendingEnrollmentActionUseCase.PendingEnrollmentAction(
+                    fieldUid = "attribute-uid",
+                    callout =
+                        SimprintsIntentUtils.PreparedCallout(
+                            launchIntent = mock(),
+                            responseData = responseData,
+                        ),
+                )
+            whenever(sessionRepository.pendingEnrollmentSessionId()) doReturn "session-id"
+            whenever(
+                resolvePendingEnrollmentAction.invoke(
+                    "enrollment-uid",
+                    "session-id",
+                ),
+            ) doReturn pendingAction
+            whenever(resultMapper.map(responseData, resultIntent)) doReturn "subject-guid"
+            val viewModel =
+                SimprintsEnrollmentViewModel(
+                    simprintsD2Repository = simprintsD2Repository,
+                    resolvePendingEnrollmentAction = resolvePendingEnrollmentAction,
+                    sessionRepository = sessionRepository,
+                    resultMapper = resultMapper,
+                )
+
+            val result =
+                viewModel.onRegisterLastResult(
+                    resultCode = RESULT_OK,
+                    data = resultIntent,
+                    teiUid = "tei-uid",
+                    enrollmentUid = "enrollment-uid",
+                )
+
+            assertEquals(SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH, result)
             verify(simprintsD2Repository).saveTrackedEntityAttributeValue(
                 teiUid = "tei-uid",
                 attributeUid = "attribute-uid",
