@@ -3,7 +3,6 @@ package org.dhis2.usescases.searchTrackEntity.searchparameters
 import android.app.Activity.RESULT_OK
 import android.content.Intent
 import android.content.res.Configuration
-import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -56,6 +55,7 @@ import org.dhis2.R
 import org.dhis2.commons.Constants
 import org.dhis2.commons.resources.ColorUtils
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.usecases.SimprintsHasAutoOpenEligibleIdentificationUseCase
 import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.form.data.scan.ScanContract
 import org.dhis2.form.di.Injector
@@ -112,6 +112,10 @@ fun SearchParametersScreen(
         remember(context) {
             Injector.provideSimprintsSessionRepository(context)
         }
+    val simprintsHasAutoOpenEligibleIdentificationUseCase =
+        remember {
+            SimprintsHasAutoOpenEligibleIdentificationUseCase()
+        }
     val simprintsIdentifyLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val uid = pendingSimprintsFieldUid
@@ -142,7 +146,7 @@ fun SearchParametersScreen(
                 onSimprintsBiometricIdentificationResult(
                     uid,
                     returnedValue,
-                    result.data?.extras.hasSimprintsAutoOpenEligibleIdentification(),
+                    simprintsHasAutoOpenEligibleIdentificationUseCase(result.data?.extras),
                 )
                 intentHandler(
                     FormIntent.OnSave(
@@ -494,21 +498,6 @@ internal fun shouldShowSimprintsBiometricNoMatchesMessage(
     resultCode: Int,
     returnedValue: String?,
 ): Boolean = resultCode == RESULT_OK && returnedValue == null
-
-internal fun Bundle?.hasSimprintsAutoOpenEligibleIdentification(): Boolean =
-    this?.keySet()?.any { extraName ->
-        getString(extraName)?.hasSimprintsAutoOpenEligibleIdentification() == true
-    } == true
-
-internal fun String.hasSimprintsAutoOpenEligibleIdentification(): Boolean =
-    SIMPRINTS_IDENTIFICATION_JSON_OBJECT.findAll(this).any { identification ->
-        SIMPRINTS_MFID_CREDENTIAL_LINKED_KEY.containsMatchIn(identification.value) &&
-            !SIMPRINTS_MFID_CREDENTIAL_VERIFIED_FALSE_KEY.containsMatchIn(identification.value)
-    }
-
-private val SIMPRINTS_IDENTIFICATION_JSON_OBJECT = Regex("\\{[^{}]*\\}")
-private val SIMPRINTS_MFID_CREDENTIAL_LINKED_KEY = Regex("\"isLinkedToCredential\"\\s*:\\s*true")
-private val SIMPRINTS_MFID_CREDENTIAL_VERIFIED_FALSE_KEY = Regex("\"isVerified\"\\s*:\\s*false")
 
 @Preview(showBackground = true)
 @Composable
