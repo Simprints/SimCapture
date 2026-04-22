@@ -1,6 +1,7 @@
 package org.dhis2.commons.simprints.repository
 
 import org.dhis2.commons.prefs.PreferenceProvider
+import timber.log.Timber
 
 class SimprintsSessionRepository(
     private val preferenceProvider: PreferenceProvider,
@@ -44,7 +45,12 @@ class SimprintsSessionRepository(
         hasPendingEnrollment() &&
             preferenceProvider.getString(PENDING_ENROLL_LAST_SOURCE)
                 ?.let {
-                    runCatching { PendingEnrollmentSource.valueOf(it) }.getOrNull()
+                    try {
+                        PendingEnrollmentSource.valueOf(it)
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to parse Simprints pending enrollment source")
+                        null
+                    }
                 } == PendingEnrollmentSource.POSSIBLE_DUPLICATES
 
     fun clearPendingEnrollment() {

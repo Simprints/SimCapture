@@ -28,7 +28,7 @@ class SimprintsHasAutoOpenEligibleIdentificationUseCase {
         try {
             JsonParser.parseString(jsonString)
         } catch (e: JsonSyntaxException) {
-            Timber.e("Failed to parse JSON element in Simprints identification response: $jsonString", e)
+            Timber.e(e, "Failed to parse JSON element in Simprints identification response")
             null
         }
 

@@ -26,7 +26,7 @@ class SimprintsExtractIdentificationMatchesUseCase {
         try {
             JsonParser.parseString(jsonString)
         } catch (e: Exception) {
-            Timber.e(e, "Failed to parse JSON element in Simprints identification response: $jsonString")
+            Timber.e(e, "Failed to parse JSON element in Simprints identification response")
             null
         }
 
@@ -57,7 +57,12 @@ class SimprintsExtractIdentificationMatchesUseCase {
             get(SIMPRINTS_CONFIDENCE_KEY)
                 ?.takeIf { !it.isJsonNull }
                 ?.let { value ->
-                    runCatching { value.asFloat }.getOrNull()
+                    try {
+                        value.asFloat
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to parse confidence value in Simprints identification response")
+                        null
+                    }
                 }
 
         return SimprintsIdentificationMatch(

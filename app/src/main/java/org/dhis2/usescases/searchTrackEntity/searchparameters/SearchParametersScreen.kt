@@ -79,6 +79,7 @@ import org.hisp.dhis.mobile.ui.designsystem.theme.Radius
 import org.hisp.dhis.mobile.ui.designsystem.theme.Shape
 import org.hisp.dhis.mobile.ui.designsystem.theme.SurfaceColor
 import org.hisp.dhis.mobile.ui.designsystem.theme.TextColor
+import timber.log.Timber
 
 @Composable
 fun SearchParametersScreen(
@@ -475,10 +476,15 @@ private fun mapPendingSimprintsSearchResult(
     val responseData =
         responseDataJson
             ?.let {
-                Gson().fromJson<List<CustomIntentResponseDataModel>>(
-                    it,
-                    object : TypeToken<List<CustomIntentResponseDataModel>>() {}.type,
-                )
+                try {
+                    Gson().fromJson<List<CustomIntentResponseDataModel>>(
+                        it,
+                        object : TypeToken<List<CustomIntentResponseDataModel>>() {}.type,
+                    )
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to parse CustomIntentResponseDataModel")
+                    null
+                }
             } ?: return null
 
     val returnedValue =
