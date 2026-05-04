@@ -2,6 +2,10 @@ package org.dhis2.form.data
 
 import android.text.TextUtils
 import androidx.paging.PagingData
+import com.google.gson.Gson
+import com.google.gson.JsonElement
+import com.google.gson.JsonParser
+import com.google.gson.annotations.SerializedName
 import io.reactivex.Flowable
 import io.reactivex.Single
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +29,7 @@ import org.dhis2.form.model.EventCategory
 import org.dhis2.form.model.EventCategoryOption
 import org.dhis2.form.model.EventMode
 import org.dhis2.form.model.FieldUiModel
+import org.dhis2.form.model.FormHistoryChart
 import org.dhis2.form.model.OptionSetConfiguration
 import org.dhis2.form.model.PeriodSelector
 import org.dhis2.form.ui.FieldViewModelFactory
@@ -51,6 +56,9 @@ import org.hisp.dhis.android.core.program.ProgramStageDataElement
 import org.hisp.dhis.android.core.program.ProgramStageSection
 import org.hisp.dhis.android.core.program.SectionRenderingType
 import org.hisp.dhis.mobile.ui.designsystem.theme.SurfaceColor
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class EventRepository(
     private val fieldFactory: FieldViewModelFactory,
@@ -152,6 +160,10 @@ class EventRepository(
             .withDataElements()
             .blockingGet()
             .associateBy { section -> section.uid() }
+    }
+
+    private val programStageFormChartConfig by lazy {
+        readProgramStageFormChartConfig()
     }
 
     override fun sectionUids(): Flowable<List<String>> {
@@ -574,6 +586,22 @@ class EventRepository(
         } ?: emptyMap()
     }
 
+    override fun updateField(
+        fieldUiModel: FieldUiModel,
+        warningMessage: String?,
+        optionsToHide: List<String>,
+        optionGroupsToHide: List<String>,
+        optionGroupsToShow: List<String>,
+    ): FieldUiModel =
+        super
+            .updateField(
+                fieldUiModel,
+                warningMessage,
+                optionsToHide,
+                optionGroupsToHide,
+                optionGroupsToShow,
+            ).setHistoryChart(historyChartFor(fieldUiModel))
+
     private fun getFieldsForSingleSection(): Single<List<FieldUiModel>> =
         Single.fromCallable {
             val stageDataElements =
@@ -751,8 +779,224 @@ class EventRepository(
             fieldViewModel = fieldViewModel.setWarning(warning)
         }
 
-        return fieldViewModel
+        return fieldViewModel.setHistoryChart(historyChartFor(fieldViewModel))
     }
+
+    private fun historyChartFor(fieldUiModel: FieldUiModel): FormHistoryChart? {
+        val programUid = event?.program() ?: return null
+        val programStageUid = event?.programStage() ?: return null
+        val chartConfig =
+            programStageFormChartConfig.firstOrNull { config ->
+                config.programId == programUid &&
+                    config.programStageId == programStageUid &&
+                    config.dataElementId == fieldUiModel.uid
+            } ?: return null
+        val bucketCount = chartConfig.dataPointPositionsOnChart
+        if (bucketCount != null) {
+            return bucketedHistoryChartFor(
+                fieldUiModel = fieldUiModel,
+                bucketCount = bucketCount,
+            )
+        }
+
+        val history =
+            historyPoints(
+                dataElementUid = fieldUiModel.uid,
+                maxHistoryLength = chartConfig.maxHistoryLengthExcludingCurrent ?: 5,
+            )
+        if (history.isEmpty() && chartConfig.showIfNoHistory != true) {
+            return null
+        }
+
+        val currentPoint =
+            fieldUiModel.value
+                ?.toFloatOrNull()
+                ?.let { HistoryPoint(CURRENT_CHART_LABEL, it) }
+        val points = history + listOfNotNull(currentPoint)
+
+        return points
+            .takeIf { it.isNotEmpty() }
+            ?.let {
+                FormHistoryChart(
+                    title = fieldUiModel.label,
+                    labels = it.map { point -> point.label },
+                    values = it.map { point -> point.value },
+                )
+            }
+    }
+
+    private fun bucketedHistoryChartFor(
+        fieldUiModel: FieldUiModel,
+        bucketCount: Int,
+    ): FormHistoryChart? {
+        if (bucketCount <= 0) {
+            return null
+        }
+
+        val history =
+            historyPoints(
+                dataElementUid = fieldUiModel.uid,
+                maxHistoryLength = (bucketCount - 1).coerceAtLeast(0),
+        )
+        val values = MutableList<Float?>(bucketCount) { null }
+        val labels = MutableList(bucketCount) { "" }
+        history.forEachIndexed { index, point ->
+            values[index] = point.value
+            labels[index] = point.label
+        }
+        fieldUiModel.value
+            ?.toFloatOrNull()
+            ?.let { currentValue ->
+                if (history.size < values.size) {
+                    values[history.size] = currentValue
+                    labels[history.size] = event?.displayDate().toChartLabel().takeUnless { it == UNKNOWN_CHART_LABEL } ?: CURRENT_CHART_LABEL
+                }
+            }
+
+        return FormHistoryChart(
+            title = fieldUiModel.label,
+            labels = labels,
+            values = values,
+        )
+    }
+
+    private fun historyPoints(
+        dataElementUid: String,
+        maxHistoryLength: Int,
+    ): List<HistoryPoint> {
+        if (maxHistoryLength <= 0) {
+            return emptyList()
+        }
+
+        val enrollmentUid = event?.enrollment() ?: return emptyList()
+        val stageUid = event?.programStage() ?: return emptyList()
+        val currentEventDate = event?.eventDate()
+
+        return d2
+            .eventModule()
+            .events()
+            .withTrackedEntityDataValues()
+            .byEnrollmentUid()
+            .eq(enrollmentUid)
+            .byProgramStageUid()
+            .eq(stageUid)
+            .blockingGet()
+            .filter { it.uid() != eventUid }
+            .filter { pastEvent ->
+                val pastEventDate = pastEvent.displayDate()
+                currentEventDate == null || pastEventDate == null || !pastEventDate.after(currentEventDate)
+            }.sortedWith(
+                compareBy(
+                    { pastEvent -> pastEvent.displayDate() ?: Date(0) },
+                    { pastEvent -> pastEvent.uid() },
+                ),
+            ).mapNotNull { pastEvent ->
+                val value =
+                    pastEvent
+                        .trackedEntityDataValues()
+                        ?.firstOrNull { it.dataElement() == dataElementUid }
+                        ?.value()
+                        ?.toFloatOrNull()
+                value?.let {
+                    HistoryPoint(
+                        label = pastEvent.displayDate().toChartLabel(),
+                        value = it,
+                    )
+                }
+            }.takeLast(maxHistoryLength)
+    }
+
+    private fun readProgramStageFormChartConfig(): List<DataElementHistoryChartConfig> {
+        val localConfig =
+            localRampDatastoreValue()
+                ?.let { parseProgramStageFormChartConfig(it) }
+                ?: emptyList()
+
+        downloadRampDatastore()
+
+        val downloadedConfig =
+            localRampDatastoreValue()
+                ?.let { parseProgramStageFormChartConfig(it) }
+                ?: emptyList()
+
+        return downloadedConfig.takeIf { it.isNotEmpty() } ?: localConfig
+    }
+
+    private fun localRampDatastoreValue(): String? =
+        runCatching {
+            d2
+                .dataStoreModule()
+                .dataStore()
+                .byNamespace()
+                .eq(RAMP_DATASTORE_NAMESPACE)
+                .byKey()
+                .eq(RAMP_DATASTORE_KEY)
+                .blockingGet()
+                .firstOrNull()
+                ?.value()
+        }.getOrNull()
+
+    private fun downloadRampDatastore() {
+        runCatching {
+            d2
+                .dataStoreModule()
+                .dataStoreDownloader()
+                .byNamespace()
+                .eq(RAMP_DATASTORE_NAMESPACE)
+                .blockingDownload()
+        }
+    }
+
+    private fun parseProgramStageFormChartConfig(value: String): List<DataElementHistoryChartConfig> {
+        return try {
+            val root = parseDatastoreJsonElement(value)?.asJsonObject ?: return emptyList()
+            val configElement =
+                root.get(DATA_ELEMENT_HISTORY_CHARTS_KEY)
+                    ?: root.get(PROGRAM_STAGE_FORM_CHARTS_KEY)
+                    ?: return emptyList()
+
+            when {
+                configElement.isJsonArray ->
+                    configElement.asJsonArray.mapNotNull { it.toDataElementHistoryChartConfig() }
+
+                configElement.isJsonObject ->
+                    listOfNotNull(configElement.toDataElementHistoryChartConfig())
+
+                else -> emptyList()
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun parseDatastoreJsonElement(value: String): JsonElement? =
+        runCatching {
+            val element = JsonParser.parseString(value.unwrapDatastoreJson())
+            if (element.isJsonPrimitive && element.asJsonPrimitive.isString) {
+                parseDatastoreJsonElement(element.asString) ?: element
+            } else {
+                element
+            }
+        }.getOrNull()
+
+    private fun String.unwrapDatastoreJson(): String =
+        trim()
+            .removePrefix(DATASTORE_JSON_WRAPPER_PREFIX)
+            .removeSuffix(DATASTORE_JSON_WRAPPER_SUFFIX)
+
+    private fun JsonElement.toDataElementHistoryChartConfig(): DataElementHistoryChartConfig? =
+        try {
+            Gson().fromJson(this, DataElementHistoryChartConfig::class.java)
+        } catch (_: Exception) {
+            null
+        }
+
+    private fun org.hisp.dhis.android.core.event.Event.displayDate(): Date? = eventDate() ?: dueDate() ?: created()
+
+    private fun Date?.toChartLabel(): String =
+        this?.let {
+            SimpleDateFormat(CHART_DATE_LABEL_FORMAT, Locale.getDefault()).format(it)
+        } ?: UNKNOWN_CHART_LABEL
 
     private fun getConflictErrorsAndWarnings(
         dataElementUid: String,
@@ -811,5 +1055,34 @@ class EventRepository(
         const val EVENT_CATEGORY_COMBO_SECTION_UID = "EVENT_CATEGORY_COMBO_SECTION_UID"
         const val EVENT_CATEGORY_COMBO_UID = "EVENT_CATEGORY_COMBO_UID"
         const val EVENT_DATA_SECTION_UID = "EVENT_DATA_SECTION_UID"
+        private const val RAMP_DATASTORE_NAMESPACE = "simprints"
+        private const val RAMP_DATASTORE_KEY = "ramp"
+        private const val DATASTORE_JSON_WRAPPER_PREFIX = "JsonWrapper(json="
+        private const val DATASTORE_JSON_WRAPPER_SUFFIX = ")"
+        private const val DATA_ELEMENT_HISTORY_CHARTS_KEY = "dataElementHistoryCharts"
+        private const val PROGRAM_STAGE_FORM_CHARTS_KEY = "programStageFormCharts"
+        private const val CURRENT_CHART_LABEL = "Current"
+        private const val UNKNOWN_CHART_LABEL = "Unknown"
+        private const val CHART_DATE_LABEL_FORMAT = "MMM d"
     }
 }
+
+private data class DataElementHistoryChartConfig(
+    @field:SerializedName("programId")
+    val programId: String? = null,
+    @field:SerializedName("programStageId")
+    val programStageId: String? = null,
+    @field:SerializedName("dataElementId")
+    val dataElementId: String? = null,
+    @field:SerializedName("maxHistoryLengthExcludingCurrent")
+    val maxHistoryLengthExcludingCurrent: Int? = 5,
+    @field:SerializedName("showIfNoHistory")
+    val showIfNoHistory: Boolean? = false,
+    @field:SerializedName("dataPointPositionsOnChart")
+    val dataPointPositionsOnChart: Int? = null,
+)
+
+private data class HistoryPoint(
+    val label: String,
+    val value: Float,
+)

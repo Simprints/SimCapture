@@ -44,6 +44,7 @@ data class SectionUiModelImpl(
     override val selectableDates: SelectableDates? = null,
     override val eventCategories: List<EventCategory>? = null,
     override val periodSelector: PeriodSelector? = null,
+    override val historyChart: FormHistoryChart? = null,
     override var customIntent: CustomIntentModel? = null,
 ) : FieldUiModel {
     private var sectionNumber: Int = 0
@@ -126,6 +127,8 @@ data class SectionUiModelImpl(
 
     override fun setOptionSetConfiguration(optionSetConfiguration: OptionSetConfiguration) =
         this.copy(optionSetConfiguration = optionSetConfiguration)
+
+    override fun setHistoryChart(historyChart: FormHistoryChart?) = this.copy(historyChart = historyChart)
 
     override fun isSectionWithFields() = totalFields > 0
 

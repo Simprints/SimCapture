@@ -71,6 +71,8 @@ interface FieldUiModel {
 
     val periodSelector: PeriodSelector?
 
+    val historyChart: FormHistoryChart?
+
     fun setCallback(callback: Callback)
 
     fun equals(item: FieldUiModel): Boolean
@@ -108,6 +110,8 @@ interface FieldUiModel {
     fun setKeyBoardActionDone(): FieldUiModel
 
     fun setOptionSetConfiguration(optionSetConfiguration: OptionSetConfiguration): FieldUiModel
+
+    fun setHistoryChart(historyChart: FormHistoryChart?): FieldUiModel
 
     interface Callback {
         fun intent(intent: FormIntent)

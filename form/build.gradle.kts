@@ -63,6 +63,7 @@ dependencies {
 
     implementation(project(":commons"))
     implementation(project(":commonskmm"))
+    implementation(project(":dhis_android_analytics"))
     implementation(project(":dhis2_android_maps"))
     implementation(project(":dhis2-mobile-program-rules"))
     implementation(libs.androidx.activity.compose)

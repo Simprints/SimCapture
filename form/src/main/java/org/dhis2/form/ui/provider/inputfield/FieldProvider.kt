@@ -1,8 +1,13 @@
 package org.dhis2.form.ui.provider.inputfield
 
 import android.content.Intent
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.Composable
@@ -24,6 +29,21 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.components.AxisBase
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.formatter.ValueFormatter
+import com.github.mikephil.charting.highlight.Highlight
+import com.github.mikephil.charting.listener.OnChartValueSelectedListener
+import dhis2.org.analytics.charts.data.ChartType
+import dhis2.org.analytics.charts.data.Graph
+import dhis2.org.analytics.charts.data.GraphFieldValue
+import dhis2.org.analytics.charts.data.GraphPoint
+import dhis2.org.analytics.charts.data.SerieData
+import dhis2.org.analytics.charts.data.toChartBuilder
+import dhis2.org.analytics.charts.mappers.GraphToLineData
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.dhis2.commons.resources.ResourceManager
@@ -34,12 +54,14 @@ import org.dhis2.form.extensions.legend
 import org.dhis2.form.extensions.supportingText
 import org.dhis2.form.model.EnrollmentDetail
 import org.dhis2.form.model.FieldUiModel
+import org.dhis2.form.model.FormHistoryChart
 import org.dhis2.form.model.UiRenderType
 import org.dhis2.form.ui.event.RecyclerViewUiEvents
 import org.dhis2.form.ui.intent.FormIntent
 import org.dhis2.form.ui.keyboard.keyboardAsState
 import org.dhis2.form.ui.provider.onFieldFocusChanged
 import org.hisp.dhis.android.core.common.ValueType
+import org.hisp.dhis.android.core.period.PeriodType
 import org.hisp.dhis.mobile.ui.designsystem.component.InputEmail
 import org.hisp.dhis.mobile.ui.designsystem.component.InputInteger
 import org.hisp.dhis.mobile.ui.designsystem.component.InputLetter
@@ -55,6 +77,14 @@ import org.hisp.dhis.mobile.ui.designsystem.component.InputPositiveInteger
 import org.hisp.dhis.mobile.ui.designsystem.component.InputPositiveIntegerOrZero
 import org.hisp.dhis.mobile.ui.designsystem.component.InputStyle
 import org.hisp.dhis.mobile.ui.designsystem.component.model.RegExValidations
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Date
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+private const val HISTORY_CHART_X_AXIS_LABEL_ROTATION = 45f
 
 @Composable
 fun FieldProvider(
@@ -107,56 +137,183 @@ fun FieldProvider(
         }
     }
 
-    when {
-        fieldUiModel.optionSet != null && fieldUiModel.valueType != ValueType.MULTI_TEXT ->
-            ProvideByOptionSet(
-                modifier = modifierWithFocus,
-                inputStyle = inputStyle,
-                fieldUiModel = fieldUiModel,
-                intentHandler = intentHandler,
-                fetchOptions = {
-                    intentHandler(
-                        FormIntent.FetchOptions(
-                            fieldUiModel.uid,
-                            fieldUiModel.optionSet!!,
-                            value = fieldUiModel.value,
-                        ),
-                    )
-                },
-            )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        when {
+            fieldUiModel.optionSet != null && fieldUiModel.valueType != ValueType.MULTI_TEXT ->
+                ProvideByOptionSet(
+                    modifier = modifierWithFocus,
+                    inputStyle = inputStyle,
+                    fieldUiModel = fieldUiModel,
+                    intentHandler = intentHandler,
+                    fetchOptions = {
+                        intentHandler(
+                            FormIntent.FetchOptions(
+                                fieldUiModel.uid,
+                                fieldUiModel.optionSet!!,
+                                value = fieldUiModel.value,
+                            ),
+                        )
+                    },
+                )
 
-        fieldUiModel.customIntent != null -> {
-            ProvideCustomIntentInput(
-                fieldUiModel = fieldUiModel,
-                intentHandler = intentHandler,
-                uiEventHandler = uiEventHandler,
-                resources = resources,
-                inputStyle = inputStyle,
-                reEvaluateRequestParams = reEvaluateCustomIntentRequestParameters,
-                modifier = modifierWithFocus,
-            )
+            fieldUiModel.customIntent != null -> {
+                ProvideCustomIntentInput(
+                    fieldUiModel = fieldUiModel,
+                    intentHandler = intentHandler,
+                    uiEventHandler = uiEventHandler,
+                    resources = resources,
+                    inputStyle = inputStyle,
+                    reEvaluateRequestParams = reEvaluateCustomIntentRequestParameters,
+                    modifier = modifierWithFocus,
+                )
+            }
+
+            fieldUiModel.eventCategories != null ->
+                ProvideCategorySelectorInput(
+                    modifier = modifierWithFocus,
+                    inputStyle = inputStyle,
+                    fieldUiModel = fieldUiModel,
+                )
+
+            else ->
+                ProvideByValueType(
+                    modifier = modifierWithFocus,
+                    inputStyle = inputStyle,
+                    fieldUiModel = fieldUiModel,
+                    intentHandler = intentHandler,
+                    uiEventHandler = uiEventHandler,
+                    resources = resources,
+                    focusRequester = focusRequester,
+                    onNextClicked = onNextClicked,
+                    focusManager = focusManager,
+                    onFileSelected = onFileSelected,
+                )
         }
 
-        fieldUiModel.eventCategories != null ->
-            ProvideCategorySelectorInput(
-                modifier = modifierWithFocus,
-                inputStyle = inputStyle,
-                fieldUiModel = fieldUiModel,
-            )
+        fieldUiModel.historyChart?.let {
+            ProgramStageFormHistoryChart(it)
+        }
+    }
+}
 
-        else ->
-            ProvideByValueType(
-                modifier = modifierWithFocus,
-                inputStyle = inputStyle,
-                fieldUiModel = fieldUiModel,
-                intentHandler = intentHandler,
-                uiEventHandler = uiEventHandler,
-                resources = resources,
-                focusRequester = focusRequester,
-                onNextClicked = onNextClicked,
-                focusManager = focusManager,
-                onFileSelected = onFileSelected,
-            )
+@Composable
+private fun ProgramStageFormHistoryChart(historyChart: FormHistoryChart) {
+    val graph =
+        remember(historyChart) {
+            historyChart.toGraph()
+        }
+
+    AndroidView(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .padding(top = 8.dp, bottom = 12.dp),
+        factory = { context ->
+            FrameLayout(context)
+        },
+        update = { container ->
+            val chartView =
+                graph
+                    .toChartBuilder()
+                    .withType(ChartType.LINE_CHART)
+                    .withGraphData(graph)
+                    .build()
+                    .getChartView(container.context)
+            chartView.layoutParams =
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+            if (chartView is LineChart && historyChart.labels.isNotEmpty()) {
+                val valueFormatter = IntegerAwareValueFormatter()
+                chartView.setHighlightPerTapEnabled(false)
+                chartView.setHighlightPerDragEnabled(false)
+                chartView.data = graph.toHistoryLineData(valueFormatter)
+                chartView.xAxis.apply {
+                    axisMinimum = -1f
+                    axisMaximum = historyChart.labels.size.toFloat()
+                    setLabelCount(historyChart.labels.size + 2, true)
+                    labelRotationAngle = HISTORY_CHART_X_AXIS_LABEL_ROTATION
+                }
+                chartView.axisLeft.valueFormatter = valueFormatter
+                chartView.data?.setValueFormatter(valueFormatter)
+                chartView.setOnChartValueSelectedListener(
+                    object : OnChartValueSelectedListener {
+                        override fun onValueSelected(
+                            e: Entry?,
+                            h: Highlight?,
+                        ) {
+                            if (e?.data is String) {
+                                chartView.data = graph.toHistoryLineData(valueFormatter, e.data as String)
+                                chartView.invalidate()
+                            }
+                        }
+
+                        override fun onNothingSelected() {
+                            chartView.data = graph.toHistoryLineData(valueFormatter)
+                            chartView.invalidate()
+                        }
+                    },
+                )
+                chartView.notifyDataSetChanged()
+            }
+            container.removeAllViews()
+            container.addView(chartView)
+        },
+    )
+}
+
+private fun FormHistoryChart.toGraph(): Graph =
+    Graph(
+        title = title,
+        series =
+            listOf(
+                SerieData(
+                    fieldName = title,
+                    coordinates =
+                        values.mapIndexedNotNull { index, value ->
+                            value ?: return@mapIndexedNotNull null
+                            GraphPoint(
+                                eventDate = Date(),
+                                position = index.toFloat(),
+                                fieldValue = GraphFieldValue.Numeric(value),
+                            )
+                        },
+                ),
+            ),
+        periodToDisplayDefault = null,
+        eventPeriodType = PeriodType.Daily,
+        periodStep = 1L,
+        chartType = ChartType.LINE_CHART,
+        categories = labels,
+    )
+
+private fun Graph.toHistoryLineData(
+    valueFormatter: ValueFormatter,
+    serieToHighlight: String? = null,
+) = GraphToLineData()
+    .map(this, serieToHighlight)
+    .apply { setValueFormatter(valueFormatter) }
+
+private class IntegerAwareValueFormatter : ValueFormatter() {
+    private val decimalFormat =
+        DecimalFormat("0.##", DecimalFormatSymbols(Locale.US))
+
+    override fun getFormattedValue(value: Float): String =
+        if (abs(value - value.roundToInt()) < INTEGER_VALUE_EPSILON) {
+            value.roundToInt().toString()
+        } else {
+            decimalFormat.format(value.toDouble())
+        }
+
+    override fun getAxisLabel(
+        value: Float,
+        axis: AxisBase?,
+    ): String = getFormattedValue(value)
+
+    companion object {
+        private const val INTEGER_VALUE_EPSILON = 0.0001f
     }
 }
 

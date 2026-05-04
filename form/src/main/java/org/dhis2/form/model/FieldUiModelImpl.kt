@@ -35,6 +35,7 @@ data class FieldUiModelImpl(
     override val selectableDates: SelectableDates? = null,
     override val eventCategories: List<EventCategory>? = null,
     override val periodSelector: PeriodSelector? = null,
+    override val historyChart: FormHistoryChart? = null,
     override var customIntent: CustomIntentModel? = null,
 ) : FieldUiModel {
     private var callback: FieldUiModel.Callback? = null
@@ -107,6 +108,8 @@ data class FieldUiModelImpl(
     override fun setOptionSetConfiguration(optionSetConfiguration: OptionSetConfiguration) =
         this.copy(optionSetConfiguration = optionSetConfiguration)
 
+    override fun setHistoryChart(historyChart: FormHistoryChart?) = this.copy(historyChart = historyChart)
+
     override fun equals(item: FieldUiModel): Boolean {
         if (this === item) return true
         if (javaClass != item.javaClass) return false
@@ -133,6 +136,7 @@ data class FieldUiModelImpl(
         if (eventCategories != item.eventCategories) return false
         if (customIntent != item.customIntent) return false
         if (optionSetConfiguration != item.optionSetConfiguration) return false
+        if (historyChart != item.historyChart) return false
         return true
     }
 }

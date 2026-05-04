@@ -196,12 +196,10 @@ class FormViewModel(
                         Timber.d("${result.first.id} is changing its value")
                         _queryData.postValue(it)
                     }
-                    if (repository.hasLegendSet(result.first.id)) {
-                        handler.removeCallbacksAndMessages(null)
-                        handler.postDelayed({
-                            processCalculatedItems(skipProgramRules = true)
-                        }, 500L)
-                    }
+                    handler.removeCallbacksAndMessages(null)
+                    handler.postDelayed({
+                        processCalculatedItems(skipProgramRules = true)
+                    }, 300L)
                 }
 
                 ValueStoreResult.FINISH -> {
