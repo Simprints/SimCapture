@@ -46,8 +46,8 @@ class SimprintsSearchViewModel(
     }
 
     private val pendingDashboardNavigation = AtomicReference<PendingDashboardNavigation?>(null)
-    private var pendingSimprintsMfidBiometricIdentification: PendingSimprintsMfidBiometricIdentification? =
-        null
+    private val pendingSimprintsMfidBiometricIdentification =
+        AtomicReference<PendingSimprintsMfidBiometricIdentification?>(null)
     private var useLastBiometricsForSequentialSearch = false
     private val _simprintsBiometricSearchNavigation = Channel<Unit>(Channel.BUFFERED)
     val simprintsBiometricSearchNavigation: Flow<Unit> =
@@ -93,7 +93,7 @@ class SimprintsSearchViewModel(
 
         pendingDashboardNavigation.store(navigation)
         if (!keepSession) {
-            pendingSimprintsMfidBiometricIdentification = null
+            pendingSimprintsMfidBiometricIdentification.store(null)
             useLastBiometricsForSequentialSearch = false
             sessionRepository.clear()
         }
@@ -135,7 +135,7 @@ class SimprintsSearchViewModel(
 
     fun clearPendingSession() {
         pendingDashboardNavigation.store(null)
-        pendingSimprintsMfidBiometricIdentification = null
+        pendingSimprintsMfidBiometricIdentification.store(null)
         useLastBiometricsForSequentialSearch = false
         sessionRepository.clear()
     }
@@ -148,7 +148,7 @@ class SimprintsSearchViewModel(
             searchState.shouldClearPendingSession &&
             !shouldUseSequentialSearchLastBiometrics(searchState)
         ) {
-            pendingSimprintsMfidBiometricIdentification = null
+            pendingSimprintsMfidBiometricIdentification.store(null)
             useLastBiometricsForSequentialSearch = false
             sessionRepository.clear()
         }
@@ -173,12 +173,13 @@ class SimprintsSearchViewModel(
         hasAutoOpenEligibleSimprintsIdentification: Boolean,
     ) {
         useLastBiometricsForSequentialSearch = false
-        pendingSimprintsMfidBiometricIdentification =
+        pendingSimprintsMfidBiometricIdentification.store(
             if (!value.isNullOrBlank() && hasAutoOpenEligibleSimprintsIdentification) {
                 PendingSimprintsMfidBiometricIdentification(uid = uid, value = value)
             } else {
                 null
-            }
+            },
+        )
     }
 
     suspend fun onSimprintsParameterSaved(
@@ -189,17 +190,6 @@ class SimprintsSearchViewModel(
         queryData: Map<String, List<String>?>,
     ): PendingDashboardNavigation? {
         val searchFields = searchItems.toSearchFields()
-        val hasPendingMfidBiometricIdentification =
-            pendingSimprintsMfidBiometricIdentification?.let {
-                it.uid == uid && it.value == value
-            } == true
-
-        if (
-            !hasPendingMfidBiometricIdentification &&
-            !shouldAutoNavigateToSimprintsBiometricSearch(uid, value, searchFields)
-        ) {
-            return null
-        }
 
         if (consumePendingSimprintsMfidBiometricIdentification(uid, value)) {
             return resolveSingleBiometricSearchNavigation(
@@ -216,6 +206,10 @@ class SimprintsSearchViewModel(
             }?.also {
                 clearPendingSession()
             } ?: requestSimprintsBiometricSearchNavigation()
+        }
+
+        if (!shouldAutoNavigateToSimprintsBiometricSearch(uid, value, searchFields)) {
+            return null
         }
 
         requestSimprintsBiometricSearchNavigation()
@@ -278,13 +272,13 @@ class SimprintsSearchViewModel(
     private fun consumePendingSimprintsMfidBiometricIdentification(
         uid: String,
         value: String?,
-    ): Boolean =
-        pendingSimprintsMfidBiometricIdentification
-            ?.takeIf { it.uid == uid && it.value == value }
-            ?.let {
-                pendingSimprintsMfidBiometricIdentification = null
-                true
-            } ?: false
+    ): Boolean {
+        val pending = pendingSimprintsMfidBiometricIdentification.load()
+
+        return pending?.uid == uid &&
+            pending.value == value &&
+            pendingSimprintsMfidBiometricIdentification.compareAndSet(pending, null)
+    }
 
     private suspend fun requestSimprintsBiometricSearchNavigation(): PendingDashboardNavigation? {
         _simprintsBiometricSearchNavigation.send(Unit)
