@@ -48,6 +48,7 @@ class SimprintsSearchViewModel(
     private val pendingDashboardNavigation = AtomicReference<PendingDashboardNavigation?>(null)
     private var pendingSimprintsMfidBiometricIdentification: PendingSimprintsMfidBiometricIdentification? =
         null
+    private var useLastBiometricsForSequentialSearch = false
     private val _simprintsBiometricSearchNavigation = Channel<Unit>(Channel.BUFFERED)
     val simprintsBiometricSearchNavigation: Flow<Unit> =
         _simprintsBiometricSearchNavigation.receiveAsFlow()
@@ -65,14 +66,18 @@ class SimprintsSearchViewModel(
     ): DashboardAction {
         val searchFields = searchItems.toSearchFields()
         val searchState = SimprintsSearchUtils.searchState(searchFields)
+        val useSequentialSearchLastBiometrics = shouldUseSequentialSearchLastBiometrics(searchState)
         val sessionId =
-            sessionRepository.get()?.takeIf { searchState.hasBiometricIdentificationQuery }
+            sessionRepository
+                .get()
+                ?.takeIf { searchState.hasBiometricIdentificationQuery || useSequentialSearchLastBiometrics }
         val confirmIdentityIntent =
             sessionId?.let {
                 resolveConfirmIdentityCallout(
                     teiUid = teiUid,
                     searchFields = searchFields,
                     sessionId = it,
+                    allowBlankSearchValue = useSequentialSearchLastBiometrics,
                 )?.launchIntent
             }
 
@@ -88,6 +93,8 @@ class SimprintsSearchViewModel(
 
         pendingDashboardNavigation.store(navigation)
         if (!keepSession) {
+            pendingSimprintsMfidBiometricIdentification = null
+            useLastBiometricsForSequentialSearch = false
             sessionRepository.clear()
         }
         return DashboardAction.LaunchConfirmIdentity(confirmIdentityIntent)
@@ -100,7 +107,10 @@ class SimprintsSearchViewModel(
         val searchFields = searchItems.toSearchFields()
         val searchState = SimprintsSearchUtils.searchState(searchFields)
 
-        if (searchState.hasBiometricIdentificationQuery && sessionRepository.hasPendingSession()) {
+        if (
+            sessionRepository.hasPendingSession() &&
+            (searchState.hasBiometricIdentificationQuery || shouldUseSequentialSearchLastBiometrics(searchState))
+        ) {
             sessionRepository.markPendingEnrollment()
         }
 
@@ -126,14 +136,20 @@ class SimprintsSearchViewModel(
     fun clearPendingSession() {
         pendingDashboardNavigation.store(null)
         pendingSimprintsMfidBiometricIdentification = null
+        useLastBiometricsForSequentialSearch = false
         sessionRepository.clear()
     }
 
     fun clearPendingSessionIfNeeded(searchItems: List<FieldUiModel>) {
         val searchFields = searchItems.toSearchFields()
         val searchState = SimprintsSearchUtils.searchState(searchFields)
-        if (sessionRepository.hasPendingSession() && searchState.shouldClearPendingSession) {
+        if (
+            sessionRepository.hasPendingSession() &&
+            searchState.shouldClearPendingSession &&
+            !shouldUseSequentialSearchLastBiometrics(searchState)
+        ) {
             pendingSimprintsMfidBiometricIdentification = null
+            useLastBiometricsForSequentialSearch = false
             sessionRepository.clear()
         }
     }
@@ -147,7 +163,7 @@ class SimprintsSearchViewModel(
             SimprintsSearchUtils.shouldUseLastBiometricsLabel(
                 searchState = searchState,
                 hasPendingSession = sessionRepository.hasPendingSession(),
-            ),
+            ) || shouldUseSequentialSearchLastBiometrics(searchState),
         )
     }
 
@@ -156,6 +172,7 @@ class SimprintsSearchViewModel(
         value: String?,
         hasAutoOpenEligibleSimprintsIdentification: Boolean,
     ) {
+        useLastBiometricsForSequentialSearch = false
         pendingSimprintsMfidBiometricIdentification =
             if (!value.isNullOrBlank() && hasAutoOpenEligibleSimprintsIdentification) {
                 PendingSimprintsMfidBiometricIdentification(uid = uid, value = value)
@@ -221,7 +238,7 @@ class SimprintsSearchViewModel(
         }
 
         queryData.keys.removeAll(simprintsBiometricFieldUids)
-        clearPendingSession()
+        useLastBiometricsForSequentialSearch = sessionRepository.hasPendingSession()
 
         return searchItems.map { field ->
             if (field.uid in simprintsBiometricFieldUids) {
@@ -229,7 +246,7 @@ class SimprintsSearchViewModel(
             } else {
                 field
             }
-        }
+        }.also(::refreshSimprintsUiState)
     }
 
     fun shouldUseLastBiometricsLabel(searchItems: List<FieldUiModel>): Boolean {
@@ -237,8 +254,15 @@ class SimprintsSearchViewModel(
         return SimprintsSearchUtils.shouldUseLastBiometricsLabel(
             searchState = searchState,
             hasPendingSession = sessionRepository.hasPendingSession(),
-        )
+        ) || shouldUseSequentialSearchLastBiometrics(searchState)
     }
+
+    private fun shouldUseSequentialSearchLastBiometrics(
+        searchState: SimprintsSearchUtils.SearchState,
+    ): Boolean =
+        useLastBiometricsForSequentialSearch &&
+            searchState.shouldClearPendingSession &&
+            sessionRepository.hasPendingSession()
 
     private fun shouldAutoNavigateToSimprintsBiometricSearch(
         uid: String,

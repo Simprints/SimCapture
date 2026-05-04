@@ -11,12 +11,13 @@ class SimprintsResolveConfirmIdentityCalloutUseCase(
         teiUid: String,
         searchFields: Iterable<SimprintsSearchUtils.SearchField>,
         sessionId: String,
+        allowBlankSearchValue: Boolean = false,
     ): SimprintsIntentUtils.PreparedCallout? =
         searchFields.firstNotNullOfOrNull { field ->
             val customIntent = field.customIntent
             val selectedGuid = simprintsD2Repository.getTrackedEntityAttributeValue(teiUid, field.uid)
             when {
-                field.value.isNullOrBlank() -> null
+                field.value.isNullOrBlank() && !allowBlankSearchValue -> null
                 customIntent == null -> null
                 !SimprintsIntentUtils.isIdentifyCallout(customIntent) -> null
                 selectedGuid.isNullOrBlank() -> null

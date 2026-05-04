@@ -22,6 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -42,7 +43,7 @@ class SimprintsSearchViewModelTest {
         runTest {
             val launchIntent: Intent = mock()
             whenever(sessionRepository.get()) doReturn "session-id"
-            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any())) doReturn
+            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any(), any())) doReturn
                 SimprintsIntentUtils.PreparedCallout(
                     launchIntent = launchIntent,
                     responseData = emptyList(),
@@ -81,7 +82,7 @@ class SimprintsSearchViewModelTest {
         runTest {
             val launchIntent: Intent = mock()
             whenever(sessionRepository.get()) doReturn "session-id"
-            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any())) doReturn
+            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any(), any())) doReturn
                 SimprintsIntentUtils.PreparedCallout(
                     launchIntent = launchIntent,
                     responseData = emptyList(),
@@ -110,7 +111,7 @@ class SimprintsSearchViewModelTest {
     fun `onDashboardRequested should open dashboard directly after confirm identity already cleared session`() =
         runTest {
             whenever(sessionRepository.get()).thenReturn("session-id").thenReturn(null)
-            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any())) doReturn
+            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any(), any())) doReturn
                 SimprintsIntentUtils.PreparedCallout(
                     launchIntent = mock(),
                     responseData = emptyList(),
@@ -146,7 +147,7 @@ class SimprintsSearchViewModelTest {
     fun `onDashboardRequested should open dashboard when confirm identity is not available`() =
         runTest {
             whenever(sessionRepository.get()) doReturn "session-id"
-            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any())) doReturn null
+            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any(), any())) doReturn null
             val viewModel =
                 SimprintsSearchViewModel(
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
@@ -164,6 +165,56 @@ class SimprintsSearchViewModelTest {
 
             assertTrue(action is SimprintsSearchViewModel.DashboardAction.OpenDashboard)
             verify(sessionRepository, never()).clear()
+        }
+
+    @Test
+    fun `onDashboardRequested should confirm identity from sequential fallback and clear last biometrics option`() =
+        runTest {
+            val launchIntent: Intent = mock()
+            whenever(sessionRepository.hasPendingSession()) doReturn true
+            whenever(sessionRepository.get()) doReturn "session-id"
+            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any(), any())) doReturn
+                SimprintsIntentUtils.PreparedCallout(
+                    launchIntent = launchIntent,
+                    responseData = emptyList(),
+                )
+            val viewModel =
+                SimprintsSearchViewModel(
+                    resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+                    sessionRepository = sessionRepository,
+                    resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                )
+            val queryData =
+                mutableMapOf<String, List<String>?>(
+                    "biometric" to listOf("guid-1"),
+                    "name" to listOf("Name"),
+                )
+            val searchItems =
+                viewModel.clearSimprintsBiometricQueryData(
+                    searchItems =
+                        listOf(
+                            identifyField(value = "guid-1"),
+                            textField(uid = "name", value = "Name"),
+                        ),
+                    queryData = queryData,
+                ).orEmpty()
+
+            val action =
+                viewModel.onDashboardRequested(
+                    searchItems = searchItems,
+                    teiUid = "tei-uid",
+                    programUid = "program-uid",
+                    enrollmentUid = "enrollment-uid",
+                )
+
+            assertTrue(action is SimprintsSearchViewModel.DashboardAction.LaunchConfirmIdentity)
+            assertSame(
+                launchIntent,
+                (action as SimprintsSearchViewModel.DashboardAction.LaunchConfirmIdentity).intent,
+            )
+            assertFalse(viewModel.shouldUseLastBiometricsLabel(searchItems))
+            verify(resolveConfirmIdentityCallout).invoke(eq("tei-uid"), any(), eq("session-id"), eq(true))
+            verify(sessionRepository).clear()
         }
 
     @Test
@@ -215,6 +266,71 @@ class SimprintsSearchViewModelTest {
     }
 
     @Test
+    fun `prepareEnrollmentQueryData should mark pending enrollment after biometric fallback search`() {
+        whenever(sessionRepository.hasPendingSession()) doReturn true
+        val viewModel =
+            SimprintsSearchViewModel(
+                resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+                sessionRepository = sessionRepository,
+                resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+            )
+        val queryData =
+            mutableMapOf<String, List<String>?>(
+                "biometric" to listOf("guid-1"),
+                "name" to listOf("Name"),
+            )
+        val searchItems =
+            viewModel.clearSimprintsBiometricQueryData(
+                searchItems =
+                    listOf(
+                        identifyField(value = "guid-1"),
+                        textField(uid = "name", value = "Name"),
+                    ),
+                queryData = queryData,
+            ).orEmpty()
+
+        val filteredQueryData =
+            viewModel.prepareEnrollmentQueryData(
+                searchItems = searchItems,
+                queryData = queryData,
+            )
+
+        assertEquals(hashMapOf("name" to listOf("Name")), filteredQueryData)
+        verify(sessionRepository).markPendingEnrollment()
+        verify(sessionRepository, never()).clear()
+    }
+
+    @Test
+    fun `prepareEnrollmentQueryData should wait for non biometric query after biometric fallback search`() {
+        whenever(sessionRepository.hasPendingSession()) doReturn true
+        val viewModel =
+            SimprintsSearchViewModel(
+                resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+                sessionRepository = sessionRepository,
+                resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+            )
+        val queryData =
+            mutableMapOf<String, List<String>?>(
+                "biometric" to listOf("guid-1"),
+            )
+        val searchItems =
+            viewModel.clearSimprintsBiometricQueryData(
+                searchItems = listOf(identifyField(value = "guid-1")),
+                queryData = queryData,
+            ).orEmpty()
+
+        val filteredQueryData =
+            viewModel.prepareEnrollmentQueryData(
+                searchItems = searchItems,
+                queryData = queryData,
+            )
+
+        assertEquals(hashMapOf<String, List<String>>(), filteredQueryData)
+        verify(sessionRepository, never()).markPendingEnrollment()
+        verify(sessionRepository, never()).clear()
+    }
+
+    @Test
     fun `clearPendingSessionIfNeeded should clear pending session when query is no longer biometric`() {
         whenever(sessionRepository.hasPendingSession()) doReturn true
         val viewModel =
@@ -229,6 +345,35 @@ class SimprintsSearchViewModelTest {
         )
 
         verify(sessionRepository).clear()
+    }
+
+    @Test
+    fun `clearPendingSessionIfNeeded should keep session after biometric fallback search`() {
+        whenever(sessionRepository.hasPendingSession()) doReturn true
+        val viewModel =
+            SimprintsSearchViewModel(
+                resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+                sessionRepository = sessionRepository,
+                resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+            )
+        val queryData =
+            mutableMapOf<String, List<String>?>(
+                "biometric" to listOf("guid-1"),
+                "name" to listOf("Name"),
+            )
+        val searchItems =
+            viewModel.clearSimprintsBiometricQueryData(
+                searchItems =
+                    listOf(
+                        identifyField(value = "guid-1"),
+                        textField(uid = "name", value = "Name"),
+                    ),
+                queryData = queryData,
+            ).orEmpty()
+
+        viewModel.clearPendingSessionIfNeeded(searchItems = searchItems)
+
+        verify(sessionRepository, never()).clear()
     }
 
     @Test
@@ -272,7 +417,7 @@ class SimprintsSearchViewModelTest {
     fun `onConfirmIdentityResult should clear pending navigation when cancelled`() =
         runTest {
             whenever(sessionRepository.get()) doReturn "session-id"
-            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any())) doReturn
+            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any(), any())) doReturn
                 SimprintsIntentUtils.PreparedCallout(
                     launchIntent = mock(),
                     responseData = emptyList(),
@@ -299,7 +444,7 @@ class SimprintsSearchViewModelTest {
     fun `onConfirmIdentityLaunchFailed should clear pending dashboard navigation`() =
         runTest {
             whenever(sessionRepository.get()) doReturn "session-id"
-            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any())) doReturn
+            whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any(), any())) doReturn
                 SimprintsIntentUtils.PreparedCallout(
                     launchIntent = mock(),
                     responseData = emptyList(),
@@ -543,7 +688,8 @@ class SimprintsSearchViewModelTest {
         }
 
     @Test
-    fun `clearSimprintsBiometricQueryData should clear only biometric search items`() {
+    fun `clearSimprintsBiometricQueryData should keep session for sequential fallback`() {
+        whenever(sessionRepository.hasPendingSession()) doReturn true
         val viewModel =
             SimprintsSearchViewModel(
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
@@ -569,7 +715,12 @@ class SimprintsSearchViewModelTest {
         assertEquals(mapOf("name" to listOf("Name")), queryData)
         assertEquals(null, updatedItems?.first()?.value)
         assertEquals("Name", updatedItems?.get(1)?.value)
-        verify(sessionRepository).clear()
+        assertTrue(
+            viewModel.shouldUseLastBiometricsLabel(
+                searchItems = listOf(textField(uid = "name", value = "Name")),
+            ),
+        )
+        verify(sessionRepository, never()).clear()
     }
 
     @Test
@@ -591,6 +742,42 @@ class SimprintsSearchViewModelTest {
         assertNull(updatedItems)
         assertEquals(mapOf("name" to listOf("Name")), queryData)
         verify(sessionRepository, never()).clear()
+    }
+
+    @Test
+    fun `new biometric search should override sequential fallback biometrics`() {
+        whenever(sessionRepository.hasPendingSession()) doReturn true
+        val viewModel =
+            SimprintsSearchViewModel(
+                resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+                sessionRepository = sessionRepository,
+                resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+            )
+        val queryData =
+            mutableMapOf<String, List<String>?>(
+                "biometric" to listOf("guid-1"),
+                "name" to listOf("Name"),
+            )
+        viewModel.clearSimprintsBiometricQueryData(
+            searchItems =
+                listOf(
+                    identifyField(value = "guid-1"),
+                    textField(uid = "name", value = "Name"),
+                ),
+            queryData = queryData,
+        )
+
+        viewModel.onSimprintsBiometricIdentificationResult(
+            uid = "biometric",
+            value = "guid-2",
+            hasAutoOpenEligibleSimprintsIdentification = false,
+        )
+
+        assertFalse(
+            viewModel.shouldUseLastBiometricsLabel(
+                searchItems = listOf(textField(uid = "name", value = "Name")),
+            ),
+        )
     }
 
     @Test
