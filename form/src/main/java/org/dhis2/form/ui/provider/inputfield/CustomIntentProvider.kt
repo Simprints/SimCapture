@@ -110,8 +110,9 @@ fun ProvideCustomIntentInput(
         }
         customIntentState = getCustomIntentState(values, fieldUiModel.isLoadingData)
     }
+    val customIntentActivityResultContract = remember { CustomIntentActivityResultContract() }
     val launcher =
-        rememberLauncherForActivityResult(contract = CustomIntentActivityResultContract()) {
+        rememberLauncherForActivityResult(contract = customIntentActivityResultContract) {
             when (it) {
                 is CustomIntentResult.Error -> {
                     customIntentState = CustomIntentState.LAUNCH

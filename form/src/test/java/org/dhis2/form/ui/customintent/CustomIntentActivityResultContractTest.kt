@@ -478,10 +478,11 @@ class CustomIntentActivityResultContractTest {
 
     @Test
     fun `parseResult should return possible duplicates for Simprints identifications`() {
-        prepareParseResult(
-            fieldUid = "field-uid",
-            customIntent = simprintsRegisterIntent(),
-        )
+        val resultContext =
+            resultContext(
+                fieldUid = "field-uid",
+                customIntent = simprintsRegisterIntent(),
+            )
         val bundleExtras =
             Bundle().apply {
                 putString("sessionId", "session-id")
@@ -496,7 +497,12 @@ class CustomIntentActivityResultContractTest {
                 on { extras } doReturn bundleExtras
             }
 
-        val result = contract.parseResult(android.app.Activity.RESULT_OK, intent)
+        val result =
+            contract.parseResult(
+                resultCode = android.app.Activity.RESULT_OK,
+                intent = intent,
+                resultContext = resultContext,
+            )
 
         assertTrue(result is CustomIntentResult.PossibleDuplicates)
         result as CustomIntentResult.PossibleDuplicates
@@ -506,18 +512,78 @@ class CustomIntentActivityResultContractTest {
 
     @Test
     fun `parseResult should not treat Simprints identify result as possible duplicates`() {
-        prepareParseResult(
-            fieldUid = "field-uid",
-            customIntent = simprintsIdentifyIntent(),
-        )
+        val resultContext =
+            resultContext(
+                fieldUid = "field-uid",
+                customIntent = simprintsIdentifyIntent(),
+            )
         val intent =
             Intent().apply {
                 putExtra("identifications", """[{"guid":"g1"}]""")
             }
 
-        val result = contract.parseResult(android.app.Activity.RESULT_OK, intent)
+        val result =
+            contract.parseResult(
+                resultCode = android.app.Activity.RESULT_OK,
+                intent = intent,
+                resultContext = resultContext,
+            )
 
         assertTrue(result is CustomIntentResult.Error)
+    }
+
+    @Test
+    fun `parseResult should use restored result context after process recreation`() {
+        val resultContext =
+            resultContext(
+                fieldUid = "field-uid",
+                customIntent = simprintsRegisterIntent(),
+            )
+        val restoredResultContext = CustomIntentResultContext.restoreFrom(resultContext.toSavedState())
+        val intent =
+            mock<Intent> {
+                on { hasExtra("guid") } doReturn true
+                on { getStringExtra("guid") } doReturn "guid-1"
+            }
+
+        val result =
+            CustomIntentActivityResultContract().parseResult(
+                resultCode = android.app.Activity.RESULT_OK,
+                intent = intent,
+                resultContext = restoredResultContext,
+            )
+
+        assertTrue(result is CustomIntentResult.Success)
+        result as CustomIntentResult.Success
+        assertEquals("field-uid", result.fieldUid)
+        assertEquals("guid-1", result.value)
+        assertEquals("com.simprints.id.REGISTER", result.action)
+    }
+
+    @Test
+    fun `parseResult should return error when result context is missing`() {
+        val result =
+            contract.parseResult(
+                resultCode = android.app.Activity.RESULT_OK,
+                intent = Intent(),
+                resultContext = null,
+            )
+
+        assertTrue(result is CustomIntentResult.Error)
+        assertEquals("", (result as CustomIntentResult.Error).fieldUid)
+    }
+
+    @Test
+    fun `result context should restore saved response data`() {
+        val resultContext =
+            resultContext(
+                fieldUid = "field-uid",
+                customIntent = simprintsRegisterIntent(),
+            )
+
+        val restoredResultContext = CustomIntentResultContext.restoreFrom(resultContext.toSavedState())
+
+        assertEquals(resultContext, restoredResultContext)
     }
 
     private fun simprintsRegisterIntent() = simprintsIntent("com.simprints.id.REGISTER")
@@ -540,17 +606,14 @@ class CustomIntentActivityResultContractTest {
                 ),
         )
 
-    private fun prepareParseResult(
+    private fun resultContext(
         fieldUid: String,
         customIntent: CustomIntentModel,
-    ) {
-        CustomIntentActivityResultContract::class.java
-            .getDeclaredField("fieldUid")
-            .apply { isAccessible = true }
-            .set(null, fieldUid)
-        CustomIntentActivityResultContract::class.java
-            .getDeclaredField("customIntent")
-            .apply { isAccessible = true }
-            .set(null, customIntent)
-    }
+    ) = CustomIntentResultContext.from(
+        CustomIntentInput(
+            fieldUid = fieldUid,
+            customIntent = customIntent,
+            defaultTitle = "default-title",
+        ),
+    )
 }
