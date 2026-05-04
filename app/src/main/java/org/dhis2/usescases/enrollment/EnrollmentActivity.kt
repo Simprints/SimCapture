@@ -27,13 +27,17 @@ import org.dhis2.form.data.GeometryController
 import org.dhis2.form.data.GeometryParserImpl
 import org.dhis2.form.model.EventMode
 import org.dhis2.form.ui.FormView
+import org.dhis2.form.ui.customintent.CustomIntentActivityResultContract
+import org.dhis2.form.ui.customintent.CustomIntentResult
+import org.dhis2.form.ui.customintent.CustomIntentResultContext
 import org.dhis2.maps.views.MapSelectorActivity
+import org.dhis2.simprints.SimprintsEnrollmentViewModel.RegisterLastResult
 import org.dhis2.usescases.events.ScheduledEventActivity
 import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.EventCaptureActivity
 import org.dhis2.usescases.general.ActivityGlobalAbstract
+import org.dhis2.usescases.searchTrackEntity.SearchTEActivity
 import org.dhis2.usescases.teiDashboard.TeiDashboardMobileActivity
 import org.dhis2.utils.granularsync.OPEN_ERROR_LOCATION
-import org.dhis2.simprints.SimprintsEnrollmentViewModel.RegisterLastResult
 import org.hisp.dhis.android.core.common.FeatureType
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
 import timber.log.Timber
@@ -58,6 +62,29 @@ class EnrollmentActivity :
 
     lateinit var binding: EnrollmentActivityBinding
     lateinit var mode: EnrollmentMode
+    private val simprintsCustomIntentActivityResultContract = CustomIntentActivityResultContract()
+    private var pendingSimprintsCustomIntentResultContext: CustomIntentResultContext? = null
+    private val simprintsCustomIntentLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val resultContext = pendingSimprintsCustomIntentResultContext
+            pendingSimprintsCustomIntentResultContext = null
+            try {
+                supportFragmentManager.executePendingTransactions()
+                formView.handleCustomIntentResult(
+                    simprintsCustomIntentActivityResultContract.parseResult(
+                        resultCode = result.resultCode,
+                        intent = result.data,
+                        resultContext = resultContext,
+                    ),
+                )
+            } catch (e: Exception) {
+                Timber.e(e)
+                displayMessage(getString(custom_intent_error))
+                if (::formView.isInitialized) {
+                    formView.reload()
+                }
+            }
+        }
     private val simprintsRegisterLastBiometricsLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             lifecycleScope.launch {
@@ -66,6 +93,7 @@ class EnrollmentActivity :
                         presenter.onRegisterLastResult(
                             resultCode = result.resultCode,
                             data = result.data,
+                            enrollmentUid = intent.getStringExtra(ENROLLMENT_UID_EXTRA),
                         )
                     ) {
                         RegisterLastResult.CONTINUE_FINISH -> {
@@ -89,6 +117,79 @@ class EnrollmentActivity :
             }
         }
 
+    private val simprintsAutoRegisterLastBiometricsLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            lifecycleScope.launch {
+                try {
+                    when (
+                        presenter.onRegisterLastResult(
+                            resultCode = result.resultCode,
+                            data = result.data,
+                            enrollmentUid = intent.getStringExtra(ENROLLMENT_UID_EXTRA),
+                        )
+                    ) {
+                        RegisterLastResult.CONTINUE_FINISH -> {
+                            formView.reload()
+                        }
+
+                        RegisterLastResult.ERROR -> {
+                            displayMessage(getString(custom_intent_error))
+                        }
+
+                        RegisterLastResult.NONE -> {
+                            // no-op
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e)
+                    displayMessage(getString(custom_intent_error))
+                }
+            }
+        }
+
+    private val simprintsPossibleDuplicatesSearchLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val shouldAutoEnrollLast =
+                result.resultCode == RESULT_OK &&
+                    result.data?.getBooleanExtra(
+                        SearchTEActivity.SIMPRINTS_AUTO_ENROLL_LAST_BIOMETRICS_RESULT,
+                        false,
+                    ) == true
+            if (!shouldAutoEnrollLast) {
+                return@registerForActivityResult
+            }
+
+            val enrollmentUid = intent.getStringExtra(ENROLLMENT_UID_EXTRA).orEmpty()
+            if (enrollmentUid.isBlank()) {
+                displayMessage(getString(custom_intent_error))
+                return@registerForActivityResult
+            }
+
+            lifecycleScope.launch {
+                val simprintsRegisterLastIntent =
+                    try {
+                        presenter.onSimprintsAutoEnrollLastRequested(enrollmentUid)
+                    } catch (e: Exception) {
+                        Timber.e(e)
+                        displayMessage(getString(custom_intent_error))
+                        return@launch
+                    }
+
+                if (simprintsRegisterLastIntent == null) {
+                    displayMessage(getString(custom_intent_error))
+                    return@launch
+                }
+
+                try {
+                    simprintsAutoRegisterLastBiometricsLauncher.launch(simprintsRegisterLastIntent)
+                } catch (e: Exception) {
+                    Timber.e(e)
+                    presenter.onRegisterLastLaunchFailed()
+                    displayMessage(getString(custom_intent_error))
+                }
+            }
+        }
+
     companion object {
         const val ENROLLMENT_UID_EXTRA = "ENROLLMENT_UID_EXTRA"
         const val PROGRAM_UID_EXTRA = "PROGRAM_UID_EXTRA"
@@ -97,6 +198,8 @@ class EnrollmentActivity :
         const val RQ_ENROLLMENT_GEOMETRY = 1023
         const val RQ_INCIDENT_GEOMETRY = 1024
         const val RQ_EVENT = 1025
+        private const val SIMPRINTS_CUSTOM_INTENT_RESULT_CONTEXT_STATE =
+            "SIMPRINTS_CUSTOM_INTENT_RESULT_CONTEXT_STATE"
 
         fun getIntent(
             context: Context,
@@ -137,6 +240,12 @@ class EnrollmentActivity :
 
         super.onCreate(savedInstanceState)
 
+        pendingSimprintsCustomIntentResultContext =
+            CustomIntentResultContext.restoreFrom(
+                savedState = savedInstanceState,
+                keyPrefix = SIMPRINTS_CUSTOM_INTENT_RESULT_CONTEXT_STATE,
+            )
+
         if (presenter.getEnrollment() == null ||
             presenter.getEnrollment()?.trackedEntityInstance() == null
         ) {
@@ -167,12 +276,45 @@ class EnrollmentActivity :
                     ),
                 locationProvider = locationProvider,
                 dateEditionWarningHandler = dateEditionWarningHandler,
+                onLaunchSimprintsCustomIntent = { input ->
+                    pendingSimprintsCustomIntentResultContext = CustomIntentResultContext.from(input)
+                    try {
+                        simprintsCustomIntentLauncher.launch(
+                            simprintsCustomIntentActivityResultContract.createIntent(this, input),
+                        )
+                    } catch (e: Exception) {
+                        pendingSimprintsCustomIntentResultContext = null
+                        Timber.e(e)
+                        displayMessage(getString(custom_intent_error))
+                        if (::formView.isInitialized) {
+                            formView.handleCustomIntentResult(
+                                CustomIntentResult.Error(fieldUid = input.fieldUid),
+                            )
+                        }
+                    }
+                },
+                onLaunchSimprintsPossibleDuplicatesSearch = { search ->
+                    val teiTypeToAdd = presenter.getProgram()?.trackedEntityType()?.uid()
+                    if (teiTypeToAdd.isNullOrBlank()) {
+                        Timber.e("Failed to launch Simprints Possible duplicates search: tracked entity type is missing")
+                        displayMessage(getString(custom_intent_error))
+                        return@buildEnrollmentForm
+                    }
+                    simprintsPossibleDuplicatesSearchLauncher.launch(
+                        SearchTEActivity.getSimprintsPossibleDuplicatesIntent(
+                            context = this,
+                            programUid = programUid,
+                            teiTypeToAdd = teiTypeToAdd,
+                            fieldUid = search.fieldUid,
+                            guidValues = search.guidValues,
+                        ),
+                    )
+                },
             ) {
                 lifecycleScope.launch {
                     val simprintsRegisterLastIntent =
                         try {
                             presenter.onFinishRequested(
-                                isNewEnrollment = enrollmentMode == EnrollmentMode.NEW,
                                 enrollmentUid = enrollmentUid,
                             )
                         } catch (e: Exception) {
@@ -197,6 +339,14 @@ class EnrollmentActivity :
             }
 
         presenter.init()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        pendingSimprintsCustomIntentResultContext?.saveTo(
+            outState = outState,
+            keyPrefix = SIMPRINTS_CUSTOM_INTENT_RESULT_CONTEXT_STATE,
+        )
+        super.onSaveInstanceState(outState)
     }
 
     override fun onResume() {

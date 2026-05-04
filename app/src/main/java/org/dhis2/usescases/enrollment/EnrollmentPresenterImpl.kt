@@ -160,23 +160,26 @@ class EnrollmentPresenterImpl(
         }
     }
 
-    suspend fun onFinishRequested(
-        isNewEnrollment: Boolean,
-        enrollmentUid: String,
-    ): Intent? =
+    suspend fun onFinishRequested(enrollmentUid: String): Intent? =
         simprintsEnrollmentViewModel.onFinishRequested(
-            isNewEnrollment = isNewEnrollment,
+            enrollmentUid = enrollmentUid,
+        )
+
+    suspend fun onSimprintsAutoEnrollLastRequested(enrollmentUid: String): Intent? =
+        simprintsEnrollmentViewModel.onAutoEnrollLastRequested(
             enrollmentUid = enrollmentUid,
         )
 
     suspend fun onRegisterLastResult(
         resultCode: Int,
         data: Intent?,
+        enrollmentUid: String?,
     ): SimprintsEnrollmentViewModel.RegisterLastResult =
         simprintsEnrollmentViewModel.onRegisterLastResult(
             resultCode = resultCode,
             data = data,
             teiUid = getEnrollment()?.trackedEntityInstance(),
+            enrollmentUid = enrollmentUid ?: getEnrollment()?.uid(),
         )
 
     fun onRegisterLastLaunchFailed() {

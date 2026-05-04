@@ -90,6 +90,50 @@ class SimprintsResolveConfirmIdentityCalloutUseCaseTest {
         }
 
     @Test
+    fun `invoke should return confirm identity callout with blank search value when allowed`() =
+        runBlocking {
+            val customIntent = identifyIntent()
+            whenever(
+                repository.getTrackedEntityAttributeValue(
+                    "tei-uid",
+                    "biometric",
+                ),
+            ) doReturn "selected-guid"
+            val useCase =
+                SimprintsResolveConfirmIdentityCalloutUseCase(
+                    simprintsD2Repository = repository,
+                )
+
+            val intentActions = mutableListOf<String?>()
+            Mockito.mockConstruction(Intent::class.java) { _, context ->
+                intentActions.add(context.arguments().firstOrNull() as? String)
+            }.use { construction ->
+                val result =
+                    useCase(
+                        teiUid = "tei-uid",
+                        searchFields =
+                            listOf(
+                                SimprintsSearchUtils.SearchField(
+                                    uid = "biometric",
+                                    value = null,
+                                    customIntent = customIntent,
+                                ),
+                            ),
+                        sessionId = "session-id",
+                        allowBlankSearchValue = true,
+                    )
+
+                assertNotNull(result)
+                val launchIntent = construction.constructed().single()
+                assertEquals(listOf("com.simprints.id.CONFIRM_IDENTITY"), intentActions)
+                assertSame(launchIntent, result!!.launchIntent)
+                verify(launchIntent).putExtra("sessionId", "session-id")
+                verify(launchIntent).putExtra("selectedGuid", "selected-guid")
+                assertEquals(customIntent.customIntentResponse, result.responseData)
+            }
+        }
+
+    @Test
     fun `invoke should return null when selected guid is missing`() =
         runBlocking {
             whenever(

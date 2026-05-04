@@ -66,8 +66,10 @@ import org.dhis2.maps.utils.DhisMapUtils;
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository;
 import org.dhis2.mobile.commons.customintents.CustomIntentRepositoryImpl;
 import org.dhis2.mobile.commons.reporting.CrashReportController;
+import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase;
 import org.dhis2.tracker.data.ProfilePictureProvider;
 import org.dhis2.ui.ThemeManager;
+import org.dhis2.simprints.SimprintsResolveSingleBiometricSearchNavigationUseCase;
 import org.dhis2.simprints.di.SimprintsSearchViewModelFactory;
 import org.dhis2.usescases.events.EventInfoProvider;
 import org.dhis2.usescases.searchTrackEntity.ui.mapper.TEICardMapper;
@@ -357,11 +359,45 @@ public class SearchTEModule {
     @PerActivity
     SimprintsSearchViewModelFactory provideSimprintsSearchViewModelFactory(
             SimprintsResolveConfirmIdentityCalloutUseCase resolveConfirmIdentityCalloutUseCase,
-            SimprintsSessionRepository simprintsSessionRepository
+            SimprintsSessionRepository simprintsSessionRepository,
+            SimprintsResolveSingleBiometricSearchNavigationUseCase resolveSingleBiometricSearchNavigationUseCase
     ) {
         return new SimprintsSearchViewModelFactory(
                 resolveConfirmIdentityCalloutUseCase,
-                simprintsSessionRepository
+                simprintsSessionRepository,
+                resolveSingleBiometricSearchNavigationUseCase
+        );
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsResolveSingleBiometricSearchNavigationUseCase provideSimprintsResolveSingleBiometricSearchNavigationUseCase(
+            SearchRepository searchRepository,
+            SearchRepositoryKt searchRepositoryKt,
+            NetworkUtils networkUtils,
+            FilterManager filterManager,
+            DispatcherProvider dispatcherProvider
+    ) {
+        return new SimprintsResolveSingleBiometricSearchNavigationUseCase(
+                searchRepository,
+                searchRepositoryKt,
+                networkUtils,
+                filterManager,
+                dispatcherProvider.io()
+        );
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsLoadBiometricSearchResultsUseCase provideSimprintsLoadBiometricSearchResultsUseCase(
+            SearchRepository searchRepository,
+            SearchRepositoryKt searchRepositoryKt,
+            SimprintsOrderSearchResultsByIdentifyResponseUseCase orderSearchResultsByIdentifyResponse
+    ) {
+        return new SimprintsLoadBiometricSearchResultsUseCase(
+                searchRepository,
+                searchRepositoryKt,
+                orderSearchResultsByIdentifyResponse
         );
     }
 
@@ -378,7 +414,7 @@ public class SearchTEModule {
             FilterManager filterManager,
             ProgramConfigurationRepository programConfigurationRepository,
             SimprintsSearchViewModelFactory simprintsSearchViewModelFactory,
-            SimprintsOrderSearchResultsByIdentifyResponseUseCase orderSearchResultsByIdentifyResponse
+            SimprintsLoadBiometricSearchResultsUseCase loadSimprintsBiometricSearchResultsUseCase
     ) {
         return new SearchTeiViewModelFactory(
                 searchRepository,
@@ -400,7 +436,7 @@ public class SearchTEModule {
                 filterManager,
                 (SearchTEActivity) moduleContext,
                 simprintsSearchViewModelFactory,
-                orderSearchResultsByIdentifyResponse
+                loadSimprintsBiometricSearchResultsUseCase
         );
     }
 

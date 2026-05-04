@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.outlined.Map
+import androidx.lifecycle.MutableLiveData
 import androidx.paging.PagingData
 import androidx.paging.testing.asSnapshot
 import app.cash.turbine.test
@@ -15,6 +16,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.take
@@ -26,7 +28,6 @@ import org.dhis2.R
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.resources.ResourceManager
-import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.search.SearchParametersModel
 import org.dhis2.form.model.FieldUiModel
@@ -36,16 +37,20 @@ import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.maps.geometry.mapper.EventsByProgramStage
 import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.mobile.commons.model.CustomIntentModel
+import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
 import org.dhis2.simprints.SimprintsSearchViewModel
 import org.dhis2.usescases.searchTrackEntity.listView.SearchResult.SearchResultType
 import org.dhis2.utils.customviews.navigationbar.NavigationPage
 import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.program.Program
+import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstance
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityType
 import org.hisp.dhis.android.core.trackedentity.search.TrackedEntitySearchItem
 import org.hisp.dhis.mobile.ui.designsystem.component.navigationBar.NavigationBarItem
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -54,12 +59,14 @@ import org.maplibre.geojson.BoundingBox
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.clearInvocations
+import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import kotlin.text.get
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchTEIViewModelTest {
@@ -82,7 +89,10 @@ class SearchTEIViewModelTest {
     private val displayNameProvider: DisplayNameProvider = mock()
     private val filterManager: FilterManager = mock()
     private val simprintsSearchViewModel: SimprintsSearchViewModel = mock()
-    private val orderSearchResultsByIdentifyResponse: SimprintsOrderSearchResultsByIdentifyResponseUseCase = mock()
+    private val loadSimprintsBiometricSearchResultsUseCase: SimprintsLoadBiometricSearchResultsUseCase = mock()
+    private val simprintsBiometricSearchNavigation = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val simprintsBiometricSearch = MutableLiveData(false)
+    private val simprintsUseLastBiometricsLabel = MutableLiveData(false)
 
     @ExperimentalCoroutinesApi
     private val testingDispatcher = StandardTestDispatcher()
@@ -96,6 +106,12 @@ class SearchTEIViewModelTest {
         whenever(repository.canCreateInProgramWithoutSearch()) doReturn true
         whenever(repository.getTrackedEntityType()) doReturn testingTrackedEntityType()
         whenever(repository.filtersApplyOnGlobalSearch()) doReturn true
+        whenever(filterManager.stateFilters) doReturn emptyList()
+        whenever(simprintsSearchViewModel.simprintsBiometricSearchNavigation) doReturn
+            simprintsBiometricSearchNavigation
+        whenever(simprintsSearchViewModel.isSimprintsBiometricSearch) doReturn simprintsBiometricSearch
+        whenever(simprintsSearchViewModel.isSimprintsUseLastBiometricsLabel) doReturn
+            simprintsUseLastBiometricsLabel
         viewModel =
             SearchTEIViewModel(
                 initialProgram,
@@ -117,7 +133,7 @@ class SearchTEIViewModelTest {
                 displayNameProvider = displayNameProvider,
                 filterManager = filterManager,
                 simprintsSearchViewModel = simprintsSearchViewModel,
-                orderSearchResultsByIdentifyResponse = orderSearchResultsByIdentifyResponse,
+                loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
     }
@@ -188,6 +204,28 @@ class SearchTEIViewModelTest {
 
         val screenState = viewModel.screenState.value
         assertTrue(screenState is SearchList)
+    }
+
+    @Test
+    fun `Should keep Search screen open after Simprints biometric no matches when list screen is refreshed`() {
+        viewModel.onSimprintsBiometricNoMatches()
+
+        viewModel.setListScreen()
+
+        val screenState = viewModel.screenState.value as SearchList
+        assertTrue(screenState.searchForm.isOpened)
+        assertFalse(screenState.searchForm.isForced)
+    }
+
+    @Test
+    fun `Should stop keeping Search screen open after follow up search`() {
+        viewModel.onSimprintsBiometricNoMatches()
+
+        viewModel.onSearch()
+        testingDispatcher.scheduler.advanceUntilIdle()
+
+        val screenState = viewModel.screenState.value as SearchList
+        assertFalse(screenState.searchForm.isOpened)
     }
 
     @Test
@@ -336,20 +374,17 @@ class SearchTEIViewModelTest {
             setCurrentProgram(testingProgram)
             setAllowCreateBeforeSearch(false)
             whenever(networkUtils.isOnline()) doReturn true
-            whenever(filterManager.stateFilters) doReturn emptyList()
-            val firstItem = trackedEntitySearchItem("tei-1")
-            val secondItem = trackedEntitySearchItem("tei-2")
             val firstModel = searchTeiModel("first")
             val secondModel = searchTeiModel("second")
             whenever(
-                orderSearchResultsByIdentifyResponse(
+                loadSimprintsBiometricSearchResultsUseCase(
+                    any(),
+                    any(),
+                    any(),
                     any(),
                     anyOrNull(),
-                    any<suspend () -> List<TrackedEntitySearchItem>>(),
                 ),
-            ) doReturn listOf(secondItem, firstItem)
-            whenever(repository.transform(secondItem, testingProgram, false, null)) doReturn secondModel
-            whenever(repository.transform(firstItem, testingProgram, false, null)) doReturn firstModel
+            ) doReturn flowOf(PagingData.from(listOf(secondModel, firstModel)))
             viewModel.searchParametersUiState =
                 viewModel.searchParametersUiState.copy(
                     items = listOf(simprintsBiometricSearchField()),
@@ -365,7 +400,13 @@ class SearchTEIViewModelTest {
             viewModel.setSearchScreen()
             testingDispatcher.scheduler.advanceUntilIdle()
 
-            val result = async { viewModel.searchPagingData.drop(1).take(1).asSnapshot() }
+            val result =
+                async {
+                    viewModel.searchPagingData
+                        .drop(1)
+                        .take(1)
+                        .asSnapshot()
+                }
             viewModel.onSearch()
             testingDispatcher.scheduler.advanceUntilIdle()
 
@@ -380,14 +421,15 @@ class SearchTEIViewModelTest {
             setCurrentProgram(testingProgram)
             setAllowCreateBeforeSearch(false)
             whenever(networkUtils.isOnline()) doReturn true
-            whenever(filterManager.stateFilters) doReturn emptyList()
             val searchItem = trackedEntitySearchItem("tei-1")
             val searchModel = searchTeiModel("regular")
             whenever(
-                orderSearchResultsByIdentifyResponse(
+                loadSimprintsBiometricSearchResultsUseCase(
+                    any(),
+                    any(),
+                    any(),
                     any(),
                     anyOrNull(),
-                    any<suspend () -> List<TrackedEntitySearchItem>>(),
                 ),
             ) doReturn null
             whenever(repositoryKt.searchTrackedEntities(any(), any())) doReturn
@@ -408,12 +450,99 @@ class SearchTEIViewModelTest {
             viewModel.setSearchScreen()
             testingDispatcher.scheduler.advanceUntilIdle()
 
-            val result = async { viewModel.searchPagingData.drop(1).take(1).asSnapshot() }
+            val result =
+                async {
+                    viewModel.searchPagingData
+                        .drop(1)
+                        .take(1)
+                        .asSnapshot()
+                }
             viewModel.onSearch()
             testingDispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(listOf(searchModel), result.await())
             verify(repositoryKt).searchTrackedEntities(any(), any())
+        }
+
+    @Test
+    fun `Should return Simprints possible duplicates search results when query contains multiple GUIDs`() =
+        runTest {
+            val testingProgram = testingProgram(displayFrontPageList = false)
+            setCurrentProgram(testingProgram)
+            setAllowCreateBeforeSearch(false)
+            whenever(networkUtils.isOnline()) doReturn true
+            viewModel.setSimprintsPossibleDuplicatesSearch(true)
+
+            viewModel.queryData["biometric"] = listOf("guid-1", "guid-2")
+
+            val searchItem1 = trackedEntitySearchItem("tei-1")
+            val searchItem2 = trackedEntitySearchItem("tei-2")
+            whenever(repositoryKt.searchTrackedEntitiesImmediate(any(), any())).thenAnswer {
+                val params = it.arguments[0] as SearchParametersModel
+                when (params.queryData?.get("biometric")?.firstOrNull()) {
+                    "guid-1" -> listOf(searchItem1)
+                    "guid-2" -> listOf(searchItem2)
+                    else -> emptyList()
+                }
+            }
+
+            val model1 = searchTeiModel("model-1", teiUid = "tei-1")
+            val model2 = searchTeiModel("model-2", teiUid = "tei-2")
+            whenever(repository.transform(searchItem1, testingProgram, false, null)) doReturn model1
+            whenever(repository.transform(searchItem2, testingProgram, false, null)) doReturn model2
+
+            viewModel.setListScreen()
+            viewModel.setSearchScreen()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            val result =
+                async {
+                    viewModel.searchPagingData
+                        .drop(1)
+                        .take(1)
+                        .asSnapshot()
+                }
+            viewModel.onSearch()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf(model1, model2), result.await())
+            verify(repositoryKt, times(2)).searchTrackedEntitiesImmediate(any(), any())
+            verify(repositoryKt, times(0)).searchTrackedEntities(any(), any())
+        }
+
+    @Test
+    fun `Should auto finish Simprints possible duplicates search when there are no DHIS2 matches`() =
+        runTest {
+            val testingProgram = testingProgram(displayFrontPageList = false, minAttributesToSearch = 2)
+            setCurrentProgram(testingProgram)
+            setAllowCreateBeforeSearch(false)
+            whenever(networkUtils.isOnline()) doReturn true
+            viewModel.setSimprintsPossibleDuplicatesSearch(true)
+
+            viewModel.queryData["biometric"] = listOf("guid-1", "guid-2")
+            whenever(repositoryKt.searchTrackedEntitiesImmediate(any(), any())) doReturn emptyList()
+
+            viewModel.setListScreen()
+            viewModel.setSearchScreen()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.simprintsNavigation.test {
+                val snapshot =
+                    async {
+                        viewModel.searchPagingData
+                            .drop(1)
+                            .take(1)
+                            .asSnapshot()
+                    }
+                viewModel.onSearch()
+                testingDispatcher.scheduler.advanceUntilIdle()
+
+                assertTrue(awaitItem() is SimprintsNavigationAction.AutoEnrollLastBiometricsFromSimprintsPossibleDuplicates)
+                snapshot.await()
+                cancelAndIgnoreRemainingEvents()
+            }
+            verify(simprintsSearchViewModel, never()).markPendingEnrollmentFromSimprintsPossibleDuplicates()
+            verify(repositoryKt, times(0)).searchTrackedEntities(any(), any())
         }
 
     @ExperimentalCoroutinesApi
@@ -528,7 +657,7 @@ class SearchTEIViewModelTest {
         runTest {
             val intent: Intent = mock()
             whenever(
-                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any()),
+                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any(), any()),
             ) doReturn SimprintsSearchViewModel.DashboardAction.LaunchConfirmIdentity(intent)
 
             viewModel.simprintsNavigation.test {
@@ -538,6 +667,34 @@ class SearchTEIViewModelTest {
                 val action = awaitItem()
                 assertTrue(action is SimprintsNavigationAction.LaunchConfirmIdentity)
                 assertEquals(intent, (action as SimprintsNavigationAction.LaunchConfirmIdentity).intent)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `Should emit open dashboard navigation when Simprints dashboard request resolves directly`() =
+        runTest {
+            whenever(
+                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any(), any()),
+            ) doReturn
+                SimprintsSearchViewModel.DashboardAction.OpenDashboard(
+                    SimprintsSearchViewModel.PendingDashboardNavigation(
+                        teiUid = "teiUid",
+                        programUid = "programUid",
+                        enrollmentUid = "enrollmentUid",
+                    ),
+                )
+
+            viewModel.simprintsNavigation.test {
+                viewModel.onOpenDashboardRequested("teiUid", "programUid", "enrollmentUid")
+                testingDispatcher.scheduler.advanceUntilIdle()
+
+                val action = awaitItem()
+                assertTrue(action is SimprintsNavigationAction.OpenDashboard)
+                action as SimprintsNavigationAction.OpenDashboard
+                assertEquals("teiUid", action.teiUid)
+                assertEquals("programUid", action.programUid)
+                assertEquals("enrollmentUid", action.enrollmentUid)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -570,7 +727,7 @@ class SearchTEIViewModelTest {
     fun `Should emit error message when Simprints confirm identity setup fails`() =
         runTest {
             whenever(
-                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any()),
+                simprintsSearchViewModel.onDashboardRequested(any(), any(), any(), any(), any()),
             ).thenThrow(RuntimeException())
             whenever(resourceManager.getString(R.string.custom_intent_error)) doReturn "Custom intent error"
 
@@ -587,14 +744,90 @@ class SearchTEIViewModelTest {
 
     @Test
     fun `Should refresh Simprints last biometrics label state`() {
-        whenever(simprintsSearchViewModel.shouldUseLastBiometricsLabel(any())) doReturn true
+        simprintsUseLastBiometricsLabel.value = true
         clearInvocations(simprintsSearchViewModel)
 
         viewModel.refreshSimprintsUiState()
 
         assertTrue(viewModel.isSimprintsUseLastBiometricsLabel.value == true)
-        verify(simprintsSearchViewModel).clearPendingSessionIfNeeded(any())
+        verify(simprintsSearchViewModel).refreshSimprintsUiState(any())
     }
+
+    @Test
+    fun `Should delegate enrollment query preparation to SimprintsSearchViewModel`() {
+        val queryData = mapOf("name" to listOf("Name"))
+        whenever(simprintsSearchViewModel.prepareEnrollmentQueryData(any(), eq(queryData))) doReturn
+            hashMapOf("name" to listOf("Name"))
+
+        val result = viewModel.prepareEnrollmentQueryData(queryData)
+
+        assertEquals(hashMapOf("name" to listOf("Name")), result)
+        verify(simprintsSearchViewModel).prepareEnrollmentQueryData(any(), eq(queryData))
+    }
+
+    @Test
+    fun `Should delegate Simprints biometric identification result`() {
+        viewModel.onSimprintsBiometricIdentificationResult(
+            uid = "biometric",
+            value = "guid-1",
+            hasAutoOpenEligibleSimprintsIdentification = true,
+        )
+
+        verify(simprintsSearchViewModel).onSimprintsBiometricIdentificationResult(
+            uid = "biometric",
+            value = "guid-1",
+            hasAutoOpenEligibleSimprintsIdentification = true,
+        )
+    }
+
+    @Test
+    fun `Should delegate Simprints confirm identity launch failures`() {
+        viewModel.onConfirmIdentityLaunchFailed()
+
+        verify(simprintsSearchViewModel).onConfirmIdentityLaunchFailed()
+    }
+
+    @Test
+    fun `Should rehydrate initial query and enable search when search parameters are fetched`() =
+        runTest {
+            whenever(repositoryKt.searchParameters(initialProgram, "teiTypeUid")) doReturn
+                listOf(simprintsBiometricSearchField())
+            val viewModel =
+                SearchTEIViewModel(
+                    initialProgramUid = initialProgram,
+                    initialQuery = mutableMapOf("biometric" to listOf("guid-1")),
+                    searchRepository = repository,
+                    searchRepositoryKt = repositoryKt,
+                    searchNavPageConfigurator = pageConfigurator,
+                    mapDataRepository = mapDataRepository,
+                    networkUtils = networkUtils,
+                    dispatchers =
+                        object : DispatcherProvider {
+                            override fun io(): CoroutineDispatcher = testingDispatcher
+
+                            override fun computation(): CoroutineDispatcher = testingDispatcher
+
+                            override fun ui(): CoroutineDispatcher = testingDispatcher
+                        },
+                    mapStyleConfig = mapStyleConfiguration,
+                    resourceManager = resourceManager,
+                    displayNameProvider = displayNameProvider,
+                    filterManager = filterManager,
+                    simprintsSearchViewModel = simprintsSearchViewModel,
+                    loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
+                )
+
+            viewModel.fetchSearchParameters(initialProgram, "teiTypeUid")
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            val fieldUiModel = viewModel.searchParametersUiState.items.single()
+
+            assertEquals("guid-1", fieldUiModel.value)
+            assertTrue(viewModel.searchParametersUiState.clearSearchEnabled)
+            assertTrue(viewModel.searchParametersUiState.searchEnabled)
+            assertTrue(viewModel.searchParametersUiState.searchedItems.isNotEmpty())
+            assertTrue(viewModel.screenState.value is SearchList)
+        }
 
     @Test
     fun `Should preserve entered search parameter values when parameters are refetched`() =
@@ -615,9 +848,220 @@ class SearchTEIViewModelTest {
             viewModel.fetchSearchParameters(initialProgram, "teiTypeUid")
             testingDispatcher.scheduler.advanceUntilIdle()
 
-            assertEquals("guid-1", viewModel.searchParametersUiState.items.single().value)
-            assertEquals("guid-1", viewModel.searchParametersUiState.items.single().displayName)
+            val fieldUiModel = viewModel.searchParametersUiState.items.single()
+
+            assertEquals("guid-1", fieldUiModel.value)
+            assertEquals("guid-1", fieldUiModel.displayName)
         }
+
+    @Test
+    fun `Should forward Simprints biometric search navigation flow`() =
+        runTest {
+            viewModel.simprintsBiometricSearchNavigation.test {
+                simprintsBiometricSearchNavigation.emit(Unit)
+
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `Should switch to list screen and clear fetched results for Simprints biometric search navigation`() {
+        viewModel.onNavigationPageChanged(NavigationPage.MAP_VIEW)
+        viewModel.setMapScreen()
+        viewModel.queryData["testingUid"] = listOf("testingValue")
+        clearInvocations(repository)
+
+        viewModel.onSimprintsBiometricSearchNavigation()
+        testingDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(NavigationPage.LIST_VIEW, viewModel.navigationBarUIState.value.selectedItem)
+        assertTrue(viewModel.screenState.value?.screenState == SearchScreenState.LIST)
+        verify(repository).clearFetchedList()
+    }
+
+    @Test
+    fun `Should open dashboard when Simprints save resolves direct navigation`() =
+        runTest {
+            whenever(
+                simprintsSearchViewModel.onSimprintsParameterSaved(
+                    any(),
+                    anyOrNull(),
+                    any(),
+                    any(),
+                    any(),
+                ),
+            ) doReturn
+                SimprintsSearchViewModel.PendingDashboardNavigation(
+                    teiUid = "teiUid",
+                    programUid = "matchedProgramUid",
+                    enrollmentUid = "enrollmentUid",
+                    isOnline = true,
+                )
+            viewModel.onNavigationPageChanged(NavigationPage.MAP_VIEW)
+            viewModel.setMapScreen()
+            viewModel.queryData["existingQuery"] = listOf("value")
+
+            viewModel.searchParametersUiState =
+                viewModel.searchParametersUiState.copy(
+                    items =
+                        listOf(
+                            simprintsBiometricSearchField().copy(
+                                value = "guid-1",
+                                displayName = "guid-1",
+                            ),
+                        ),
+                )
+
+            viewModel.onParameterIntent(
+                FormIntent.OnSave(
+                    uid = "biometric",
+                    value = "guid-1",
+                    valueType = ValueType.TEXT,
+                ),
+            )
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            val action = viewModel.legacyInteraction.value
+            assertTrue(action is LegacyInteraction.OnTeiClick)
+            action as LegacyInteraction.OnTeiClick
+            assertEquals("teiUid", action.teiUid)
+            assertEquals("enrollmentUid", action.enrollmentUid)
+            assertTrue(action.online)
+            assertEquals(NavigationPage.LIST_VIEW, viewModel.navigationBarUIState.value.selectedItem)
+            assertEquals(SearchScreenState.LIST, viewModel.screenState.value?.screenState)
+            assertTrue(viewModel.queryData.isEmpty())
+            assertTrue(!viewModel.searchParametersUiState.clearSearchEnabled)
+            assertTrue(viewModel.searchParametersUiState.searchedItems.isEmpty())
+            val searchItem = viewModel.searchParametersUiState.items.single()
+            assertNull(searchItem.value)
+            assertNull(searchItem.displayName)
+        }
+
+    @Test
+    fun `Should return Simprints biometric global results when available`() =
+        runTest {
+            setCurrentProgram(testingProgram(displayFrontPageList = false))
+            setAllowCreateBeforeSearch(false)
+            whenever(networkUtils.isOnline()) doReturn true
+            val globalModel = searchTeiModel("global")
+            whenever(
+                loadSimprintsBiometricSearchResultsUseCase(
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    anyOrNull(),
+                ),
+            ) doReturn flowOf(PagingData.from(listOf(globalModel)))
+            viewModel.searchParametersUiState =
+                viewModel.searchParametersUiState.copy(
+                    items = listOf(simprintsBiometricSearchField()),
+                )
+            viewModel.onParameterIntent(
+                FormIntent.OnSave(
+                    uid = "biometric",
+                    value = "guid-1,guid-2",
+                    valueType = ValueType.TEXT,
+                ),
+            )
+            viewModel.setListScreen()
+            viewModel.setSearchScreen()
+            viewModel.onSearch()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            val result = viewModel.fetchGlobalResults()?.asSnapshot()
+
+            assertEquals(listOf(globalModel), result)
+        }
+
+    @Test
+    fun `Should delegate Simprints biometric save handling to SimprintsSearchViewModel`() =
+        runTest {
+            viewModel.searchParametersUiState =
+                viewModel.searchParametersUiState.copy(
+                    items = listOf(simprintsBiometricSearchField()),
+                )
+
+            whenever(
+                simprintsSearchViewModel.onSimprintsParameterSaved(
+                    any(),
+                    anyOrNull(),
+                    any(),
+                    any(),
+                    any(),
+                ),
+            ) doAnswer {
+                simprintsBiometricSearchNavigation.tryEmit(Unit)
+                null
+            }
+
+            viewModel.onParameterIntent(
+                FormIntent.OnSave(
+                    uid = "biometric",
+                    value = "guid-1",
+                    valueType = ValueType.TEXT,
+                ),
+            )
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            verify(simprintsSearchViewModel).onSimprintsParameterSaved(
+                eq("biometric"),
+                eq("guid-1"),
+                any(),
+                any(),
+                any(),
+            )
+        }
+
+    @Test
+    fun `Should clear only Simprints biometric query data when requested to do so`() {
+        val biometricField =
+            simprintsBiometricSearchField().copy(
+                value = "guid-1",
+                displayName = "guid-1",
+            )
+        val textField =
+            FieldUiModelImpl(
+                uid = "name",
+                label = "Name",
+                value = "Name",
+                displayName = "Name",
+                autocompleteList = emptyList(),
+                optionSetConfiguration = null,
+                valueType = ValueType.TEXT,
+            )
+        viewModel.queryData["biometric"] = listOf("guid-1")
+        viewModel.queryData["name"] = listOf("Name")
+        viewModel.searchParametersUiState =
+            viewModel.searchParametersUiState.copy(
+                items = listOf(biometricField, textField),
+            )
+        whenever(
+            simprintsSearchViewModel.clearSimprintsBiometricQueryData(
+                any(),
+                any(),
+            ),
+        ) doAnswer { invocation ->
+            @Suppress("UNCHECKED_CAST")
+            val queryData = invocation.arguments[1] as MutableMap<String, List<String>?>
+            queryData.remove("biometric")
+            listOf(
+                biometricField.copy(value = null, displayName = null),
+                textField,
+            )
+        }
+
+        viewModel.clearSimprintsBiometricQueryData()
+
+        assertEquals(mapOf("name" to listOf("Name")), viewModel.queryData)
+        val biometricFieldUiModel = viewModel.searchParametersUiState.items.first()
+
+        assertEquals(null, biometricFieldUiModel.value)
+        assertEquals("Name", viewModel.searchParametersUiState.items[1].value)
+        assertEquals(mapOf("name" to "Name"), viewModel.searchParametersUiState.searchedItems)
+        verify(simprintsSearchViewModel).clearSimprintsBiometricQueryData(any(), any())
+    }
 
     @Test
     fun `Should enroll on click`() {
@@ -941,6 +1385,7 @@ class SearchTEIViewModelTest {
         assert(viewModel.queryData.isEmpty())
         assert(viewModel.searchParametersUiState.items.all { it.value == null })
         assert(viewModel.searchParametersUiState.searchedItems.isEmpty())
+        verify(simprintsSearchViewModel).clearPendingSession()
     }
 
     @Test
@@ -991,7 +1436,7 @@ class SearchTEIViewModelTest {
                 displayNameProvider = displayNameProvider,
                 filterManager = filterManager,
                 simprintsSearchViewModel = simprintsSearchViewModel,
-                orderSearchResultsByIdentifyResponse = orderSearchResultsByIdentifyResponse,
+                loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
 
@@ -1039,7 +1484,7 @@ class SearchTEIViewModelTest {
                 displayNameProvider = displayNameProvider,
                 filterManager = filterManager,
                 simprintsSearchViewModel = simprintsSearchViewModel,
-                orderSearchResultsByIdentifyResponse = orderSearchResultsByIdentifyResponse,
+                loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
 
@@ -1191,10 +1636,19 @@ class SearchTEIViewModelTest {
             header = uid,
         )
 
-    private fun searchTeiModel(header: String) =
-        SearchTeiModel().apply {
-            setHeader(header)
-        }
+    private fun searchTeiModel(
+        header: String,
+        teiUid: String = header,
+    ) = SearchTeiModel().apply {
+        setHeader(header)
+        tei =
+            TrackedEntityInstance
+                .builder()
+                .uid(teiUid)
+                .trackedEntityType("teiType")
+                .organisationUnit("orgUnit")
+                .build()
+    }
 
     private fun testingProgram(
         displayFrontPageList: Boolean = true,

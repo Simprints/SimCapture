@@ -1,5 +1,6 @@
 package org.dhis2.usescases.searchTrackEntity.searchparameters.provider
 
+import android.content.Intent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.QrCode2
@@ -11,10 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
+import com.google.gson.Gson
 import org.dhis2.R
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
+import org.dhis2.form.di.Injector
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.UiRenderType
+import org.dhis2.form.simprints.rememberSimprintsCustomIntentFormPresenter
 import org.dhis2.form.ui.event.RecyclerViewUiEvents
 import org.dhis2.form.ui.provider.inputfield.FieldProvider
 import org.hisp.dhis.android.core.common.ValueType
@@ -30,8 +36,20 @@ fun provideParameterSelectorItem(
     fieldUiModel: FieldUiModel,
     callback: FieldUiModel.Callback,
     onNextClicked: () -> Unit,
+    onSimprintsBiometricIdentificationLaunch: (String, ValueType?, String?, Boolean, Intent) -> Unit,
 ): ParameterSelectorItemModel {
     val focusRequester = remember { FocusRequester() }
+    val context = LocalContext.current.applicationContext
+    val simprintsSessionRepository =
+        remember(context) {
+            Injector.provideSimprintsSessionRepository(context)
+        }
+    val simprintsCustomIntentFormPresenter =
+        rememberSimprintsCustomIntentFormPresenter(
+            fieldUiModel = fieldUiModel,
+            resources = resources,
+            sessionRepository = simprintsSessionRepository,
+        )
 
     val status =
         if (fieldUiModel.focused) {
@@ -72,6 +90,23 @@ fun provideParameterSelectorItem(
         },
         status = status,
         onExpand = {
+            if (SimprintsIntentUtils.isIdentifyCallout(fieldUiModel.customIntent)) {
+                if (!simprintsCustomIntentFormPresenter.hasPendingValue) {
+                    simprintsCustomIntentFormPresenter.prepareLaunch()
+                    simprintsCustomIntentFormPresenter
+                        .createLaunchIntent()
+                        ?.let { launchIntent ->
+                            onSimprintsBiometricIdentificationLaunch(
+                                fieldUiModel.uid,
+                                fieldUiModel.valueType,
+                                fieldUiModel.customIntent?.customIntentResponse?.let(Gson()::toJson),
+                                SimprintsIntentUtils.isIdentifyCallout(fieldUiModel.customIntent),
+                                launchIntent,
+                            )
+                        }
+                }
+                return@ParameterSelectorItemModel
+            }
             performOnExpandActions(fieldUiModel, callback)
         },
     )

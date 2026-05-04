@@ -188,6 +188,7 @@ fun AddNewButton(
 fun SearchButtonWithQuery(
     modifier: Modifier = Modifier,
     queryData: Map<String, String> = emptyMap(),
+    isSimprintsBiometricSearch: Boolean = false,
     onClick: () -> Unit,
     onClearSearchQuery: () -> Unit,
 ) {
@@ -207,15 +208,21 @@ fun SearchButtonWithQuery(
                     .padding(end = 48.dp)
                     .clip(RoundedCornerShape(50))
                     .background(Color.Unspecified)
-                    .clickable(
-                        onClick = onClick,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication =
-                            ripple(
-                                true,
-                                color = SurfaceColor.Primary,
-                            ),
-                    ),
+                    .run {
+                        if (isSimprintsBiometricSearch) {
+                            this
+                        } else {
+                            clickable(
+                                onClick = onClick,
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication =
+                                    ripple(
+                                        true,
+                                        color = SurfaceColor.Primary,
+                                    ),
+                            )
+                        }
+                    },
         )
     }
 }
@@ -245,6 +252,9 @@ fun FullSearchButtonAndWorkingList(
     onEnrollClick: () -> Unit = {},
     onCloseFilters: () -> Unit = {},
     onClearSearchQuery: () -> Unit = {},
+    isSimprintsBiometricSearch: Boolean = false,
+    isSimprintsPossibleDuplicatesSearch: Boolean = false,
+    onSimprintsBiometricSearchFallbackClick: () -> Unit = {},
     workingListViewModel: WorkingListViewModel? = null,
 ) {
     Column(modifier = modifier) {
@@ -270,6 +280,8 @@ fun FullSearchButtonAndWorkingList(
                         SearchButtonWithQuery(
                             modifier = Modifier.fillMaxWidth(),
                             queryData = queryData,
+                            isSimprintsBiometricSearch =
+                                isSimprintsBiometricSearch || isSimprintsPossibleDuplicatesSearch,
                             onClick = onSearchClick,
                             onClearSearchQuery = onClearSearchQuery,
                         )
@@ -308,6 +320,18 @@ fun FullSearchButtonAndWorkingList(
                         }
                     }
                 }
+            }
+
+            if (isSimprintsBiometricSearch && !isSimprintsPossibleDuplicatesSearch && queryData.isNotEmpty()) {
+                SimprintsBiometricSearchFallbackButton(
+                    modifier =
+                        Modifier.padding(
+                            top = Spacing.Spacing8,
+                            start = Spacing.Spacing16,
+                            end = Spacing.Spacing16,
+                        ),
+                    onClick = onSimprintsBiometricSearchFallbackClick,
+                )
             }
         }
 
