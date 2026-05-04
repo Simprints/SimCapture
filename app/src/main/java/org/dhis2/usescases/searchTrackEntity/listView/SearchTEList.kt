@@ -357,9 +357,7 @@ class SearchTEList : FragmentGlobalAbstract() {
                 if (searchResult.shouldClearGlobalData()) {
                     globalAdapter.refresh()
                 }
-                if (searchResult.type == SearchResult.SearchResultType.TOO_MANY_RESULTS) {
-                    listAdapter.removeAdapter(liveAdapter)
-                }
+                updateProgramResultsAdapter(searchResult)
                 displayResult(it)
                 updateRecycler()
             }
@@ -386,6 +384,14 @@ class SearchTEList : FragmentGlobalAbstract() {
                 else -> 0.dp
             },
         )
+    }
+
+    private fun updateProgramResultsAdapter(searchResult: SearchResult) {
+        if (searchResult.type == SearchResult.SearchResultType.TOO_MANY_RESULTS) {
+            listAdapter.removeAdapter(liveAdapter)
+        } else if (!listAdapter.adapters.contains(liveAdapter)) {
+            listAdapter.addAdapter(1, liveAdapter)
+        }
     }
 
     private fun restoreAdapters() {
