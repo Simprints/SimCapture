@@ -207,25 +207,52 @@ class SearchTEIViewModelTest {
     }
 
     @Test
-    fun `Should keep Search screen open after Simprints biometric no matches when list screen is refreshed`() {
-        viewModel.onSimprintsBiometricNoMatches()
+    fun `Should navigate to empty result list after Simprints biometric no matches`() =
+        runTest {
+            setCurrentProgram(testingProgram(displayFrontPageList = false, minAttributesToSearch = 2))
+            setAllowCreateBeforeSearch(false)
+            whenever(resourceManager.getString(R.string.simprints_biometric_search)) doReturn "Biometric search"
+            viewModel.searchParametersUiState =
+                viewModel.searchParametersUiState.copy(
+                    items = listOf(simprintsBiometricSearchField()),
+                )
 
-        viewModel.setListScreen()
+            val snapshot =
+                async {
+                    viewModel.searchPagingData
+                        .drop(1)
+                        .take(1)
+                        .asSnapshot()
+                }
+            viewModel.onSimprintsBiometricNoMatches("biometric")
+            testingDispatcher.scheduler.advanceUntilIdle()
 
-        val screenState = viewModel.screenState.value as SearchList
-        assertTrue(screenState.searchForm.isOpened)
-        assertFalse(screenState.searchForm.isForced)
-    }
+            val screenState = viewModel.screenState.value as SearchList
+            assertEquals(SearchScreenState.LIST, screenState.screenState)
+            assertFalse(screenState.searchForm.isOpened)
+            assertFalse(screenState.searchForm.isForced)
+            assertEquals(mapOf("biometric" to "Biometric search"), viewModel.searchParametersUiState.searchedItems)
+            assertTrue(snapshot.await().isEmpty())
+            verify(repository).clearFetchedList()
+        }
 
     @Test
-    fun `Should stop keeping Search screen open after follow up search`() {
-        viewModel.onSimprintsBiometricNoMatches()
+    fun `Should show no results state after Simprints biometric no matches`() {
+        whenever(resourceManager.getString(R.string.simprints_biometric_search)) doReturn "Biometric search"
+        viewModel.searchParametersUiState =
+            viewModel.searchParametersUiState.copy(
+                items = listOf(simprintsBiometricSearchField()),
+            )
 
-        viewModel.onSearch()
+        viewModel.onSimprintsBiometricNoMatches("biometric")
         testingDispatcher.scheduler.advanceUntilIdle()
+        viewModel.onDataLoaded(0, null)
 
-        val screenState = viewModel.screenState.value as SearchList
-        assertFalse(screenState.searchForm.isOpened)
+        viewModel.dataResult.value?.apply {
+            assertTrue(isNotEmpty())
+            assertTrue(size == 1)
+            assertEquals(SearchResultType.NO_RESULTS, first().type)
+        }
     }
 
     @Test
