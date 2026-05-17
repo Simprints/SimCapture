@@ -5,6 +5,7 @@ import androidx.annotation.Nullable;
 
 import org.dhis2.commons.bindings.SdkExtensionsKt;
 import org.dhis2.data.dhislogic.AuthoritiesKt;
+import org.dhis2.commons.simprints.RampDatastoreConfig;
 import org.hisp.dhis.android.core.D2;
 import org.hisp.dhis.android.core.common.BaseIdentifiableObject;
 import org.hisp.dhis.android.core.common.ValidationStrategy;
@@ -32,6 +33,7 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
 
     private final String eventUid;
     private final D2 d2;
+    private Boolean hasHistoryTable;
 
     public EventCaptureRepositoryImpl(String eventUid, D2 d2) {
         this.eventUid = eventUid;
@@ -202,6 +204,20 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
     }
 
     @Override
+    public boolean hasHistoryTable() {
+        if (hasHistoryTable != null) {
+            return hasHistoryTable;
+        }
+        Event currentEvent = getCurrentEvent();
+        hasHistoryTable = RampDatastoreConfig.hasLocalProgramStageHistoryTable(
+                d2,
+                currentEvent.program(),
+                currentEvent.programStage()
+        );
+        return hasHistoryTable;
+    }
+
+    @Override
     public boolean hasRelationships() {
         return !d2.relationshipModule().relationshipTypes()
                 .byAvailableForEvent(eventUid)
@@ -236,4 +252,3 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
         return enrollment != null ? enrollment.trackedEntityInstance() : null;
     }
 }
-

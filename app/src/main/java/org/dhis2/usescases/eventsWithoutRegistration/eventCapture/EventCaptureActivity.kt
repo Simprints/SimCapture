@@ -21,6 +21,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -112,6 +114,7 @@ class EventCaptureActivity :
     private var adapter: EventCapturePagerAdapter? = null
     private var eventViewPager: ViewPager2? = null
     private var dashboardViewModel: DashboardViewModel? = null
+    private var isLandscapeHistoryFullscreen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         eventUid = intent.getStringExtra(Constants.EVENT_UID)
@@ -165,6 +168,7 @@ class EventCaptureActivity :
                 intent.getStringExtra(Constants.PROGRAM_UID) ?: "",
                 intent.getStringExtra(Constants.EVENT_UID) ?: "",
                 pageConfigurator!!.displayAnalytics(),
+                pageConfigurator!!.displayTableView(),
                 pageConfigurator!!.displayRelationships(),
                 intent.getBooleanExtra(OPEN_ERROR_LOCATION, false),
                 eventMode,
@@ -174,12 +178,12 @@ class EventCaptureActivity :
             object : OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
                     super.onPageSelected(position)
-                    if (position == 0 && eventMode !== EventMode.NEW) {
+                    if (adapter?.isFormScreenShown(position) == true && eventMode !== EventMode.NEW) {
                         binding.syncButton.visibility = View.VISIBLE
                     } else {
                         binding.syncButton.visibility = View.GONE
                     }
-                    if (position != 1) {
+                    if (adapter?.isAnalyticsScreenShown(position) != true) {
                         hideProgress()
                     }
                 }
@@ -192,7 +196,9 @@ class EventCaptureActivity :
             object : OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
                     super.onPageSelected(position)
-                    presenter.onSetNavigationPage(position)
+                    adapter
+                        ?.getNavigationPage(position)
+                        ?.let(presenter::onNavigationPageChanged)
                 }
             },
         )
@@ -217,12 +223,80 @@ class EventCaptureActivity :
                         items = uiState.items,
                         selectedItemIndex = selectedItemIndex,
                     ) { page ->
-                        presenter.onNavigationPageChanged(page)
-                        eventViewPager?.currentItem = adapter!!.getDynamicTabIndex(page)
+                        onNavigationPageSelected(page)
                     }
                 }
             }
         }
+    }
+
+    private fun onNavigationPageSelected(page: NavigationPage) {
+        if (this.isLandscape()) {
+            when (page) {
+                NavigationPage.TABLE_VIEW -> {
+                    presenter.onNavigationPageChanged(page)
+                    presenter.setForceDisplayDataEntryNavigationItem(true)
+                    setLandscapeHistoryFullscreen(true)
+                    selectPagerPage(page)
+                }
+
+                NavigationPage.DATA_ENTRY -> {
+                    restoreLandscapeLayoutAndSelectDefaultPage()
+                }
+
+                else -> {
+                    setLandscapeHistoryFullscreen(false)
+                    presenter.setForceDisplayDataEntryNavigationItem(false)
+                    selectPagerPage(page)
+                    presenter.onNavigationPageChanged(page)
+                }
+            }
+        } else {
+            presenter.onNavigationPageChanged(page)
+            selectPagerPage(page)
+        }
+    }
+
+    private fun selectPagerPage(page: NavigationPage) {
+        val tabIndex = adapter?.getDynamicTabIndex(page) ?: EventCapturePagerAdapter.NO_POSITION
+        if (tabIndex != EventCapturePagerAdapter.NO_POSITION) {
+            eventViewPager?.setCurrentItem(tabIndex, false)
+        }
+    }
+
+    private fun restoreLandscapeLayoutAndSelectDefaultPage() {
+        setLandscapeHistoryFullscreen(false)
+        presenter.setForceDisplayDataEntryNavigationItem(false)
+        adapter
+            ?.defaultLandscapeNavigationPage()
+            ?.let { defaultPage ->
+                selectPagerPage(defaultPage)
+                presenter.onNavigationPageChanged(defaultPage)
+            }
+    }
+
+    private fun setLandscapeHistoryFullscreen(enabled: Boolean) {
+        if (!this.isLandscape() || isLandscapeHistoryFullscreen == enabled) {
+            return
+        }
+
+        val layoutContainer = findViewById<ConstraintLayout>(R.id.layoutContainer) ?: return
+        ConstraintSet()
+            .apply {
+                clone(layoutContainer)
+                setVisibility(R.id.tei_column, if (enabled) View.GONE else View.VISIBLE)
+                setVisibility(R.id.form_column, if (enabled) View.GONE else View.VISIBLE)
+                clear(R.id.stats_column, ConstraintSet.START)
+                connect(
+                    R.id.stats_column,
+                    ConstraintSet.START,
+                    if (enabled) ConstraintSet.PARENT_ID else R.id.guideline625,
+                    if (enabled) ConstraintSet.START else ConstraintSet.END,
+                )
+            }.applyTo(layoutContainer)
+
+        isLandscapeHistoryFullscreen = enabled
+        eventViewPager?.post { eventViewPager?.requestLayout() }
     }
 
     private fun setUpEventCaptureFormLandscape(eventUid: String) {
@@ -273,7 +347,12 @@ class EventCaptureActivity :
                 it.dismiss()
             }
         }
-        presenter.onNavigationPageChanged(NavigationPage.DATA_ENTRY)
+        if (this.isLandscape()) {
+            restoreLandscapeLayoutAndSelectDefaultPage()
+        } else {
+            presenter.onNavigationPageChanged(NavigationPage.DATA_ENTRY)
+            selectPagerPage(NavigationPage.DATA_ENTRY)
+        }
     }
 
     override fun onResume() {
@@ -500,7 +579,7 @@ class EventCaptureActivity :
             ).setPositiveButton(
                 R.string.change_event_date,
             ) { _, _ ->
-                presenter.onSetNavigationPage(0)
+                onNavigationPageSelected(NavigationPage.DATA_ENTRY)
             }.setNegativeButton(R.string.go_back) { _, _ -> back() }
             .setCancelable(false)
             .show()

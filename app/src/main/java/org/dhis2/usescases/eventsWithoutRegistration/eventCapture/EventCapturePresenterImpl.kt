@@ -5,8 +5,10 @@ import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Hub
+import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.LiveData
@@ -51,6 +53,7 @@ class EventCapturePresenterImpl(
     var compositeDisposable: CompositeDisposable = CompositeDisposable()
     private var hasExpired = false
     private val notesCounterProcessor: PublishProcessor<Unit> = PublishProcessor.create()
+    private var forceDisplayDataEntryNavigationItem = false
 
     val actions = MutableLiveData<EventCaptureAction>()
 
@@ -105,7 +108,7 @@ class EventCapturePresenterImpl(
     private fun loadBottomBarItems() {
         val navItems = mutableListOf<NavigationBarItem<NavigationPage>>()
 
-        if (pageConfigurator.displayDataEntry()) {
+        if (pageConfigurator.displayDataEntry() || forceDisplayDataEntryNavigationItem) {
             navItems.add(
                 NavigationBarItem(
                     id = NavigationPage.DATA_ENTRY,
@@ -149,10 +152,28 @@ class EventCapturePresenterImpl(
             )
         }
 
+        if (pageConfigurator.displayTableView()) {
+            navItems.add(
+                NavigationBarItem(
+                    id = NavigationPage.TABLE_VIEW,
+                    icon = Icons.Outlined.TableChart,
+                    selectedIcon = Icons.Filled.TableChart,
+                    label = resourceManager.getString(R.string.navigation_history),
+                ),
+            )
+        }
+
         navigationBarUIState.value =
             navigationBarUIState.value.copy(
                 items = navItems.takeIf { it.size > 1 }.orEmpty(),
             )
+    }
+
+    override fun setForceDisplayDataEntryNavigationItem(forceDisplay: Boolean) {
+        if (forceDisplayDataEntryNavigationItem != forceDisplay) {
+            forceDisplayDataEntryNavigationItem = forceDisplay
+            loadBottomBarItems()
+        }
     }
 
     override fun onNavigationPageChanged(page: NavigationPage) {

@@ -3,6 +3,8 @@ package org.dhis2.usescases.eventsWithoutRegistration.eventCapture;
 import org.dhis2.commons.di.dagger.PerActivity;
 import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.eventCaptureFragment.EventCaptureFormComponent;
 import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.eventCaptureFragment.EventCaptureFormModule;
+import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.history.EventHistoryTableComponent;
+import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.history.EventHistoryTableModule;
 import org.dhis2.usescases.eventsWithoutRegistration.eventDetails.injection.EventDetailsComponent;
 import org.dhis2.usescases.eventsWithoutRegistration.eventDetails.injection.EventDetailsModule;
 import org.dhis2.usescases.teiDashboard.dashboardfragments.indicators.IndicatorsComponent;
@@ -16,6 +18,8 @@ public interface EventCaptureComponent {
     void inject(EventCaptureActivity activity);
 
     EventCaptureFormComponent plus(EventCaptureFormModule formModule);
+
+    EventHistoryTableComponent plus(EventHistoryTableModule historyTableModule);
 
     IndicatorsComponent plus(IndicatorsModule indicatorsModule);
 

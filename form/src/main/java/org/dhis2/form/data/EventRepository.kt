@@ -2,10 +2,6 @@ package org.dhis2.form.data
 
 import android.text.TextUtils
 import androidx.paging.PagingData
-import com.google.gson.Gson
-import com.google.gson.JsonElement
-import com.google.gson.JsonParser
-import com.google.gson.annotations.SerializedName
 import io.reactivex.Flowable
 import io.reactivex.Single
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +18,8 @@ import org.dhis2.commons.periods.model.Period
 import org.dhis2.commons.resources.EventResourcesProvider
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.DataElementHistoryChartConfig
+import org.dhis2.commons.simprints.RampDatastoreConfig
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.R
 import org.dhis2.form.data.metadata.FormBaseConfiguration
@@ -906,90 +904,8 @@ class EventRepository(
             }.takeLast(maxHistoryLength)
     }
 
-    private fun readProgramStageFormChartConfig(): List<DataElementHistoryChartConfig> {
-        val localConfig =
-            localRampDatastoreValue()
-                ?.let { parseProgramStageFormChartConfig(it) }
-                ?: emptyList()
-
-        downloadRampDatastore()
-
-        val downloadedConfig =
-            localRampDatastoreValue()
-                ?.let { parseProgramStageFormChartConfig(it) }
-                ?: emptyList()
-
-        return downloadedConfig.takeIf { it.isNotEmpty() } ?: localConfig
-    }
-
-    private fun localRampDatastoreValue(): String? =
-        runCatching {
-            d2
-                .dataStoreModule()
-                .dataStore()
-                .byNamespace()
-                .eq(RAMP_DATASTORE_NAMESPACE)
-                .byKey()
-                .eq(RAMP_DATASTORE_KEY)
-                .blockingGet()
-                .firstOrNull()
-                ?.value()
-        }.getOrNull()
-
-    private fun downloadRampDatastore() {
-        runCatching {
-            d2
-                .dataStoreModule()
-                .dataStoreDownloader()
-                .byNamespace()
-                .eq(RAMP_DATASTORE_NAMESPACE)
-                .blockingDownload()
-        }
-    }
-
-    private fun parseProgramStageFormChartConfig(value: String): List<DataElementHistoryChartConfig> {
-        return try {
-            val root = parseDatastoreJsonElement(value)?.asJsonObject ?: return emptyList()
-            val configElement =
-                root.get(DATA_ELEMENT_HISTORY_CHARTS_KEY)
-                    ?: root.get(PROGRAM_STAGE_FORM_CHARTS_KEY)
-                    ?: return emptyList()
-
-            when {
-                configElement.isJsonArray ->
-                    configElement.asJsonArray.mapNotNull { it.toDataElementHistoryChartConfig() }
-
-                configElement.isJsonObject ->
-                    listOfNotNull(configElement.toDataElementHistoryChartConfig())
-
-                else -> emptyList()
-            }
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
-
-    private fun parseDatastoreJsonElement(value: String): JsonElement? =
-        runCatching {
-            val element = JsonParser.parseString(value.unwrapDatastoreJson())
-            if (element.isJsonPrimitive && element.asJsonPrimitive.isString) {
-                parseDatastoreJsonElement(element.asString) ?: element
-            } else {
-                element
-            }
-        }.getOrNull()
-
-    private fun String.unwrapDatastoreJson(): String =
-        trim()
-            .removePrefix(DATASTORE_JSON_WRAPPER_PREFIX)
-            .removeSuffix(DATASTORE_JSON_WRAPPER_SUFFIX)
-
-    private fun JsonElement.toDataElementHistoryChartConfig(): DataElementHistoryChartConfig? =
-        try {
-            Gson().fromJson(this, DataElementHistoryChartConfig::class.java)
-        } catch (_: Exception) {
-            null
-        }
+    private fun readProgramStageFormChartConfig(): List<DataElementHistoryChartConfig> =
+        RampDatastoreConfig.load(d2).dataElementHistoryCharts
 
     private fun org.hisp.dhis.android.core.event.Event.displayDate(): Date? = eventDate() ?: dueDate() ?: created()
 
@@ -1055,32 +971,11 @@ class EventRepository(
         const val EVENT_CATEGORY_COMBO_SECTION_UID = "EVENT_CATEGORY_COMBO_SECTION_UID"
         const val EVENT_CATEGORY_COMBO_UID = "EVENT_CATEGORY_COMBO_UID"
         const val EVENT_DATA_SECTION_UID = "EVENT_DATA_SECTION_UID"
-        private const val RAMP_DATASTORE_NAMESPACE = "simprints"
-        private const val RAMP_DATASTORE_KEY = "ramp"
-        private const val DATASTORE_JSON_WRAPPER_PREFIX = "JsonWrapper(json="
-        private const val DATASTORE_JSON_WRAPPER_SUFFIX = ")"
-        private const val DATA_ELEMENT_HISTORY_CHARTS_KEY = "dataElementHistoryCharts"
-        private const val PROGRAM_STAGE_FORM_CHARTS_KEY = "programStageFormCharts"
         private const val CURRENT_CHART_LABEL = "Current"
         private const val UNKNOWN_CHART_LABEL = "Unknown"
         private const val CHART_DATE_LABEL_FORMAT = "MMM d"
     }
 }
-
-private data class DataElementHistoryChartConfig(
-    @field:SerializedName("programId")
-    val programId: String? = null,
-    @field:SerializedName("programStageId")
-    val programStageId: String? = null,
-    @field:SerializedName("dataElementId")
-    val dataElementId: String? = null,
-    @field:SerializedName("maxHistoryLengthExcludingCurrent")
-    val maxHistoryLengthExcludingCurrent: Int? = 5,
-    @field:SerializedName("showIfNoHistory")
-    val showIfNoHistory: Boolean? = false,
-    @field:SerializedName("dataPointPositionsOnChart")
-    val dataPointPositionsOnChart: Int? = null,
-)
 
 private data class HistoryPoint(
     val label: String,

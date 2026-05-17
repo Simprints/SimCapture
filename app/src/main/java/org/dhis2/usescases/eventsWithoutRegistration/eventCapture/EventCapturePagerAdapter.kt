@@ -6,6 +6,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import org.dhis2.form.model.EventMode
 import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.eventCaptureFragment.EventCaptureFormFragment
+import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.history.EventHistoryTableFragment
 import org.dhis2.usescases.notes.NotesFragment.Companion.newEventInstance
 import org.dhis2.usescases.teiDashboard.dashboardfragments.indicators.IndicatorsFragment
 import org.dhis2.usescases.teiDashboard.dashboardfragments.indicators.VISUALIZATION_TYPE
@@ -19,6 +20,7 @@ class EventCapturePagerAdapter(
     private val programUid: String,
     private val eventUid: String,
     displayAnalyticScreen: Boolean,
+    displayHistoryTableScreen: Boolean,
     displayRelationshipScreen: Boolean,
     private val shouldOpenErrorSection: Boolean,
     private val eventMode: EventMode,
@@ -26,10 +28,19 @@ class EventCapturePagerAdapter(
     private val landscapePages: MutableList<EventPageType> = ArrayList()
     private val portraitPages: MutableList<EventPageType> = ArrayList()
 
-    fun isFormScreenShown(currentItem: Int?): Boolean = currentItem != null && portraitPages[currentItem] == EventPageType.DATA_ENTRY
+    fun isFormScreenShown(currentItem: Int?): Boolean =
+        currentItem != null &&
+            currentItem in activePages.indices &&
+            activePages[currentItem] == EventPageType.DATA_ENTRY
+
+    fun isAnalyticsScreenShown(currentItem: Int?): Boolean =
+        currentItem != null &&
+            currentItem in activePages.indices &&
+            activePages[currentItem] == EventPageType.ANALYTICS
 
     private enum class EventPageType {
         DATA_ENTRY,
+        HISTORY_TABLE,
         ANALYTICS,
         RELATIONSHIPS,
         NOTES,
@@ -50,6 +61,11 @@ class EventCapturePagerAdapter(
         }
         portraitPages.add(EventPageType.NOTES)
         landscapePages.add(EventPageType.NOTES)
+
+        if (displayHistoryTableScreen) {
+            portraitPages.add(EventPageType.HISTORY_TABLE)
+            landscapePages.add(EventPageType.HISTORY_TABLE)
+        }
     }
 
     override fun createFragment(position: Int): Fragment =
@@ -83,7 +99,11 @@ class EventCapturePagerAdapter(
                 newEventInstance(programUid, eventUid)
             }
 
-            else -> {
+            EventPageType.HISTORY_TABLE -> {
+                EventHistoryTableFragment.newInstance(eventUid)
+            }
+
+            EventPageType.DATA_ENTRY -> {
                 EventCaptureFormFragment.newInstance(
                     eventUid,
                     shouldOpenErrorSection,
@@ -92,9 +112,22 @@ class EventCapturePagerAdapter(
             }
         }
 
+    fun getNavigationPage(position: Int): NavigationPage? =
+        activePages
+            .getOrNull(position)
+            ?.toNavigationPage()
+
+    fun defaultLandscapeNavigationPage(): NavigationPage? =
+        landscapePages
+            .firstOrNull { it != EventPageType.HISTORY_TABLE }
+            ?.toNavigationPage()
+            ?: landscapePages.firstOrNull()?.toNavigationPage()
+
     fun getDynamicTabIndex(navigationPage: NavigationPage?): Int {
         val pageType =
             when (navigationPage) {
+                NavigationPage.DATA_ENTRY -> EventPageType.DATA_ENTRY
+                NavigationPage.TABLE_VIEW -> EventPageType.HISTORY_TABLE
                 NavigationPage.ANALYTICS -> EventPageType.ANALYTICS
                 NavigationPage.RELATIONSHIPS -> EventPageType.RELATIONSHIPS
                 NavigationPage.NOTES -> EventPageType.NOTES
@@ -112,6 +145,15 @@ class EventCapturePagerAdapter(
         }
     }
 
+    private fun EventPageType.toNavigationPage(): NavigationPage =
+        when (this) {
+            EventPageType.DATA_ENTRY -> NavigationPage.DATA_ENTRY
+            EventPageType.HISTORY_TABLE -> NavigationPage.TABLE_VIEW
+            EventPageType.ANALYTICS -> NavigationPage.ANALYTICS
+            EventPageType.RELATIONSHIPS -> NavigationPage.RELATIONSHIPS
+            EventPageType.NOTES -> NavigationPage.NOTES
+        }
+
     override fun getItemCount(): Int =
         if (isPortrait) {
             portraitPages.size
@@ -121,6 +163,9 @@ class EventCapturePagerAdapter(
 
     val isPortrait: Boolean
         get() = fragmentActivity.resources.configuration.orientation == 1
+
+    private val activePages: List<EventPageType>
+        get() = if (isPortrait) portraitPages else landscapePages
 
     companion object {
         const val NO_POSITION: Int = -1

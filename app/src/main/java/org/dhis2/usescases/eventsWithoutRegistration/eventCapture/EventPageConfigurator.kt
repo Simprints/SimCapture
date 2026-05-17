@@ -12,6 +12,8 @@ class EventPageConfigurator(
 
     override fun displayAnalytics(): Boolean = eventCaptureRepository.hasAnalytics()
 
+    override fun displayTableView(): Boolean = eventCaptureRepository.hasHistoryTable()
+
     override fun displayRelationships(): Boolean = eventCaptureRepository.hasRelationships()
 
     override fun displayNotes(): Boolean = true

@@ -92,6 +92,8 @@ class EventCaptureContract {
 
         fun onSetNavigationPage(index: Int)
 
+        fun setForceDisplayDataEntryNavigationItem(forceDisplay: Boolean)
+
         fun isDataEntrySelected(): Boolean
 
         fun updateNotesBadge(numberOfNotes: Int)
@@ -130,6 +132,8 @@ class EventCaptureContract {
         fun showCompletionPercentage(): Boolean
 
         fun hasAnalytics(): Boolean
+
+        fun hasHistoryTable(): Boolean
 
         fun hasRelationships(): Boolean
 
