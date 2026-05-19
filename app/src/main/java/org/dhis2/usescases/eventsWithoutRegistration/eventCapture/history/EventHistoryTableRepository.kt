@@ -43,7 +43,7 @@ class EventHistoryTableRepository(
                 ?.trim()
                 ?.takeIf { it.isNotEmpty() }
                 ?: return null
-        val columns = config.dataPointColumnsInTable?.coerceAtLeast(1) ?: DEFAULT_COLUMN_COUNT
+        val columns = config.followUpVisitColumnsInTable?.coerceAtLeast(1) ?: DEFAULT_COLUMN_COUNT
         val headerVisitNumberDataElementUid =
             config.headerVisitNumberDataElementId
                 ?.trim()

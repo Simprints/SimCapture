@@ -188,8 +188,8 @@ data class ProgramStageHistoryTableConfig(
     val admissionProgramStageId: String? = null,
     @SerializedName("followUpVisitProgramStageId")
     val followUpVisitProgramStageId: String? = null,
-    @SerializedName("dataPointColumnsInTable")
-    val dataPointColumnsInTable: Int? = null,
+    @SerializedName("followUpVisitColumnsInTable")
+    val followUpVisitColumnsInTable: Int? = null,
     @SerializedName("headerVisitNumberDataElementId")
     val headerVisitNumberDataElementId: String? = null,
     @SerializedName("excludedFollowUpVisitDataElementIds")
