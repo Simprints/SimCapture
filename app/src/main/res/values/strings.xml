@@ -764,6 +764,7 @@
     <string name="navigation_history">History</string>
     <string name="navigation_tei_data">Details</string>
     <string name="history_table_date">Date</string>
+    <string name="history_table_visit">Visit</string>
     <string name="history_table_empty">No history available</string>
     <string name="show_bar_graph">View as Bar</string>
     <string name="show_line_graph">View as Line</string>

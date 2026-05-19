@@ -186,6 +186,8 @@ data class ProgramStageHistoryTableConfig(
     val programStageId: String? = null,
     @SerializedName("dataPointColumnsInTable")
     val dataPointColumnsInTable: Int? = null,
+    @SerializedName("headerVisitNumberDataElementId")
+    val headerVisitNumberDataElementId: String? = null,
     @SerializedName("excludedDataElementIds")
     val excludedDataElementIds: List<String>? = null,
 ) {

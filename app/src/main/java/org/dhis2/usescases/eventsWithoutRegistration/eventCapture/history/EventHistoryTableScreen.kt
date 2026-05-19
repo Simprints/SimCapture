@@ -82,6 +82,7 @@ private fun HistoryTable(
     ) {
         DateHeaderRow(
             columns = table.columns,
+            columnHeaderType = table.columnHeaderType,
             horizontalScrollState = horizontalScrollState,
         )
         Column(
@@ -91,6 +92,16 @@ private fun HistoryTable(
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = Spacing.Spacing16),
         ) {
+            if (table.dateRowValues.isNotEmpty()) {
+                TableDataRow(
+                    row =
+                        EventHistoryTableRow(
+                            label = stringResource(R.string.history_table_date),
+                            values = table.dateRowValues,
+                        ),
+                    horizontalScrollState = horizontalScrollState,
+                )
+            }
             table.sections.forEach { section ->
                 SectionHeader(title = section.title)
                 section.rows.forEach { row ->
@@ -107,11 +118,18 @@ private fun HistoryTable(
 @Composable
 private fun DateHeaderRow(
     columns: List<EventHistoryTableColumn>,
+    columnHeaderType: EventHistoryTableColumnHeaderType,
     horizontalScrollState: ScrollState,
 ) {
     Row(modifier = Modifier.heightIntrinsicRow()) {
         HeaderCell(
-            text = stringResource(R.string.history_table_date),
+            text =
+                stringResource(
+                    when (columnHeaderType) {
+                        EventHistoryTableColumnHeaderType.DATE -> R.string.history_table_date
+                        EventHistoryTableColumnHeaderType.VISIT -> R.string.history_table_visit
+                    },
+                ),
             width = RowHeaderWidth,
             textAlign = TextAlign.Start,
         )

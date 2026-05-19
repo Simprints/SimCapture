@@ -36,22 +36,59 @@ class EventHistoryTableRepository(
                 programStageId = programStageUid,
             ) ?: return null
         val columns = config.dataPointColumnsInTable?.coerceAtLeast(1) ?: DEFAULT_COLUMN_COUNT
-        val excludedDataElementIds = config.excludedDataElementIds.orEmpty().toSet()
+        val headerVisitNumberDataElementUid =
+            config.headerVisitNumberDataElementId
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+        val excludedDataElementIds =
+            (
+                config.excludedDataElementIds.orEmpty() +
+                    listOfNotNull(headerVisitNumberDataElementUid)
+            ).toSet()
         val rowDefinitions = rowDefinitions(programStageUid, excludedDataElementIds)
         if (rowDefinitions.isEmpty()) {
             return null
         }
 
-        val events = historyEvents(currentEvent, columns)
-        val eventDataValuesByUid = events.associate { event -> event.uid() to event.dataValuesByDataElement() }
+        val events =
+            historyEvents(
+                currentEvent = currentEvent,
+                maxColumns = columns.takeIf { headerVisitNumberDataElementUid == null },
+            )
+        val eventDataValuesByUid =
+            events.associate { event -> event.uid() to event.dataValuesByDataElement() }
+        val eventsByColumnIndex =
+            if (headerVisitNumberDataElementUid == null) {
+                events.mapIndexed { columnIndex, event -> columnIndex to event }.toMap()
+            } else {
+                eventsByVisitNumberColumn(
+                    events = events,
+                    eventDataValuesByUid = eventDataValuesByUid,
+                    headerVisitNumberDataElementUid = headerVisitNumberDataElementUid,
+                    columns = columns,
+                )
+            }
         val optionDisplayNamesBySet = optionDisplayNamesBySet(rowDefinitions)
         val tableColumns =
             (0 until columns).map { columnIndex ->
-                val event = events.getOrNull(columnIndex)
+                val event = eventsByColumnIndex[columnIndex]
                 EventHistoryTableColumn(
                     eventUid = event?.uid(),
-                    label = event.displayDate().toHistoryTableDateLabel(),
+                    label =
+                        if (headerVisitNumberDataElementUid == null) {
+                            event.displayDate().toHistoryTableDateLabel()
+                        } else {
+                            (columnIndex + 1).toString()
+                        },
                 )
+            }
+        val dateRowValues =
+            if (headerVisitNumberDataElementUid == null) {
+                emptyList()
+            } else {
+                (0 until columns).map { columnIndex ->
+                    eventsByColumnIndex[columnIndex].displayDate().toHistoryTableDateLabel()
+                }
             }
 
         val sections =
@@ -61,14 +98,16 @@ class EventHistoryTableRepository(
                         EventHistoryTableRow(
                             label = row.label,
                             values =
-                                events.map { event ->
+                                (0 until columns).map { columnIndex ->
+                                    val event = eventsByColumnIndex[columnIndex]
                                     row.displayValue(
-                                        rawValue = eventDataValuesByUid[event.uid()]
+                                        rawValue = event
+                                            ?.let { eventDataValuesByUid[it.uid()] }
                                             ?.get(row.dataElementUid)
                                             .orEmpty(),
                                         optionDisplayNamesBySet = optionDisplayNamesBySet,
                                     )
-                                } + List(columns - events.size) { "" },
+                                },
                         )
                     }
 
@@ -88,6 +127,13 @@ class EventHistoryTableRepository(
                 EventHistoryTable(
                     columns = tableColumns,
                     sections = it,
+                    columnHeaderType =
+                        if (headerVisitNumberDataElementUid == null) {
+                            EventHistoryTableColumnHeaderType.DATE
+                        } else {
+                            EventHistoryTableColumnHeaderType.VISIT
+                        },
+                    dateRowValues = dateRowValues,
                 )
             }
     }
@@ -206,7 +252,7 @@ class EventHistoryTableRepository(
 
     private fun historyEvents(
         currentEvent: Event,
-        maxColumns: Int,
+        maxColumns: Int?,
     ): List<Event> {
         val enrollmentUid = currentEvent.enrollment()
         val stageUid = currentEvent.programStage() ?: return listOf(currentEvent)
@@ -239,8 +285,25 @@ class EventHistoryTableRepository(
                     { event -> event.displayDate() ?: Date(0) },
                     { event -> event.uid() },
                 ),
-            ).takeLast(maxColumns)
+            ).let { events ->
+                maxColumns?.let { events.takeLast(it) } ?: events
+            }
     }
+
+    private fun eventsByVisitNumberColumn(
+        events: List<Event>,
+        eventDataValuesByUid: Map<String, Map<String, String>>,
+        headerVisitNumberDataElementUid: String,
+        columns: Int,
+    ): Map<Int, Event> =
+        events
+            .mapNotNull { event ->
+                eventDataValuesByUid[event.uid()]
+                    ?.get(headerVisitNumberDataElementUid)
+                    ?.toVisitNumber()
+                    ?.takeIf { it in 1..columns }
+                    ?.let { visitNumber -> visitNumber - 1 to event }
+            }.toMap()
 
     private fun Event.dataValuesByDataElement(): Map<String, String> =
         trackedEntityDataValues()
@@ -307,6 +370,12 @@ class EventHistoryTableRepository(
         this?.let {
             SimpleDateFormat(HISTORY_TABLE_DATE_LABEL_FORMAT, Locale.getDefault()).format(it)
         }.orEmpty()
+
+    private fun String.toVisitNumber(): Int? {
+        val number = trim().toDoubleOrNull() ?: return null
+        val integer = number.toInt()
+        return integer.takeIf { it.toDouble() == number }
+    }
 
     private data class HistoryTableSectionDefinition(
         val title: String,
