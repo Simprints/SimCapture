@@ -51,7 +51,8 @@ object RampDatastoreConfig {
         load(d2)
             .programStageHistoryTable
             .firstOrNull { config ->
-                config.programId == programId && config.programStageId == programStageId
+                config.programId?.trim() == programId &&
+                    config.followUpVisitProgramStageId?.trim() == programStageId
             }
 
     @JvmStatic
@@ -63,7 +64,8 @@ object RampDatastoreConfig {
         loadLocal(d2)
             .programStageHistoryTable
             .firstOrNull { config ->
-                config.programId == programId && config.programStageId == programStageId
+                config.programId?.trim() == programId &&
+                    config.followUpVisitProgramStageId?.trim() == programStageId
             }
 
     private fun localRampDatastoreValue(d2: D2): String? =
@@ -182,14 +184,20 @@ data class DataElementHistoryChartConfig(
 data class ProgramStageHistoryTableConfig(
     @SerializedName("programId")
     val programId: String? = null,
-    @SerializedName("programStageId")
-    val programStageId: String? = null,
+    @SerializedName("admissionProgramStageId")
+    val admissionProgramStageId: String? = null,
+    @SerializedName("followUpVisitProgramStageId")
+    val followUpVisitProgramStageId: String? = null,
     @SerializedName("dataPointColumnsInTable")
     val dataPointColumnsInTable: Int? = null,
     @SerializedName("headerVisitNumberDataElementId")
     val headerVisitNumberDataElementId: String? = null,
-    @SerializedName("excludedDataElementIds")
-    val excludedDataElementIds: List<String>? = null,
+    @SerializedName("excludedFollowUpVisitDataElementIds")
+    val excludedFollowUpVisitDataElementIds: List<String>? = null,
 ) {
-    fun isValid(): Boolean = !programId.isNullOrBlank() && !programStageId.isNullOrBlank()
+    fun isValid(): Boolean =
+        !programId.isNullOrBlank() &&
+            !admissionProgramStageId.isNullOrBlank() &&
+            !followUpVisitProgramStageId.isNullOrBlank() &&
+            !headerVisitNumberDataElementId.isNullOrBlank()
 }

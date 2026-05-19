@@ -80,9 +80,8 @@ private fun HistoryTable(
                 .fillMaxSize()
                 .background(Color.White),
     ) {
-        DateHeaderRow(
+        VisitHeaderRow(
             columns = table.columns,
-            columnHeaderType = table.columnHeaderType,
             horizontalScrollState = horizontalScrollState,
         )
         Column(
@@ -116,20 +115,13 @@ private fun HistoryTable(
 }
 
 @Composable
-private fun DateHeaderRow(
+private fun VisitHeaderRow(
     columns: List<EventHistoryTableColumn>,
-    columnHeaderType: EventHistoryTableColumnHeaderType,
     horizontalScrollState: ScrollState,
 ) {
     Row(modifier = Modifier.heightIntrinsicRow()) {
         HeaderCell(
-            text =
-                stringResource(
-                    when (columnHeaderType) {
-                        EventHistoryTableColumnHeaderType.DATE -> R.string.history_table_date
-                        EventHistoryTableColumnHeaderType.VISIT -> R.string.history_table_visit
-                    },
-                ),
+            text = stringResource(R.string.history_table_visit),
             width = RowHeaderWidth,
             textAlign = TextAlign.Start,
         )

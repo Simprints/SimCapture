@@ -17,14 +17,8 @@ sealed interface EventHistoryTableUiState {
 data class EventHistoryTable(
     val columns: List<EventHistoryTableColumn>,
     val sections: List<EventHistoryTableSection>,
-    val columnHeaderType: EventHistoryTableColumnHeaderType = EventHistoryTableColumnHeaderType.DATE,
     val dateRowValues: List<String> = emptyList(),
 )
-
-enum class EventHistoryTableColumnHeaderType {
-    DATE,
-    VISIT,
-}
 
 data class EventHistoryTableColumn(
     val eventUid: String?,
