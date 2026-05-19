@@ -43,6 +43,7 @@ import dhis2.org.analytics.charts.data.GraphFieldValue
 import dhis2.org.analytics.charts.data.GraphPoint
 import dhis2.org.analytics.charts.data.SerieData
 import dhis2.org.analytics.charts.data.toChartBuilder
+import dhis2.org.analytics.charts.formatters.CategoryFormatter
 import dhis2.org.analytics.charts.mappers.GraphToLineData
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -84,7 +85,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private const val HISTORY_CHART_X_AXIS_LABEL_ROTATION = 45f
+private const val HISTORY_CHART_X_AXIS_LABEL_ROTATION = 30f
 
 @Composable
 fun FieldProvider(
@@ -234,6 +235,7 @@ private fun ProgramStageFormHistoryChart(historyChart: FormHistoryChart) {
                     axisMinimum = -1f
                     axisMaximum = historyChart.labels.size.toFloat()
                     setLabelCount(historyChart.labels.size + 2, true)
+                    this.valueFormatter = CategoryFormatter(historyChart.labels)
                     labelRotationAngle = HISTORY_CHART_X_AXIS_LABEL_ROTATION
                 }
                 chartView.axisLeft.valueFormatter = valueFormatter

@@ -10,7 +10,6 @@ object RampDatastoreConfig {
     private const val RAMP_DATASTORE_NAMESPACE = "simprints"
     private const val RAMP_DATASTORE_KEY = "ramp"
     private const val DATA_ELEMENT_HISTORY_CHARTS_KEY = "dataElementHistoryCharts"
-    private const val PROGRAM_STAGE_FORM_CHARTS_KEY = "programStageFormCharts"
     private const val PROGRAM_STAGE_HISTORY_TABLE_KEY = "programStageHistoryTable"
     private const val DATASTORE_JSON_WRAPPER_PREFIX = "JsonWrapper(json="
     private const val DATASTORE_JSON_WRAPPER_SUFFIX = ")"
@@ -99,7 +98,7 @@ object RampDatastoreConfig {
             RampConfig(
                 dataElementHistoryCharts =
                     root
-                        .firstExisting(DATA_ELEMENT_HISTORY_CHARTS_KEY, PROGRAM_STAGE_FORM_CHARTS_KEY)
+                        .get(DATA_ELEMENT_HISTORY_CHARTS_KEY)
                         ?.parseList<DataElementHistoryChartConfig>()
                         .orEmpty()
                         .filter { it.isValid() },
@@ -136,9 +135,6 @@ object RampDatastoreConfig {
             .removePrefix(DATASTORE_JSON_WRAPPER_PREFIX)
             .removeSuffix(DATASTORE_JSON_WRAPPER_SUFFIX)
 
-    private fun com.google.gson.JsonObject.firstExisting(vararg keys: String): JsonElement? =
-        keys.firstNotNullOfOrNull { key -> get(key) }
-
     private inline fun <reified T> JsonElement.parseList(): List<T> =
         when {
             isJsonArray -> asJsonArray.mapNotNull { it.parseObject<T>() }
@@ -164,21 +160,24 @@ data class RampConfig(
 data class DataElementHistoryChartConfig(
     @SerializedName("programId")
     val programId: String? = null,
-    @SerializedName("programStageId")
-    val programStageId: String? = null,
+    @SerializedName("admissionProgramStageId")
+    val admissionProgramStageId: String? = null,
+    @SerializedName("followUpVisitProgramStageId")
+    val followUpVisitProgramStageId: String? = null,
     @SerializedName("dataElementId")
     val dataElementId: String? = null,
-    @SerializedName("maxHistoryLengthExcludingCurrent")
-    val maxHistoryLengthExcludingCurrent: Int? = null,
-    @SerializedName("showIfNoHistory")
-    val showIfNoHistory: Boolean? = null,
-    @SerializedName("dataPointPositionsOnChart")
-    val dataPointPositionsOnChart: Int? = null,
+    @SerializedName("xAxisVisitNumberDataElementId")
+    val xAxisVisitNumberDataElementId: String? = null,
+    @SerializedName("followUpVisitDataPointsOnChart")
+    val followUpVisitDataPointsOnChart: Int? = null,
 ) {
     fun isValid(): Boolean =
         !programId.isNullOrBlank() &&
-            !programStageId.isNullOrBlank() &&
-            !dataElementId.isNullOrBlank()
+            !admissionProgramStageId.isNullOrBlank() &&
+            !followUpVisitProgramStageId.isNullOrBlank() &&
+            !dataElementId.isNullOrBlank() &&
+            !xAxisVisitNumberDataElementId.isNullOrBlank() &&
+            (followUpVisitDataPointsOnChart ?: 0) > 0
 }
 
 data class ProgramStageHistoryTableConfig(
