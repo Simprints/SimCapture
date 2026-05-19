@@ -207,6 +207,51 @@ class SearchTEIViewModelTest {
     }
 
     @Test
+    fun `Should request Simprints biometric identification launch instead of opening search form`() =
+        runTest {
+            viewModel.setListScreen()
+            viewModel.searchParametersUiState =
+                viewModel.searchParametersUiState.copy(
+                    items = listOf(simprintsBiometricSearchField()),
+                )
+
+            viewModel.simprintsBiometricIdentificationLaunch.test {
+                viewModel.onSearchFormRequested()
+                testingDispatcher.scheduler.advanceUntilIdle()
+
+                awaitItem()
+                val screenState = viewModel.screenState.value
+                assertTrue(screenState is SearchList)
+                assertFalse((screenState as SearchList).searchForm.isOpened)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `Should open search form when program does not have Simprints biometric search`() {
+        viewModel.searchParametersUiState =
+            viewModel.searchParametersUiState.copy(
+                items =
+                    listOf(
+                        FieldUiModelImpl(
+                            uid = "name",
+                            label = "Name",
+                            autocompleteList = emptyList(),
+                            optionSetConfiguration = null,
+                            valueType = ValueType.TEXT,
+                        ),
+                    ),
+            )
+
+        viewModel.onSearchFormRequested()
+        testingDispatcher.scheduler.advanceUntilIdle()
+
+        val screenState = viewModel.screenState.value
+        assertTrue(screenState is SearchList)
+        assertTrue((screenState as SearchList).searchForm.isOpened)
+    }
+
+    @Test
     fun `Should navigate to empty result list after Simprints biometric no matches`() =
         runTest {
             setCurrentProgram(testingProgram(displayFrontPageList = false, minAttributesToSearch = 2))

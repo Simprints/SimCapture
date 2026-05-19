@@ -194,7 +194,7 @@ class SearchTEMap : FragmentGlobalAbstract() {
                                         )
                                     },
                                 ) {
-                                    viewModel.setSearchScreen()
+                                    viewModel.onSearchFormRequested()
                                 }
                                 mapDataFinishedLoading?.let {
                                     if (it.value) {

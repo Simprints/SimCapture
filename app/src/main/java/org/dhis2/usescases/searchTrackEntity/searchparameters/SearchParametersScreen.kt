@@ -48,7 +48,9 @@ import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.journeyapps.barcodescanner.ScanOptions
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 import org.dhis2.R
 import org.dhis2.commons.Constants
@@ -87,6 +89,7 @@ fun SearchParametersScreen(
     intentHandler: (FormIntent) -> Unit,
     onSimprintsBiometricIdentificationResult: (String, String?, Boolean) -> Unit,
     onSimprintsBiometricNoMatches: (String) -> Unit,
+    simprintsBiometricIdentificationLaunch: Flow<Unit> = emptyFlow(),
     onShowOrgUnit: (
         uid: String,
         preselectedOrgUnits: List<String>,
@@ -106,6 +109,7 @@ fun SearchParametersScreen(
     var pendingSimprintsValueTypeName by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingSimprintsResponseDataJson by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingSimprintsCapturesSessionId by rememberSaveable { mutableStateOf(false) }
+    val gson = remember { Gson() }
 
     val simprintsSessionRepository =
         remember(context) {
@@ -152,6 +156,18 @@ fun SearchParametersScreen(
                 onSimprintsBiometricNoMatches(uid)
             }
         }
+    fun launchSimprintsBiometricIdentification(fieldUiModel: FieldUiModel) {
+        val customIntent = fieldUiModel.customIntent ?: return
+        if (!SimprintsIntentUtils.isIdentifyCallout(customIntent)) return
+
+        simprintsSessionRepository.clear()
+        val callout = SimprintsIntentUtils.prepareCallout(customIntent)
+        pendingSimprintsFieldUid = fieldUiModel.uid
+        pendingSimprintsValueTypeName = fieldUiModel.valueType?.name
+        pendingSimprintsResponseDataJson = callout.responseData?.let(gson::toJson)
+        pendingSimprintsCapturesSessionId = true
+        simprintsIdentifyLauncher.launch(callout.launchIntent)
+    }
 
     val scanContract = remember { ScanContract() }
     val qrScanLauncher =
@@ -233,6 +249,15 @@ fun SearchParametersScreen(
                 focusManager.clearFocus()
                 onClose()
             }
+        }
+    }
+
+    LaunchedEffect(simprintsBiometricIdentificationLaunch, uiState.items) {
+        simprintsBiometricIdentificationLaunch.collectLatest {
+            uiState.items
+                .firstOrNull { fieldUiModel ->
+                    SimprintsIntentUtils.isIdentifyCallout(fieldUiModel.customIntent)
+                }?.let(::launchSimprintsBiometricIdentification)
         }
     }
 
@@ -534,6 +559,7 @@ fun initSearchScreen(
             intentHandler = viewModel::onParameterIntent,
             onSimprintsBiometricIdentificationResult = viewModel::onSimprintsBiometricIdentificationResult,
             onSimprintsBiometricNoMatches = viewModel::onSimprintsBiometricNoMatches,
+            simprintsBiometricIdentificationLaunch = viewModel.simprintsBiometricIdentificationLaunch,
             onShowOrgUnit = onShowOrgUnit,
             onClear = {
                 onClear()

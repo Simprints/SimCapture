@@ -149,6 +149,9 @@ class SearchTEIViewModel(
     val isScrollingDown = MutableLiveData(false)
     val simprintsBiometricSearchNavigation: Flow<Unit> =
         simprintsSearchViewModel.simprintsBiometricSearchNavigation
+    private val _simprintsBiometricIdentificationLaunch = Channel<Unit>(Channel.BUFFERED)
+    val simprintsBiometricIdentificationLaunch: Flow<Unit> =
+        _simprintsBiometricIdentificationLaunch.receiveAsFlow()
     val isSimprintsBiometricSearch: LiveData<Boolean> =
         simprintsSearchViewModel.isSimprintsBiometricSearch
     val isSimprintsUseLastBiometricsLabel: LiveData<Boolean> =
@@ -408,6 +411,23 @@ class SearchTEIViewModel(
             ),
         )
     }
+
+    fun onSearchFormRequested() {
+        if (shouldLaunchSimprintsBiometricIdentification()) {
+            viewModelScope.launch {
+                _simprintsBiometricIdentificationLaunch.send(Unit)
+            }
+        } else {
+            setSearchScreen()
+        }
+    }
+
+    private fun shouldLaunchSimprintsBiometricIdentification(): Boolean =
+        queryData.isEmpty() &&
+            _isSimprintsPossibleDuplicatesSearch.value != true &&
+            searchParametersUiState.items.any { field ->
+                SimprintsIntentUtils.isIdentifyCallout(field.customIntent)
+            }
 
     fun setPreviousScreen() {
         when (_screenState.value?.previousSate) {
