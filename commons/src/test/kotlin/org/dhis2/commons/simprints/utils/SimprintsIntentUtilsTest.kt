@@ -1,5 +1,6 @@
 package org.dhis2.commons.simprints.utils
 
+import android.content.Intent
 import android.os.Bundle
 import org.dhis2.mobile.commons.model.CustomIntentModel
 import org.dhis2.mobile.commons.model.CustomIntentResponseDataModel
@@ -10,6 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
 class SimprintsIntentUtilsTest {
     @Test
@@ -82,6 +84,26 @@ class SimprintsIntentUtilsTest {
         val sessionId = SimprintsIntentUtils.extractSessionId(extras)
 
         assertEquals("session-id", sessionId)
+    }
+
+    @Test
+    fun `hasIdentificationResult should detect known biometric result extras`() {
+        val intent =
+            mock<Intent> {
+                on { hasExtra("identification") } doReturn true
+            }
+
+        assertTrue(SimprintsIntentUtils.hasIdentificationResult(intent))
+    }
+
+    @Test
+    fun `hasIdentificationResult should return false when biometric result extras are missing`() {
+        val intent =
+            mock<Intent> {
+                on { hasExtra("identification") } doReturn false
+            }
+
+        assertFalse(SimprintsIntentUtils.hasIdentificationResult(intent))
     }
 
     private fun identifyIntent() = customIntent(packageName = "com.simprints.id.IDENTIFY")

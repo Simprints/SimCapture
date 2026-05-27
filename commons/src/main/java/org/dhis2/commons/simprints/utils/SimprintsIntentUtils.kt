@@ -14,6 +14,7 @@ object SimprintsIntentUtils {
     private const val SIMPRINTS_REGISTER_LAST_ACTION = "$SIMPRINTS_PACKAGE_NAME.REGISTER_LAST_BIOMETRICS"
     private const val SIMPRINTS_SESSION_ID_KEY = "sessionId"
     private const val SIMPRINTS_SELECTED_GUID_KEY = "selectedGuid"
+    private const val SIMPRINTS_IDENTIFICATION_KEY = "identification"
 
     data class PreparedCallout(
         val launchIntent: Intent,
@@ -27,6 +28,8 @@ object SimprintsIntentUtils {
     fun isRegisterCallout(customIntent: CustomIntentModel?): Boolean = customIntent?.packageName == SIMPRINTS_REGISTER_ACTION
 
     fun extractSessionId(extras: Bundle?): String? = extras?.getString(SIMPRINTS_SESSION_ID_KEY)
+
+    fun hasIdentificationResult(intent: Intent?): Boolean = intent?.hasExtra(SIMPRINTS_IDENTIFICATION_KEY) == true
 
     fun prepareCallout(customIntent: CustomIntentModel): PreparedCallout = prepareCallout(customIntent, customIntent.packageName)
 
