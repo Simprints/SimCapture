@@ -259,7 +259,12 @@ class EventHistoryTableRepository(
                 .blockingGet() ?: return null
         return HistoryTableRowDefinition(
             dataElementUid = uid,
-            label = dataElement.displayFormName() ?: dataElement.displayName() ?: uid,
+            label =
+                dataElement.displayShortName()
+                    ?: dataElement.shortName()
+                    ?: dataElement.displayFormName()
+                    ?: dataElement.displayName()
+                    ?: uid,
             valueType = dataElement.valueType(),
             optionSetUid = dataElement.optionSetUid(),
         )
