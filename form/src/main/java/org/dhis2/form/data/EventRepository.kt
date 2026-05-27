@@ -799,11 +799,9 @@ class EventRepository(
         fieldUiModel: FieldUiModel,
         chartConfig: DataElementHistoryChartConfig,
     ): FormHistoryChart? {
-        val followUpVisitDataPoints = chartConfig.followUpVisitDataPointsOnChart ?: return null
-        val admissionProgramStageUid =
-            chartConfig.admissionProgramStageId
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
+        val followUpVisitMaxNumber =
+            chartConfig.followUpVisitMaxNumber
+                ?.takeIf { it >= 0 }
                 ?: return null
         val followUpVisitProgramStageUid =
             chartConfig.followUpVisitProgramStageId
@@ -822,20 +820,15 @@ class EventRepository(
                 ?: return null
 
         val labels =
-            listOf(ADMISSION_CHART_LABEL) +
-                (1..followUpVisitDataPoints).map { visitNumber -> visitNumber.toString() }
+            (0..followUpVisitMaxNumber).map { visitNumber -> visitNumber.toString() }
         val values = MutableList<Float?>(labels.size) { null }
-
-        admissionEvent(admissionProgramStageUid)
-            ?.chartValue(dataElementUid)
-            ?.let { admissionValue -> values[ADMISSION_CHART_INDEX] = admissionValue }
 
         followUpVisitEvents(followUpVisitProgramStageUid).forEach { event ->
             val dataValuesByDataElement = event.dataValuesByDataElement()
             val visitNumber =
                 dataValuesByDataElement[xAxisVisitNumberDataElementUid]
                     ?.toVisitNumber()
-                    ?.takeIf { it in 1..followUpVisitDataPoints }
+                    ?.takeIf { it in 0..followUpVisitMaxNumber }
                     ?: return@forEach
             val value =
                 if (event.uid() == eventUid) {
@@ -881,31 +874,6 @@ class EventRepository(
             )
     }
 
-    private fun admissionEvent(admissionProgramStageUid: String): Event? {
-        val enrollmentUid = event?.enrollment()?.takeIf { it.isNotBlank() } ?: return null
-        val currentEventDate = event?.displayDate()
-
-        return d2
-            .eventModule()
-            .events()
-            .withTrackedEntityDataValues()
-            .byEnrollmentUid()
-            .eq(enrollmentUid)
-            .blockingGet()
-            .asSequence()
-            .filter { event ->
-                event.programStage() == admissionProgramStageUid
-            }.filter { admissionEvent ->
-                currentEventDate == null ||
-                    admissionEvent.displayDate()?.after(currentEventDate) != true
-            }.minWithOrNull(
-                compareBy(
-                    { admissionEvent -> admissionEvent.displayDate() ?: Date(Long.MAX_VALUE) },
-                    { admissionEvent -> admissionEvent.uid() },
-                ),
-            )
-    }
-
     private fun Event.dataValuesByDataElement(): Map<String, String> =
         trackedEntityDataValues()
             .orEmpty()
@@ -918,10 +886,6 @@ class EventRepository(
                     dataElementUid to value
                 }
             }.toMap()
-
-    private fun Event.chartValue(dataElementUid: String): Float? {
-        return dataValuesByDataElement()[dataElementUid]?.toFloatOrNull()
-    }
 
     private fun String.toVisitNumber(): Int? {
         val number = trim().toDoubleOrNull() ?: return null
@@ -991,7 +955,5 @@ class EventRepository(
         const val EVENT_CATEGORY_COMBO_SECTION_UID = "EVENT_CATEGORY_COMBO_SECTION_UID"
         const val EVENT_CATEGORY_COMBO_UID = "EVENT_CATEGORY_COMBO_UID"
         const val EVENT_DATA_SECTION_UID = "EVENT_DATA_SECTION_UID"
-        private const val ADMISSION_CHART_INDEX = 0
-        private const val ADMISSION_CHART_LABEL = "0 (Adm)"
     }
 }

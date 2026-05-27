@@ -177,35 +177,30 @@ data class RampConfig(
 data class DataElementHistoryChartConfig(
     @SerializedName("programId")
     val programId: String? = null,
-    @SerializedName("admissionProgramStageId")
-    val admissionProgramStageId: String? = null,
     @SerializedName("followUpVisitProgramStageId")
     val followUpVisitProgramStageId: String? = null,
     @SerializedName("dataElementId")
     val dataElementId: String? = null,
     @SerializedName("xAxisVisitNumberDataElementId")
     val xAxisVisitNumberDataElementId: String? = null,
-    @SerializedName("followUpVisitDataPointsOnChart")
-    val followUpVisitDataPointsOnChart: Int? = null,
+    @SerializedName("followUpVisitMaxNumber")
+    val followUpVisitMaxNumber: Int? = null,
 ) {
     fun isValid(): Boolean =
         !programId.isNullOrBlank() &&
-            !admissionProgramStageId.isNullOrBlank() &&
             !followUpVisitProgramStageId.isNullOrBlank() &&
             !dataElementId.isNullOrBlank() &&
             !xAxisVisitNumberDataElementId.isNullOrBlank() &&
-            (followUpVisitDataPointsOnChart ?: 0) > 0
+            (followUpVisitMaxNumber ?: -1) >= 0
 }
 
 data class ProgramStageHistoryTableConfig(
     @SerializedName("programId")
     val programId: String? = null,
-    @SerializedName("admissionProgramStageId")
-    val admissionProgramStageId: String? = null,
     @SerializedName("followUpVisitProgramStageId")
     val followUpVisitProgramStageId: String? = null,
-    @SerializedName("followUpVisitColumnsInTable")
-    val followUpVisitColumnsInTable: Int? = null,
+    @SerializedName("followUpVisitMaxNumber")
+    val followUpVisitMaxNumber: Int? = null,
     @SerializedName("headerVisitNumberDataElementId")
     val headerVisitNumberDataElementId: String? = null,
     @SerializedName("excludedFollowUpVisitDataElementIds")
@@ -213,7 +208,7 @@ data class ProgramStageHistoryTableConfig(
 ) {
     fun isValid(): Boolean =
         !programId.isNullOrBlank() &&
-            !admissionProgramStageId.isNullOrBlank() &&
             !followUpVisitProgramStageId.isNullOrBlank() &&
-            !headerVisitNumberDataElementId.isNullOrBlank()
+            !headerVisitNumberDataElementId.isNullOrBlank() &&
+            (followUpVisitMaxNumber ?: -1) >= 0
 }

@@ -26,12 +26,10 @@ class EventHistoryTableRepository(
                 ?.trim()
                 ?.takeIf { it.isNotEmpty() }
                 ?: return null
-        val admissionProgramStageUid =
-            config.admissionProgramStageId
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
+        val followUpVisitMaxNumber =
+            config.followUpVisitMaxNumber
+                ?.takeIf { it >= 0 }
                 ?: return null
-        val columns = config.followUpVisitColumnsInTable?.coerceAtLeast(1) ?: DEFAULT_COLUMN_COUNT
         val headerVisitNumberDataElementUid =
             config.headerVisitNumberDataElementId
                 ?.trim()
@@ -47,50 +45,27 @@ class EventHistoryTableRepository(
         if (rowDefinitions.isEmpty()) {
             return null
         }
-        val admissionEvent =
-            admissionEvent(
-                enrollmentUid = tableContext.enrollmentUid,
-                currentEventUid = tableContext.currentEvent?.uid(),
-                currentEventDate = tableContext.currentEvent?.displayDate(),
-                admissionProgramStageUid = admissionProgramStageUid,
-            )
 
         val events = historyEvents(tableContext, followUpVisitProgramStageUid)
-        val eventsWithAdmission =
-            if (admissionEvent == null) {
-                events
-            } else {
-                events + admissionEvent
-            }.distinctBy { event -> event.uid() }
         val eventDataValuesByUid =
-            eventsWithAdmission.associate { event -> event.uid() to event.dataValuesByDataElement() }
+            events.associate { event -> event.uid() to event.dataValuesByDataElement() }
         val eventsByColumnIndex =
             eventsByVisitNumberColumn(
                 events = events,
                 eventDataValuesByUid = eventDataValuesByUid,
                 headerVisitNumberDataElementUid = headerVisitNumberDataElementUid,
-                columns = columns,
+                followUpVisitMaxNumber = followUpVisitMaxNumber,
             )
-        val columnIndexes = listOf(ADMISSION_COLUMN_INDEX) + (0 until columns)
+        val columnIndexes = (0..followUpVisitMaxNumber).toList()
         val optionDisplayNamesBySet = optionDisplayNamesBySet(rowDefinitions)
-        fun eventForColumn(columnIndex: Int): Event? =
-            if (columnIndex == ADMISSION_COLUMN_INDEX) {
-                admissionEvent
-            } else {
-                eventsByColumnIndex[columnIndex]
-            }
+        fun eventForColumn(columnIndex: Int): Event? = eventsByColumnIndex[columnIndex]
 
         val tableColumns =
             columnIndexes.map { columnIndex ->
                 val event = eventForColumn(columnIndex)
                 EventHistoryTableColumn(
                     eventUid = event?.uid(),
-                    label =
-                        if (columnIndex == ADMISSION_COLUMN_INDEX) {
-                            ADMISSION_COLUMN_LABEL
-                        } else {
-                            (columnIndex + 1).toString()
-                        },
+                    label = columnIndex.toString(),
                 )
             }
         val dateRowValues =
@@ -329,15 +304,15 @@ class EventHistoryTableRepository(
         events: List<Event>,
         eventDataValuesByUid: Map<String, Map<String, String>>,
         headerVisitNumberDataElementUid: String,
-        columns: Int,
+        followUpVisitMaxNumber: Int,
     ): Map<Int, Event> =
         events
             .mapNotNull { event ->
                 eventDataValuesByUid[event.uid()]
                     ?.get(headerVisitNumberDataElementUid)
                     ?.toVisitNumber()
-                    ?.takeIf { it in 1..columns }
-                    ?.let { visitNumber -> visitNumber - 1 to event }
+                    ?.takeIf { it in 0..followUpVisitMaxNumber }
+                    ?.let { visitNumber -> visitNumber to event }
             }.toMap()
 
     private fun Event.dataValuesByDataElement(): Map<String, String> =
@@ -352,36 +327,6 @@ class EventHistoryTableRepository(
                     dataElementUid to value
                 }
             }.toMap()
-
-    private fun admissionEvent(
-        enrollmentUid: String?,
-        currentEventUid: String?,
-        currentEventDate: Date?,
-        admissionProgramStageUid: String,
-    ): Event? {
-        val enrollmentUid = enrollmentUid?.takeIf { it.isNotBlank() } ?: return null
-
-        return d2
-            .eventModule()
-            .events()
-            .withTrackedEntityDataValues()
-            .byEnrollmentUid()
-            .eq(enrollmentUid)
-            .blockingGet()
-            .asSequence()
-            .filter { event ->
-                event.uid() != currentEventUid &&
-                    event.programStage() == admissionProgramStageUid
-            }.filter { event ->
-                currentEventDate == null ||
-                    event.displayDate()?.after(currentEventDate) != true
-            }.minWithOrNull(
-                compareBy(
-                    { event -> event.displayDate() ?: Date(Long.MAX_VALUE) },
-                    { event -> event.uid() },
-                ),
-            )
-    }
 
     private fun optionDisplayNamesBySet(
         rowDefinitions: List<HistoryTableSectionDefinition>,
@@ -461,9 +406,6 @@ class EventHistoryTableRepository(
     )
 
     companion object {
-        private const val DEFAULT_COLUMN_COUNT = 12
-        private const val ADMISSION_COLUMN_INDEX = -1
-        private const val ADMISSION_COLUMN_LABEL = "0 (Adm)"
         private const val HISTORY_TABLE_DATE_LABEL_FORMAT = "MMM d"
     }
 }
