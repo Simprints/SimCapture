@@ -84,12 +84,16 @@ import java.text.DecimalFormatSymbols
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 private const val HISTORY_CHART_X_AXIS_LABEL_ROTATION = 30f
 private const val HISTORY_CHART_TEXT_SIZE_FACTOR = 1.25f
 private const val HISTORY_CHART_TEXT_SIZE = DEFAULT_VALUE_TEXT_SIZE * HISTORY_CHART_TEXT_SIZE_FACTOR
 private const val HISTORY_CHART_Y_AXIS_LABEL_COUNT = 5
+private const val HISTORY_CHART_FLAT_RANGE_EPSILON = 0.0001f
+private const val HISTORY_CHART_INTEGER_GRANULARITY_MIN_SPAN = 1f
+private const val HISTORY_CHART_INTEGER_GRANULARITY = 1f
 
 @Composable
 fun FieldProvider(
@@ -248,6 +252,7 @@ private fun ProgramStageFormHistoryChart(historyChart: FormHistoryChart) {
                     setLabelCount(HISTORY_CHART_Y_AXIS_LABEL_COUNT, false)
                     textSize = HISTORY_CHART_TEXT_SIZE
                 }
+                chartView.configureHistoryYAxis(historyChart)
                 chartView.legend.textSize = HISTORY_CHART_TEXT_SIZE
                 chartView.data?.setValueFormatter(valueFormatter)
                 chartView.setOnChartValueSelectedListener(
@@ -275,6 +280,50 @@ private fun ProgramStageFormHistoryChart(historyChart: FormHistoryChart) {
         },
     )
 }
+
+private fun LineChart.configureHistoryYAxis(historyChart: FormHistoryChart) {
+    val plottedValues = historyChart.values.filterNotNull()
+    val minValue = plottedValues.minOrNull() ?: return
+    val maxValue = plottedValues.maxOrNull() ?: return
+
+    if (maxValue - minValue >= HISTORY_CHART_INTEGER_GRANULARITY_MIN_SPAN) {
+        axisLeft.granularity = HISTORY_CHART_INTEGER_GRANULARITY
+    }
+
+    if (abs(maxValue - minValue) <= HISTORY_CHART_FLAT_RANGE_EPSILON) {
+        applyHistoryYAxisRange(minValue, maxValue)
+    }
+}
+
+private fun LineChart.applyHistoryYAxisRange(
+    minValue: Float,
+    maxValue: Float,
+) {
+    // MPAndroidChart renders no Y labels/grid lines when the custom axis range collapses.
+    axisLeft.apply {
+        when {
+            maxValue > 0f -> {
+                axisMinimum = 0f
+                axisMaximum = maxValue + historyChartYAxisPadding(0f, maxValue)
+            }
+
+            minValue < 0f -> {
+                axisMinimum = minValue - historyChartYAxisPadding(minValue, 0f)
+                axisMaximum = 0f
+            }
+
+            else -> {
+                axisMinimum = -1f
+                axisMaximum = 1f
+            }
+        }
+    }
+}
+
+private fun historyChartYAxisPadding(
+    minValue: Float,
+    maxValue: Float,
+): Float = ceil((maxValue - minValue) * 0.05f)
 
 private fun FormHistoryChart.toGraph(): Graph =
     Graph(
