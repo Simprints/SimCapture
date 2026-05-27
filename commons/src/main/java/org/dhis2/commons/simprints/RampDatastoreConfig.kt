@@ -61,6 +61,17 @@ object RampDatastoreConfig {
             }
 
     @JvmStatic
+    fun programStageHistoryTableConfig(
+        d2: D2,
+        programId: String?,
+    ): ProgramStageHistoryTableConfig? =
+        load(d2)
+            .programStageHistoryTable
+            .firstOrNull { config ->
+                config.programId?.trim() == programId
+            }
+
+    @JvmStatic
     fun localProgramStageHistoryTableConfig(
         d2: D2,
         programId: String?,

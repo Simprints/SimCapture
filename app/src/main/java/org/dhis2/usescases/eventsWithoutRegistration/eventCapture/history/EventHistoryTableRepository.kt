@@ -134,7 +134,7 @@ class EventHistoryTableRepository(
             val programUid = currentEvent.program() ?: return null
             val programStageUid = currentEvent.programStage() ?: return null
             val config =
-                RampDatastoreConfig.localProgramStageHistoryTableConfig(
+                RampDatastoreConfig.programStageHistoryTableConfig(
                     d2 = d2,
                     programId = programUid,
                     programStageId = programStageUid,
@@ -150,7 +150,7 @@ class EventHistoryTableRepository(
         val programUid = programUid?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         val enrollmentUid = enrollmentUid?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         val config =
-            RampDatastoreConfig.localProgramStageHistoryTableConfig(
+            RampDatastoreConfig.programStageHistoryTableConfig(
                 d2 = d2,
                 programId = programUid,
             ) ?: return null
