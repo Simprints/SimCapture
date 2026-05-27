@@ -7,7 +7,9 @@ import org.hisp.dhis.android.core.D2
 
 @Module
 class EventHistoryTableModule(
-    private val eventUid: String,
+    private val eventUid: String? = null,
+    private val programUid: String? = null,
+    private val enrollmentUid: String? = null,
 ) {
     @Provides
     @PerFragment
@@ -15,5 +17,7 @@ class EventHistoryTableModule(
         EventHistoryTableRepository(
             d2 = d2,
             eventUid = eventUid,
+            programUid = programUid,
+            enrollmentUid = enrollmentUid,
         )
 }

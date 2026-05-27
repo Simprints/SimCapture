@@ -20,6 +20,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.databinding.DataBindingUtil
@@ -55,6 +57,7 @@ import org.dhis2.usescases.enrollment.EnrollmentActivity
 import org.dhis2.usescases.enrollment.EnrollmentActivity.Companion.getIntent
 import org.dhis2.usescases.enrollment.EnrollmentFormBuilderConfig
 import org.dhis2.usescases.enrollment.buildEnrollmentForm
+import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.history.EventHistoryTableFragment
 import org.dhis2.usescases.general.ActivityGlobalAbstract
 import org.dhis2.usescases.notes.NotesFragment
 import org.dhis2.usescases.qrCodes.QrActivity
@@ -133,6 +136,7 @@ class TeiDashboardMobileActivity :
 
     private var elevation = 0f
     private var restartingActivity = false
+    private var isLandscapeHistoryFullscreen = false
 
     private val detailsLauncher =
         registerForActivityResult(
@@ -360,6 +364,8 @@ class TeiDashboardMobileActivity :
     }
 
     private fun navigateToFragment(item: TEIDashboardItems) {
+        setLandscapeHistoryFullscreen(item == TEIDashboardItems.HISTORY)
+
         val fragment =
             when (item) {
                 TEIDashboardItems.DETAILS ->
@@ -396,6 +402,12 @@ class TeiDashboardMobileActivity :
                     presenter.trackDashboardNotes()
                     NotesFragment.newTrackerInstance(programUid!!, teiUid!!)
                 }
+
+                TEIDashboardItems.HISTORY ->
+                    EventHistoryTableFragment.newEnrollmentInstance(
+                        programUid!!,
+                        enrollmentUid!!,
+                    )
             }
 
         supportFragmentManager
@@ -404,6 +416,40 @@ class TeiDashboardMobileActivity :
             .commitAllowingStateLoss()
 
         updateTopBar(item)
+    }
+
+    private fun setLandscapeHistoryFullscreen(enabled: Boolean) {
+        if (!this.isLandscape() || isLandscapeHistoryFullscreen == enabled) {
+            return
+        }
+
+        val mainView = findViewById<ConstraintLayout>(R.id.main_view) ?: return
+        ConstraintSet()
+            .apply {
+                clone(mainView)
+                setVisibility(R.id.tei_primary_color_view, if (enabled) View.GONE else View.VISIBLE)
+                setVisibility(R.id.tei_form_view, if (enabled) View.GONE else View.VISIBLE)
+                clear(R.id.fragmentContainer, ConstraintSet.START)
+                connect(
+                    R.id.fragmentContainer,
+                    ConstraintSet.START,
+                    if (enabled) ConstraintSet.PARENT_ID else R.id.guideline625,
+                    if (enabled) ConstraintSet.START else ConstraintSet.END,
+                )
+                clear(R.id.navigationBar, ConstraintSet.START)
+                connect(
+                    R.id.navigationBar,
+                    ConstraintSet.START,
+                    if (enabled) ConstraintSet.PARENT_ID else R.id.guideline625,
+                    ConstraintSet.START,
+                )
+            }.applyTo(mainView)
+
+        isLandscapeHistoryFullscreen = enabled
+        binding.fragmentContainer.post {
+            binding.fragmentContainer.requestLayout()
+            binding.navigationBar.requestLayout()
+        }
     }
 
     private fun updateTopBar(item: TEIDashboardItems) {

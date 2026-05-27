@@ -42,6 +42,12 @@ object RampDatastoreConfig {
     ): Boolean = localProgramStageHistoryTableConfig(d2, programId, programStageId) != null
 
     @JvmStatic
+    fun hasLocalProgramStageHistoryTable(
+        d2: D2,
+        programId: String?,
+    ): Boolean = localProgramStageHistoryTableConfig(d2, programId) != null
+
+    @JvmStatic
     fun programStageHistoryTableConfig(
         d2: D2,
         programId: String?,
@@ -65,6 +71,17 @@ object RampDatastoreConfig {
             .firstOrNull { config ->
                 config.programId?.trim() == programId &&
                     config.followUpVisitProgramStageId?.trim() == programStageId
+            }
+
+    @JvmStatic
+    fun localProgramStageHistoryTableConfig(
+        d2: D2,
+        programId: String?,
+    ): ProgramStageHistoryTableConfig? =
+        loadLocal(d2)
+            .programStageHistoryTable
+            .firstOrNull { config ->
+                config.programId?.trim() == programId
             }
 
     private fun localRampDatastoreValue(d2: D2): String? =

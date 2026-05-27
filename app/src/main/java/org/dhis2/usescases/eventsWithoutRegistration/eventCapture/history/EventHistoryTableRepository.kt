@@ -2,6 +2,7 @@ package org.dhis2.usescases.eventsWithoutRegistration.eventCapture.history
 
 import org.dhis2.bindings.userFriendlyValue
 import org.dhis2.commons.simprints.RampDatastoreConfig
+import org.dhis2.commons.simprints.ProgramStageHistoryTableConfig
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope
 import org.hisp.dhis.android.core.common.ValueType
@@ -13,26 +14,13 @@ import java.util.Locale
 
 class EventHistoryTableRepository(
     private val d2: D2,
-    private val eventUid: String,
+    private val eventUid: String? = null,
+    private val programUid: String? = null,
+    private val enrollmentUid: String? = null,
 ) {
     fun table(): EventHistoryTable? {
-        val currentEvent =
-            d2
-                .eventModule()
-                .events()
-                .withTrackedEntityDataValues()
-                .byUid()
-                .eq(eventUid)
-                .one()
-                .blockingGet() ?: return null
-        val programUid = currentEvent.program() ?: return null
-        val programStageUid = currentEvent.programStage() ?: return null
-        val config =
-            RampDatastoreConfig.localProgramStageHistoryTableConfig(
-                d2 = d2,
-                programId = programUid,
-                programStageId = programStageUid,
-            ) ?: return null
+        val tableContext = tableContext() ?: return null
+        val config = tableContext.config
         val followUpVisitProgramStageUid =
             config.followUpVisitProgramStageId
                 ?.trim()
@@ -61,11 +49,13 @@ class EventHistoryTableRepository(
         }
         val admissionEvent =
             admissionEvent(
-                currentEvent = currentEvent,
+                enrollmentUid = tableContext.enrollmentUid,
+                currentEventUid = tableContext.currentEvent?.uid(),
+                currentEventDate = tableContext.currentEvent?.displayDate(),
                 admissionProgramStageUid = admissionProgramStageUid,
             )
 
-        val events = historyEvents(currentEvent)
+        val events = historyEvents(tableContext, followUpVisitProgramStageUid)
         val eventsWithAdmission =
             if (admissionEvent == null) {
                 events
@@ -147,6 +137,54 @@ class EventHistoryTableRepository(
                     dateRowValues = dateRowValues,
                 )
             }
+    }
+
+    private fun tableContext(): HistoryTableContext? {
+        val currentEvent =
+            eventUid
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { eventUid ->
+                    d2
+                        .eventModule()
+                        .events()
+                        .withTrackedEntityDataValues()
+                        .byUid()
+                        .eq(eventUid)
+                        .one()
+                        .blockingGet()
+                }
+
+        if (currentEvent != null) {
+            val programUid = currentEvent.program() ?: return null
+            val programStageUid = currentEvent.programStage() ?: return null
+            val config =
+                RampDatastoreConfig.localProgramStageHistoryTableConfig(
+                    d2 = d2,
+                    programId = programUid,
+                    programStageId = programStageUid,
+                ) ?: return null
+
+            return HistoryTableContext(
+                config = config,
+                enrollmentUid = currentEvent.enrollment(),
+                currentEvent = currentEvent,
+            )
+        }
+
+        val programUid = programUid?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val enrollmentUid = enrollmentUid?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val config =
+            RampDatastoreConfig.localProgramStageHistoryTableConfig(
+                d2 = d2,
+                programId = programUid,
+            ) ?: return null
+
+        return HistoryTableContext(
+            config = config,
+            enrollmentUid = enrollmentUid,
+            currentEvent = null,
+        )
     }
 
     private fun rowDefinitions(
@@ -252,30 +290,30 @@ class EventHistoryTableRepository(
         )
     }
 
-    private fun historyEvents(currentEvent: Event): List<Event> {
-        val enrollmentUid = currentEvent.enrollment()
-        val stageUid = currentEvent.programStage() ?: return listOf(currentEvent)
-        val currentEventDate = currentEvent.displayDate()
-
+    private fun historyEvents(
+        tableContext: HistoryTableContext,
+        followUpVisitProgramStageUid: String,
+    ): List<Event> {
+        val currentEventDate = tableContext.currentEvent?.displayDate()
         val events =
-            if (enrollmentUid.isNullOrBlank()) {
-                listOf(currentEvent)
+            if (tableContext.enrollmentUid.isNullOrBlank()) {
+                listOfNotNull(tableContext.currentEvent)
             } else {
                 d2
                     .eventModule()
                     .events()
                     .withTrackedEntityDataValues()
                     .byEnrollmentUid()
-                    .eq(enrollmentUid)
+                    .eq(tableContext.enrollmentUid)
                     .byProgramStageUid()
-                    .eq(stageUid)
+                    .eq(followUpVisitProgramStageUid)
                     .blockingGet()
             }
 
         return events
             .filter { event ->
                 val eventDate = event.displayDate()
-                event.uid() == currentEvent.uid() ||
+                event.uid() == tableContext.currentEvent?.uid() ||
                     currentEventDate == null ||
                     eventDate == null ||
                     !eventDate.after(currentEventDate)
@@ -316,11 +354,12 @@ class EventHistoryTableRepository(
             }.toMap()
 
     private fun admissionEvent(
-        currentEvent: Event,
+        enrollmentUid: String?,
+        currentEventUid: String?,
+        currentEventDate: Date?,
         admissionProgramStageUid: String,
     ): Event? {
-        val enrollmentUid = currentEvent.enrollment()?.takeIf { it.isNotBlank() } ?: return null
-        val currentEventDate = currentEvent.displayDate()
+        val enrollmentUid = enrollmentUid?.takeIf { it.isNotBlank() } ?: return null
 
         return d2
             .eventModule()
@@ -331,7 +370,7 @@ class EventHistoryTableRepository(
             .blockingGet()
             .asSequence()
             .filter { event ->
-                event.uid() != currentEvent.uid() &&
+                event.uid() != currentEventUid &&
                     event.programStage() == admissionProgramStageUid
             }.filter { event ->
                 currentEventDate == null ||
@@ -413,6 +452,12 @@ class EventHistoryTableRepository(
         val label: String,
         val valueType: ValueType?,
         val optionSetUid: String?,
+    )
+
+    private data class HistoryTableContext(
+        val config: ProgramStageHistoryTableConfig,
+        val enrollmentUid: String?,
+        val currentEvent: Event?,
     )
 
     companion object {

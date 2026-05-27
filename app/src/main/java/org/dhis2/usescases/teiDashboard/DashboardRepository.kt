@@ -94,6 +94,8 @@ interface DashboardRepository {
 
     fun programHasAnalytics(): Boolean
 
+    fun programHasHistoryTable(): Boolean
+
     fun getTETypeName(): String?
 
     fun getAttributesMap(

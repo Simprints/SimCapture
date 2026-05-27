@@ -1,6 +1,8 @@
 package org.dhis2.usescases.teiDashboard;
 
 import org.dhis2.commons.di.dagger.PerActivity;
+import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.history.EventHistoryTableComponent;
+import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.history.EventHistoryTableModule;
 import org.dhis2.usescases.teiDashboard.dashboardfragments.indicators.IndicatorsComponent;
 import org.dhis2.usescases.teiDashboard.dashboardfragments.indicators.IndicatorsModule;
 import org.dhis2.usescases.notes.NotesComponent;
@@ -25,6 +27,8 @@ public interface TeiDashboardComponent {
 
     @NonNull
     TEIDataComponent plus(TEIDataModule teiDataModule);
+
+    EventHistoryTableComponent plus(EventHistoryTableModule historyTableModule);
 
     DashboardViewModelFactory dashboardViewModelFactory();
 

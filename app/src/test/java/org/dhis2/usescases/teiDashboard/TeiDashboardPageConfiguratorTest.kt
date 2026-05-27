@@ -46,4 +46,16 @@ class TeiDashboardPageConfiguratorTest {
     fun `Should display the notes screen`() {
         assertTrue(pageConfigurator.displayNotes())
     }
+
+    @Test
+    fun `Should display history screen if the program is configured`() {
+        whenever(dashboardRepository.programHasHistoryTable()) doReturn true
+        assertTrue(pageConfigurator.displayTableView())
+    }
+
+    @Test
+    fun `Should not display history screen if the program is not configured`() {
+        whenever(dashboardRepository.programHasHistoryTable()) doReturn false
+        assertTrue(!pageConfigurator.displayTableView())
+    }
 }

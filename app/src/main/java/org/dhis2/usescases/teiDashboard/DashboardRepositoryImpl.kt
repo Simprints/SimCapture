@@ -12,6 +12,7 @@ import org.dhis2.commons.featureconfig.data.FeatureConfigRepository
 import org.dhis2.commons.prefs.Preference
 import org.dhis2.commons.prefs.PreferenceProvider
 import org.dhis2.commons.resources.MetadataIconProvider
+import org.dhis2.commons.simprints.RampDatastoreConfig
 import org.dhis2.mobile.commons.model.MetadataIconData
 import org.dhis2.utils.ValueUtils
 import org.hisp.dhis.android.core.D2
@@ -812,6 +813,14 @@ class DashboardRepositoryImpl(
         } else {
             false
         }
+
+    override fun programHasHistoryTable(): Boolean =
+        !programUid.isNullOrEmpty() &&
+            !enrollmentUid.isNullOrEmpty() &&
+            RampDatastoreConfig.hasLocalProgramStageHistoryTable(
+                d2 = d2,
+                programId = programUid,
+            )
 
     override fun getGrouping(): Boolean = getGroupingOptions().getOrDefault(programUid, true)
 
