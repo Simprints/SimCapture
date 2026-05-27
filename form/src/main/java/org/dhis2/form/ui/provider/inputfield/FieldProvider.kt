@@ -44,6 +44,7 @@ import dhis2.org.analytics.charts.data.GraphPoint
 import dhis2.org.analytics.charts.data.SerieData
 import dhis2.org.analytics.charts.data.toChartBuilder
 import dhis2.org.analytics.charts.formatters.CategoryFormatter
+import dhis2.org.analytics.charts.mappers.DEFAULT_VALUE_TEXT_SIZE
 import dhis2.org.analytics.charts.mappers.GraphToLineData
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -86,6 +87,9 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private const val HISTORY_CHART_X_AXIS_LABEL_ROTATION = 30f
+private const val HISTORY_CHART_TEXT_SIZE_FACTOR = 1.25f
+private const val HISTORY_CHART_TEXT_SIZE = DEFAULT_VALUE_TEXT_SIZE * HISTORY_CHART_TEXT_SIZE_FACTOR
+private const val HISTORY_CHART_Y_AXIS_LABEL_COUNT = 5
 
 @Composable
 fun FieldProvider(
@@ -237,8 +241,14 @@ private fun ProgramStageFormHistoryChart(historyChart: FormHistoryChart) {
                     setLabelCount(historyChart.labels.size + 2, true)
                     this.valueFormatter = CategoryFormatter(historyChart.labels)
                     labelRotationAngle = HISTORY_CHART_X_AXIS_LABEL_ROTATION
+                    textSize = HISTORY_CHART_TEXT_SIZE
                 }
-                chartView.axisLeft.valueFormatter = valueFormatter
+                chartView.axisLeft.apply {
+                    this.valueFormatter = valueFormatter
+                    setLabelCount(HISTORY_CHART_Y_AXIS_LABEL_COUNT, false)
+                    textSize = HISTORY_CHART_TEXT_SIZE
+                }
+                chartView.legend.textSize = HISTORY_CHART_TEXT_SIZE
                 chartView.data?.setValueFormatter(valueFormatter)
                 chartView.setOnChartValueSelectedListener(
                     object : OnChartValueSelectedListener {
@@ -296,7 +306,10 @@ private fun Graph.toHistoryLineData(
     serieToHighlight: String? = null,
 ) = GraphToLineData()
     .map(this, serieToHighlight)
-    .apply { setValueFormatter(valueFormatter) }
+    .apply {
+        setValueFormatter(valueFormatter)
+        setValueTextSize(HISTORY_CHART_TEXT_SIZE)
+    }
 
 private class IntegerAwareValueFormatter : ValueFormatter() {
     private val decimalFormat =
