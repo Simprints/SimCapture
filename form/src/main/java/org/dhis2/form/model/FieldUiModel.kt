@@ -1,5 +1,6 @@
 package org.dhis2.form.model
 
+import org.dhis2.form.simprints.ramp.model.FormHistoryChart as SimprintsRampFormHistoryChart
 import org.dhis2.form.ui.event.RecyclerViewUiEvents
 import org.dhis2.form.ui.event.UiEventFactory
 import org.dhis2.form.ui.intent.FormIntent
@@ -71,6 +72,8 @@ interface FieldUiModel {
 
     val periodSelector: PeriodSelector?
 
+    val simprintsRampHistoryChart: SimprintsRampFormHistoryChart?
+
     fun setCallback(callback: Callback)
 
     fun equals(item: FieldUiModel): Boolean
@@ -108,6 +111,10 @@ interface FieldUiModel {
     fun setKeyBoardActionDone(): FieldUiModel
 
     fun setOptionSetConfiguration(optionSetConfiguration: OptionSetConfiguration): FieldUiModel
+
+    fun setSimprintsRampHistoryChart(
+        simprintsRampHistoryChart: SimprintsRampFormHistoryChart?,
+    ): FieldUiModel
 
     interface Callback {
         fun intent(intent: FormIntent)

@@ -7,6 +7,7 @@ import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.model.EventMode
+import org.dhis2.form.simprints.ramp.data.GetFormHistoryChartUseCase as GetSimprintsRampFormHistoryChartUseCase
 import org.dhis2.form.ui.FieldViewModelFactory
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository
 import org.hisp.dhis.android.core.D2
@@ -42,6 +43,7 @@ class EventRepositoryTest {
     private val eventResourcesProvider: EventResourcesProvider = mock()
     private val metadataIconProvider: MetadataIconProvider = mock()
     private val customIntentRepository: CustomIntentRepository = Mockito.mock()
+    private val getSimprintsRampFormHistoryChart: GetSimprintsRampFormHistoryChartUseCase = mock()
 
     private val mockedProgram: Program =
         mock {
@@ -186,6 +188,7 @@ class EventRepositoryTest {
             eventMode = eventMode,
             dispatcherProvider = dispatchers,
             customIntentRepository = customIntentRepository,
+            getSimprintsRampFormHistoryChart = getSimprintsRampFormHistoryChart,
         )
 
     private val mockedStage =

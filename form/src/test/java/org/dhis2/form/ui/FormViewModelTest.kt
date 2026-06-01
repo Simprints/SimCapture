@@ -13,7 +13,9 @@ import org.dhis2.form.data.FormRepository
 import org.dhis2.form.data.GeometryController
 import org.dhis2.form.model.ActionType
 import org.dhis2.form.model.FieldUiModel
+import org.dhis2.form.model.FieldUiModelImpl
 import org.dhis2.form.model.RowAction
+import org.dhis2.form.simprints.ramp.model.FormHistoryChart
 import org.dhis2.form.ui.event.RecyclerViewUiEvents
 import org.dhis2.form.ui.intent.FormIntent
 import org.dhis2.form.ui.provider.FormResultDialogProvider
@@ -121,6 +123,45 @@ class FormViewModelTest {
             advanceUntilIdle()
             verify(repository).save(dateField.uid, dateField.value, null)
             verify(repository).updateValueOnList(dateField.uid, dateField.value, dateField.valueType)
+        }
+
+    @Test
+    fun `Should publish updated simprints ramp chart field when text is changing`() =
+        runTest {
+            val initialField =
+                FieldUiModelImpl(
+                    uid = "weight",
+                    value = "9.0",
+                    label = "Weight",
+                    valueType = ValueType.NUMBER,
+                    optionSetConfiguration = null,
+                    autocompleteList = null,
+                    simprintsRampHistoryChart =
+                        FormHistoryChart(
+                            title = "Weight",
+                            labels = listOf("0", "1"),
+                            values = listOf(8f, 9f),
+                            currentValueIndex = 1,
+                        ),
+                )
+            val updatedField = initialField.setValue("")
+            whenever(repository.fetchFormItems(any())) doReturn listOf(initialField)
+            whenever(repository.getDateFormatConfiguration()) doReturn "ddMMyyyy"
+            viewModel =
+                FormViewModel(
+                    repository,
+                    dispatcher,
+                    geometryController,
+                    resultDialogUiProvider = resultDialogUiProvider,
+                )
+            advanceUntilIdle()
+            whenever(repository.updateValueOnList("weight", "", ValueType.NUMBER)) doReturn updatedField
+
+            viewModel.submitIntent(FormIntent.OnTextChange("weight", "", ValueType.NUMBER))
+            advanceUntilIdle()
+
+            assertEquals(updatedField, viewModel.items.value?.first())
+            verify(repository).updateValueOnList("weight", "", ValueType.NUMBER)
         }
 
     private val futureDate: String = LocalDate.now().plusDays(1).format(DateTimeFormatter.ISO_DATE)

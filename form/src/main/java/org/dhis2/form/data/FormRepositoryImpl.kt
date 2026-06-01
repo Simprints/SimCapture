@@ -684,36 +684,41 @@ class FormRepositoryImpl(
         uid: String,
         value: String?,
         valueType: ValueType?,
-    ) {
+    ): FieldUiModel? {
         val updatedEnrollmentDataList = dataEntryRepository.getSpecificDataEntryItems(uid)
         if (updatedEnrollmentDataList.isNotEmpty()) updateEnrollmentDate(updatedEnrollmentDataList)
+        var updatedItem: FieldUiModel? = null
         itemList.let { list ->
 
             list
                 .find { item ->
                     item.uid == uid
                 }?.let { item ->
+                    val itemWithNewValue =
+                        item
+                            .setValue(value)
+                            .setDisplayName(
+                                displayNameProvider.provideDisplayName(
+                                    valueType,
+                                    value,
+                                    item.optionSet,
+                                    item.periodSelector?.type,
+                                ),
+                            ).setLegend(
+                                legendValueProvider.provideLegendValue(
+                                    item.uid,
+                                    value,
+                                ),
+                            )
+                    updatedItem = itemWithNewValue
                     itemList =
                         list.updated(
                             list.indexOf(item),
-                            item
-                                .setValue(value)
-                                .setDisplayName(
-                                    displayNameProvider.provideDisplayName(
-                                        valueType,
-                                        value,
-                                        item.optionSet,
-                                        item.periodSelector?.type,
-                                    ),
-                                ).setLegend(
-                                    legendValueProvider.provideLegendValue(
-                                        item.uid,
-                                        value,
-                                    ),
-                                ),
+                            itemWithNewValue,
                         )
                 }
         }
+        return updatedItem
     }
 
     private fun updateEnrollmentDate(fieldUiModelList: List<FieldUiModel>) {
