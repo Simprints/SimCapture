@@ -24,6 +24,7 @@ import org.dhis2.commons.resources.MetadataIconProvider;
 import org.dhis2.commons.resources.ResourceManager;
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository;
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository;
+import org.dhis2.commons.simprints.usecases.SimprintsHasAutoOpenEligibleIdentificationUseCase;
 import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase;
 import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase;
 import org.dhis2.commons.schedulers.SchedulerProvider;
@@ -66,11 +67,13 @@ import org.dhis2.maps.utils.DhisMapUtils;
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository;
 import org.dhis2.mobile.commons.customintents.CustomIntentRepositoryImpl;
 import org.dhis2.mobile.commons.reporting.CrashReportController;
+import org.dhis2.simprints.SimprintsCustomIntentResultMapper;
 import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase;
-import org.dhis2.tracker.data.ProfilePictureProvider;
-import org.dhis2.ui.ThemeManager;
+import org.dhis2.simprints.SimprintsMapBiometricSearchResultUseCase;
 import org.dhis2.simprints.SimprintsResolveSingleBiometricSearchNavigationUseCase;
 import org.dhis2.simprints.di.SimprintsSearchViewModelFactory;
+import org.dhis2.tracker.data.ProfilePictureProvider;
+import org.dhis2.ui.ThemeManager;
 import org.dhis2.usescases.events.EventInfoProvider;
 import org.dhis2.usescases.searchTrackEntity.ui.mapper.TEICardMapper;
 import org.dhis2.usescases.tracker.TrackedEntityInstanceInfoProvider;
@@ -403,6 +406,32 @@ public class SearchTEModule {
 
     @Provides
     @PerActivity
+    SimprintsHasAutoOpenEligibleIdentificationUseCase provideSimprintsHasAutoOpenEligibleIdentificationUseCase() {
+        return new SimprintsHasAutoOpenEligibleIdentificationUseCase();
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsMapBiometricSearchResultUseCase provideSimprintsMapBiometricSearchResultUseCase(
+            SimprintsSessionRepository simprintsSessionRepository,
+            SimprintsHasAutoOpenEligibleIdentificationUseCase hasAutoOpenEligibleIdentification,
+            SimprintsCustomIntentResultMapper resultMapper
+    ) {
+        return new SimprintsMapBiometricSearchResultUseCase(
+                simprintsSessionRepository,
+                hasAutoOpenEligibleIdentification,
+                resultMapper
+        );
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsCustomIntentResultMapper provideSimprintsCustomIntentResultMapper() {
+        return new SimprintsCustomIntentResultMapper();
+    }
+
+    @Provides
+    @PerActivity
     SearchTeiViewModelFactory providesViewModelFactory(
             SearchRepository searchRepository,
             SearchRepositoryKt searchRepositoryKt,
@@ -414,7 +443,8 @@ public class SearchTEModule {
             FilterManager filterManager,
             ProgramConfigurationRepository programConfigurationRepository,
             SimprintsSearchViewModelFactory simprintsSearchViewModelFactory,
-            SimprintsLoadBiometricSearchResultsUseCase loadSimprintsBiometricSearchResultsUseCase
+            SimprintsLoadBiometricSearchResultsUseCase loadSimprintsBiometricSearchResultsUseCase,
+            SimprintsMapBiometricSearchResultUseCase mapSimprintsBiometricSearchResult
     ) {
         return new SearchTeiViewModelFactory(
                 searchRepository,
@@ -436,7 +466,8 @@ public class SearchTEModule {
                 filterManager,
                 (SearchTEActivity) moduleContext,
                 simprintsSearchViewModelFactory,
-                loadSimprintsBiometricSearchResultsUseCase
+                loadSimprintsBiometricSearchResultsUseCase,
+                mapSimprintsBiometricSearchResult
         );
     }
 

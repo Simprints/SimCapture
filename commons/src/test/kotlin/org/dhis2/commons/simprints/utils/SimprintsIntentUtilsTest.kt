@@ -1,5 +1,6 @@
 package org.dhis2.commons.simprints.utils
 
+import android.content.Intent
 import android.os.Bundle
 import org.dhis2.mobile.commons.model.CustomIntentModel
 import org.dhis2.mobile.commons.model.CustomIntentResponseDataModel
@@ -84,9 +85,26 @@ class SimprintsIntentUtilsTest {
         assertEquals("session-id", sessionId)
     }
 
+    @Test
+    fun `hasIdentificationResult should detect biometric identification result extra`() {
+        assertTrue(hasIdentificationResultExtra(hasExtra = true))
+    }
+
+    @Test
+    fun `hasIdentificationResult should return false when biometric result extras are missing`() {
+        assertFalse(hasIdentificationResultExtra(hasExtra = false))
+    }
+
     private fun identifyIntent() = customIntent(packageName = "com.simprints.id.IDENTIFY")
 
     private fun registerIntent() = customIntent(packageName = "com.simprints.id.REGISTER")
+
+    private fun hasIdentificationResultExtra(hasExtra: Boolean) =
+        SimprintsIntentUtils.hasIdentificationResult(
+            mock<Intent> {
+                on { hasExtra("identification") } doReturn hasExtra
+            }
+        )
 
     private fun customIntent(packageName: String) =
         CustomIntentModel(

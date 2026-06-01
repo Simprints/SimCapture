@@ -9,6 +9,7 @@ import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
+import org.dhis2.simprints.SimprintsMapBiometricSearchResultUseCase
 import org.dhis2.simprints.SimprintsSearchViewModel
 import org.dhis2.simprints.di.SimprintsSearchViewModelFactory
 
@@ -28,6 +29,7 @@ class SearchTeiViewModelFactory(
     private val searchActivity: SearchTEActivity,
     private val simprintsSearchViewModelFactory: SimprintsSearchViewModelFactory,
     private val loadSimprintsBiometricSearchResultsUseCase: SimprintsLoadBiometricSearchResultsUseCase,
+    private val mapSimprintsBiometricSearchResult: SimprintsMapBiometricSearchResultUseCase,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
         SearchTEIViewModel(
@@ -45,5 +47,6 @@ class SearchTeiViewModelFactory(
             filterManager,
             ViewModelProvider(searchActivity, simprintsSearchViewModelFactory)[SimprintsSearchViewModel::class.java],
             loadSimprintsBiometricSearchResultsUseCase,
+            mapSimprintsBiometricSearchResult,
         ) as T
 }

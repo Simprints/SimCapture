@@ -244,7 +244,7 @@ class SearchTEList : FragmentGlobalAbstract() {
                         closeFilterVisibility = isFilterOpened,
                         isLandscape = isLandscape(),
                         queryData = queryData,
-                        onSearchClick = { viewModel.setSearchScreen() },
+                        onSearchClick = { viewModel.onSearchFormRequested() },
                         onEnrollClick = { viewModel.onEnrollClick() },
                         onCloseFilters = { viewModel.onFiltersClick(isLandscape()) },
                         onClearSearchQuery = {

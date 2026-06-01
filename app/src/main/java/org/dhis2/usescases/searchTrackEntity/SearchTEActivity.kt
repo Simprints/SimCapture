@@ -209,7 +209,7 @@ class SearchTEActivity :
             .setLandscapeOpenSearchButton(
                 viewModel,
             ) {
-                viewModel.setSearchScreen()
+                viewModel.onSearchFormRequested()
             }
 
         setupBottomNavigation()
