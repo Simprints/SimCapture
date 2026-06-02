@@ -2,10 +2,13 @@ package org.dhis2.commons.simprints.ramp.repository
 
 import com.google.gson.Gson
 import com.google.gson.JsonElement
+import com.google.gson.JsonParseException
 import com.google.gson.JsonParser
 import org.dhis2.commons.simprints.ramp.model.DataElementHistoryChartConfig
+import org.dhis2.commons.simprints.ramp.model.ProgramStageHistoryTableConfig
 import org.dhis2.commons.simprints.ramp.model.RampDatastoreConfig
 import org.hisp.dhis.android.core.D2
+import timber.log.Timber
 
 class RampDatastoreRepository(
     private val d2: D2,
@@ -35,20 +38,17 @@ class RampDatastoreRepository(
     }
 
     private fun getLocalRampDatastoreValue(): String? =
-        runCatching {
-            d2
-                .dataStoreModule()
-                .dataStore()
-                .value(RAMP_DATASTORE_NAMESPACE, RAMP_DATASTORE_KEY)
-                .blockingGet()
-                ?.value()
-        }.getOrNull()
+        d2
+            .dataStoreModule()
+            .dataStore()
+            .value(RAMP_DATASTORE_NAMESPACE, RAMP_DATASTORE_KEY)
+            .blockingGet()
+            ?.value()
 
     private fun parseRawValue(value: String): RampDatastoreConfig =
-        runCatching {
-            val root =
-                parseDatastoreJsonElement(value)?.asJsonObject
-                    ?: return@runCatching RampDatastoreConfig()
+        try {
+            val root = parseDatastoreJsonElement(value).asJsonObject
+
             RampDatastoreConfig(
                 dataElementHistoryCharts =
                     root
@@ -56,24 +56,33 @@ class RampDatastoreRepository(
                         ?.parseList<DataElementHistoryChartConfig>()
                         .orEmpty()
                         .filter { it.isValid() },
+                programStageHistoryTables =
+                    root
+                        .get(PROGRAM_STAGE_HISTORY_TABLE_KEY)
+                        ?.parseList<ProgramStageHistoryTableConfig>()
+                        .orEmpty()
+                        .filter { it.isValid() },
             )
-        }.getOrDefault(RampDatastoreConfig())
+        } catch (exception: Exception) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            RampDatastoreConfig()
+        } catch (exception: IllegalStateException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            RampDatastoreConfig()
+        }
 
-    private fun JsonElement.parseDatastoreJsonElement(): JsonElement? =
-        runCatching {
-            if (isJsonPrimitive && asJsonPrimitive.isString) {
-                parseDatastoreJsonElement(asString) ?: this
-            } else {
-                this
-            }
-        }.getOrNull()
+    private fun JsonElement.parseDatastoreJsonElement(): JsonElement =
+        if (isJsonPrimitive && asJsonPrimitive.isString) {
+            parseDatastoreJsonElement(asString)
+        } else {
+            this
+        }
 
-    private fun parseDatastoreJsonElement(value: String): JsonElement? = parseJsonElement(value) ?: parseJsonWrapperElement(value)
+    private fun parseDatastoreJsonElement(value: String): JsonElement =
+        parseJsonWrapperElement(value) ?: parseJsonElement(value)
 
-    private fun parseJsonElement(value: String): JsonElement? =
-        runCatching {
-            JsonParser.parseString(value).parseDatastoreJsonElement()
-        }.getOrNull()
+    private fun parseJsonElement(value: String): JsonElement =
+        JsonParser.parseString(value).parseDatastoreJsonElement()
 
     private fun parseJsonWrapperElement(value: String): JsonElement? =
         value
@@ -103,7 +112,16 @@ class RampDatastoreRepository(
             else -> emptyList()
         }
 
-    private inline fun <reified T> JsonElement.parseObject(): T? = runCatching { gson.fromJson(this, T::class.java) }.getOrNull()
+    private inline fun <reified T> JsonElement.parseObject(): T? =
+        try {
+            gson.fromJson(this, T::class.java)
+        } catch (exception: JsonParseException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
+        } catch (exception: IllegalStateException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
+        }
 
     private data class CachedConfig(
         val rawValue: String?,
@@ -114,7 +132,9 @@ class RampDatastoreRepository(
         private const val RAMP_DATASTORE_NAMESPACE = "simprints"
         private const val RAMP_DATASTORE_KEY = "ramp"
         private const val DATA_ELEMENT_HISTORY_CHARTS_KEY = "dataElementHistoryCharts"
+        private const val PROGRAM_STAGE_HISTORY_TABLE_KEY = "programStageHistoryTable"
         private const val DATASTORE_JSON_WRAPPER_NAME = "JsonWrapper"
         private const val DATASTORE_JSON_WRAPPER_JSON_FIELD = "json"
+        private const val RAMP_DATASTORE_PARSE_ERROR = "Failed to parse Simprints RAMP datastore config"
     }
 }

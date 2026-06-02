@@ -4,8 +4,11 @@ import com.google.gson.annotations.SerializedName
 
 data class RampDatastoreConfig(
     val dataElementHistoryCharts: List<DataElementHistoryChartConfig> = emptyList(),
+    val programStageHistoryTables: List<ProgramStageHistoryTableConfig> = emptyList(),
 ) {
-    fun isNotEmpty(): Boolean = dataElementHistoryCharts.isNotEmpty()
+    fun isNotEmpty(): Boolean =
+        dataElementHistoryCharts.isNotEmpty() ||
+            programStageHistoryTables.isNotEmpty()
 }
 
 data class DataElementHistoryChartConfig(
@@ -25,5 +28,24 @@ data class DataElementHistoryChartConfig(
             !followUpVisitProgramStageId.isNullOrBlank() &&
             !dataElementId.isNullOrBlank() &&
             !xAxisVisitNumberDataElementId.isNullOrBlank() &&
+            (followUpVisitMaxNumber ?: -1) >= 0
+}
+
+data class ProgramStageHistoryTableConfig(
+    @SerializedName("programId")
+    val programId: String? = null,
+    @SerializedName("followUpVisitProgramStageId")
+    val followUpVisitProgramStageId: String? = null,
+    @SerializedName("followUpVisitMaxNumber")
+    val followUpVisitMaxNumber: Int? = null,
+    @SerializedName("headerVisitNumberDataElementId")
+    val headerVisitNumberDataElementId: String? = null,
+    @SerializedName("excludedFollowUpVisitDataElementIds")
+    val excludedFollowUpVisitDataElementIds: List<String>? = null,
+) {
+    fun isValid(): Boolean =
+        !programId.isNullOrBlank() &&
+            !followUpVisitProgramStageId.isNullOrBlank() &&
+            !headerVisitNumberDataElementId.isNullOrBlank() &&
             (followUpVisitMaxNumber ?: -1) >= 0
 }

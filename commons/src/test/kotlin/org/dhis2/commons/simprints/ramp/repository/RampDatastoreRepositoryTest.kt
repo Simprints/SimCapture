@@ -3,7 +3,11 @@ package org.dhis2.commons.simprints.ramp.repository
 import com.google.gson.Gson
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.datastore.DataStoreEntry
+import org.hisp.dhis.android.core.maintenance.D2Error
+import org.hisp.dhis.android.core.maintenance.D2ErrorCode
+import org.hisp.dhis.android.core.maintenance.D2ErrorComponent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.Mockito
 import org.mockito.kotlin.doReturn
@@ -16,7 +20,7 @@ class RampDatastoreRepositoryTest {
     private val repository = RampDatastoreRepository(d2)
 
     @Test
-    fun `getConfig should parse history chart config and ignore invalid entries`() {
+    fun `getConfig should parse history chart or table config and ignore invalid entries`() {
         stubRampConfigRawValue(
             """
             {
@@ -37,6 +41,20 @@ class RampDatastoreRepositoryTest {
               ],
               "otherConfigs": [
                 { "ignored": true }
+              ],
+              "programStageHistoryTable": [
+                {
+                  "programId": "program",
+                  "followUpVisitProgramStageId": "follow-stage",
+                  "followUpVisitMaxNumber": 12,
+                  "headerVisitNumberDataElementId": "visit-number",
+                  "excludedFollowUpVisitDataElementIds": ["excluded"]
+                },
+                {
+                  "programId": "program",
+                  "followUpVisitProgramStageId": "follow-stage",
+                  "followUpVisitMaxNumber": 12
+                }
               ]
             }
             """.trimIndent(),
@@ -51,6 +69,14 @@ class RampDatastoreRepositoryTest {
             assertEquals("weight", chart.dataElementId)
             assertEquals("visit-number", chart.xAxisVisitNumberDataElementId)
             assertEquals(12, chart.followUpVisitMaxNumber)
+        }
+        assertEquals(1, config.programStageHistoryTables.size)
+        config.programStageHistoryTables.first().let { table ->
+            assertEquals("program", table.programId)
+            assertEquals("follow-stage", table.followUpVisitProgramStageId)
+            assertEquals(12, table.followUpVisitMaxNumber)
+            assertEquals("visit-number", table.headerVisitNumberDataElementId)
+            assertEquals(listOf("excluded"), table.excludedFollowUpVisitDataElementIds)
         }
     }
 
@@ -85,6 +111,31 @@ class RampDatastoreRepositoryTest {
     }
 
     @Test
+    fun `getConfig should return default config when datastore value is invalid`() {
+        stubRampConfigRawValue("{invalid")
+
+        val config = repository.getConfig()
+
+        assertEquals(0, config.dataElementHistoryCharts.size)
+        assertEquals(0, config.programStageHistoryTables.size)
+    }
+
+    @Test
+    fun `getConfig should propagate datastore read failure`() {
+        whenever(
+            d2
+                .dataStoreModule()
+                .dataStore()
+                .value("simprints", "ramp")
+                .blockingGet(),
+        ).thenAnswer { throw d2Error() }
+
+        assertThrows(D2Error::class.java) {
+            repository.getConfig()
+        }
+    }
+
+    @Test
     fun `getConfig should reload config when local datastore value changes`() {
         whenever(
             d2
@@ -98,8 +149,22 @@ class RampDatastoreRepositoryTest {
                 rampEntry(getRampRawUnwrappedValue(dataElementId = "value2")),
             )
 
-        assertEquals("value1", repository.getConfig().dataElementHistoryCharts.single().dataElementId)
-        assertEquals("value2", repository.getConfig().dataElementHistoryCharts.single().dataElementId)
+        assertEquals(
+            "value1",
+            repository
+                .getConfig()
+                .dataElementHistoryCharts
+                .single()
+                .dataElementId,
+        )
+        assertEquals(
+            "value2",
+            repository
+                .getConfig()
+                .dataElementHistoryCharts
+                .single()
+                .dataElementId,
+        )
     }
 
     @Test
@@ -145,4 +210,12 @@ class RampDatastoreRepositoryTest {
           }
         }
         """.trimIndent()
+
+    private fun d2Error(): D2Error =
+        D2Error
+            .builder()
+            .errorCode(D2ErrorCode.VALUE_CANT_BE_SET)
+            .errorComponent(D2ErrorComponent.Database)
+            .errorDescription("description")
+            .build()
 }

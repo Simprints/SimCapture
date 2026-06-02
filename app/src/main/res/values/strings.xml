@@ -759,9 +759,13 @@
     <string name="navigation_charts">Charts</string>
     <string name="navigation_relationships">Relations</string>
     <string name="navigation_notes">Notes</string>
+    <string name="navigation_simprints_ramp_history">History</string>
     <string name="navigation_data_entry">Data entry</string>
     <string name="navigation_form">Form</string>
     <string name="navigation_tei_data">Details</string>
+    <string name="simprints_ramp_history_table_visit">Visit</string>
+    <string name="simprints_ramp_history_table_date">Date</string>
+    <string name="simprints_ramp_history_table_empty">No history available</string>
     <string name="show_bar_graph">View as Bar</string>
     <string name="show_line_graph">View as Line</string>
     <string name="show_table_graph">View as Table</string>

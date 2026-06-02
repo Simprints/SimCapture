@@ -95,6 +95,8 @@ class EventCaptureContract {
         fun isDataEntrySelected(): Boolean
 
         fun updateNotesBadge(numberOfNotes: Int)
+
+        fun setForceDisplayDataEntryNavigationItemForSimprintsRampTable(forceDisplay: Boolean)
     }
 
     interface EventCaptureRepository {
@@ -132,6 +134,8 @@ class EventCaptureContract {
         fun hasAnalytics(): Boolean
 
         fun hasRelationships(): Boolean
+
+        fun hasSimprintsRampProgramStageHistoryTable(): Boolean
 
         fun validationStrategy(): ValidationStrategy
 

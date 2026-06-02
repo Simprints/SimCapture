@@ -19,6 +19,7 @@ import org.hisp.dhis.android.core.maintenance.D2ErrorComponent
 import org.hisp.dhis.android.core.program.ProgramStage
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttribute
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttributeValue
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 import org.mockito.ArgumentMatchers.anyString
@@ -55,6 +56,19 @@ class DashboardRepositoryImplTest {
                 programConfigurationRepository,
                 featureConfigRepository,
             )
+    }
+
+    @Test
+    fun `Should return false when checking Simprints RAMP history table fails`() {
+        whenever(
+            d2
+                .dataStoreModule()
+                .dataStore()
+                .value("simprints", "ramp")
+                .blockingGet(),
+        ).thenAnswer { throw d2Error() }
+
+        assertFalse(repository.programHasSimprintsRampProgramStageHistoryTable())
     }
 
     @Test
@@ -602,5 +616,13 @@ class DashboardRepositoryImplTest {
         ProgramStage
             .builder()
             .uid("program_stage")
+            .build()
+
+    private fun d2Error(): D2Error =
+        D2Error
+            .builder()
+            .errorCode(D2ErrorCode.VALUE_CANT_BE_SET)
+            .errorComponent(D2ErrorComponent.Database)
+            .errorDescription("description")
             .build()
 }
