@@ -1,5 +1,7 @@
 package org.dhis2.simprints.ramp.model
 
+import org.hisp.dhis.android.core.common.ValueType
+
 sealed interface EventHistoryTableUiState {
     data object Loading : EventHistoryTableUiState
 
@@ -32,5 +34,24 @@ data class EventHistoryTableSection(
 
 data class EventHistoryTableRow(
     val label: String,
-    val values: List<String>,
+    val values: List<EventHistoryTableCell>,
 )
+
+data class EventHistoryTableCell(
+    val value: String,
+    val valueType: ValueType? = null,
+) {
+    fun displayValue(
+        yesLabel: String,
+        noLabel: String,
+    ): String =
+        if (valueType == ValueType.BOOLEAN || valueType == ValueType.TRUE_ONLY) {
+            when (value.toBooleanStrictOrNull()) {
+                true -> yesLabel
+                false -> noLabel
+                null -> value
+            }
+        } else {
+            value
+        }
+}

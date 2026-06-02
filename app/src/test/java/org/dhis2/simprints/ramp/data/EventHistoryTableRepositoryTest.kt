@@ -66,6 +66,7 @@ class EventHistoryTableRepositoryTest {
                         value(VISIT_NUMBER_UID, "1"),
                         value(WEIGHT_UID, "9.0"),
                         value(STATUS_UID, "A"),
+                        value(BOOLEAN_UID, "true"),
                     ),
             ),
         )
@@ -80,6 +81,7 @@ class EventHistoryTableRepositoryTest {
                             value(VISIT_NUMBER_UID, "0"),
                             value(WEIGHT_UID, "8.0"),
                             value(STATUS_UID, "A"),
+                            value(BOOLEAN_UID, "true"),
                         ),
                 ),
                 event(
@@ -90,6 +92,7 @@ class EventHistoryTableRepositoryTest {
                             value(VISIT_NUMBER_UID, "0"),
                             value(WEIGHT_UID, "8.5"),
                             value(STATUS_UID, "B"),
+                            value(BOOLEAN_UID, "false"),
                         ),
                 ),
                 event(
@@ -100,6 +103,7 @@ class EventHistoryTableRepositoryTest {
                             value(VISIT_NUMBER_UID, "2"),
                             value(WEIGHT_UID, "10.0"),
                             value(STATUS_UID, "A"),
+                            value(BOOLEAN_UID, "true"),
                         ),
                 ),
             ),
@@ -119,7 +123,7 @@ class EventHistoryTableRepositoryTest {
         assertNull(table?.columns?.get(2)?.eventUid)
         assertEquals(listOf("Follow up"), table?.sections?.map { it.title })
         assertEquals(
-            listOf("Weight", "Status"),
+            listOf("Weight", "Status", "Confirmed"),
             table
                 ?.sections
                 ?.single()
@@ -133,7 +137,8 @@ class EventHistoryTableRepositoryTest {
                 ?.single()
                 ?.rows
                 ?.get(0)
-                ?.values,
+                ?.values
+                ?.map { it.value },
         )
         // Visit 0 keeps the later duplicate event with OptionB
         assertEquals(
@@ -143,7 +148,19 @@ class EventHistoryTableRepositoryTest {
                 ?.single()
                 ?.rows
                 ?.get(1)
-                ?.values,
+                ?.values
+                ?.map { it.value },
+        )
+        val booleanRowValues =
+            table
+                ?.sections
+                ?.single()
+                ?.rows
+                ?.get(2)
+                ?.values
+        assertEquals(
+            listOf("No", "Yes", "", ""),
+            booleanRowValues?.map { it.displayValue(yesLabel = "Yes", noLabel = "No") },
         )
     }
 
@@ -183,6 +200,7 @@ class EventHistoryTableRepositoryTest {
                 ?.rows
                 ?.first()
                 ?.values
+                ?.map { it.value }
                 ?.get(2),
         )
     }
@@ -226,6 +244,7 @@ class EventHistoryTableRepositoryTest {
         val programStage = ObjectWithUid.create(PROGRAM_STAGE_UID)
         val weightDataElement = dataElement(WEIGHT_UID)
         val statusDataElement = dataElement(STATUS_UID)
+        val booleanDataElement = dataElement(BOOLEAN_UID)
         val excludedDataElement = dataElement(EXCLUDED_UID)
         val visitNumberDataElement = dataElement(VISIT_NUMBER_UID)
         val programStageDataElementsForStage =
@@ -233,6 +252,7 @@ class EventHistoryTableRepositoryTest {
                 programStageDataElement(programStage, visitNumberDataElement),
                 programStageDataElement(programStage, weightDataElement),
                 programStageDataElement(programStage, statusDataElement),
+                programStageDataElement(programStage, booleanDataElement),
                 programStageDataElement(programStage, excludedDataElement),
             )
 
@@ -256,7 +276,7 @@ class EventHistoryTableRepositoryTest {
                     .displayName("Follow up")
                     .sortOrder(1)
                     .programStage(programStage)
-                    .dataElements(listOf(weightDataElement, statusDataElement, excludedDataElement))
+                    .dataElements(listOf(weightDataElement, statusDataElement, booleanDataElement, excludedDataElement))
                     .build(),
                 ProgramStageSection
                     .builder()
@@ -294,6 +314,19 @@ class EventHistoryTableRepositoryTest {
                 .displayShortName("Status")
                 .valueType(ValueType.TEXT)
                 .optionSet(ObjectWithUid.create(OPTION_SET_UID))
+                .build()
+        whenever(
+            d2
+                .dataElementModule()
+                .dataElements()
+                .uid(BOOLEAN_UID)
+                .blockingGet(),
+        ) doReturn
+            DataElement
+                .builder()
+                .uid(BOOLEAN_UID)
+                .displayShortName("Confirmed")
+                .valueType(ValueType.BOOLEAN)
                 .build()
         whenever(
             d2
@@ -377,6 +410,7 @@ class EventHistoryTableRepositoryTest {
         const val VISIT_NUMBER_UID = "visit-number"
         const val WEIGHT_UID = "weight"
         const val STATUS_UID = "status"
+        const val BOOLEAN_UID = "boolean"
         const val EXCLUDED_UID = "excluded"
         const val OPTION_SET_UID = "option-set"
     }

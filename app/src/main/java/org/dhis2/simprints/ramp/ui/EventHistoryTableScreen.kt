@@ -30,12 +30,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.dhis2.R
 import org.dhis2.simprints.ramp.model.EventHistoryTable
+import org.dhis2.simprints.ramp.model.EventHistoryTableCell
 import org.dhis2.simprints.ramp.model.EventHistoryTableColumn
 import org.dhis2.simprints.ramp.model.EventHistoryTableRow
 import org.dhis2.simprints.ramp.model.EventHistoryTableUiState
 import org.hisp.dhis.mobile.ui.designsystem.component.ProgressIndicator
 import org.hisp.dhis.mobile.ui.designsystem.component.ProgressIndicatorType
 import org.hisp.dhis.mobile.ui.designsystem.theme.Spacing
+import org.dhis2.commons.R as CommonsR
 
 @Composable
 fun EventHistoryTableScreen(
@@ -100,7 +102,10 @@ private fun HistoryTable(
                     row =
                         EventHistoryTableRow(
                             label = stringResource(R.string.simprints_ramp_history_table_date),
-                            values = table.dateRowValues,
+                            values =
+                                table.dateRowValues.map { value ->
+                                    EventHistoryTableCell(value)
+                                },
                         ),
                     horizontalScrollState = horizontalScrollState,
                 )
@@ -183,9 +188,9 @@ private fun TableDataRow(
                     overscrollEffect = null,
                 ),
         ) {
-            row.values.forEach { value ->
+            row.values.forEach { cell ->
                 ValueCell(
-                    text = value,
+                    cell = cell,
                     width = DataCellWidth,
                 )
             }
@@ -247,9 +252,15 @@ private fun LabelCell(
 
 @Composable
 private fun ValueCell(
-    text: String,
+    cell: EventHistoryTableCell,
     width: Dp,
 ) {
+    val text =
+        cell.displayValue(
+            yesLabel = stringResource(CommonsR.string.yes),
+            noLabel = stringResource(CommonsR.string.no),
+        )
+
     Box(
         modifier =
             Modifier

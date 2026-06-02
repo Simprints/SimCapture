@@ -4,6 +4,7 @@ import org.dhis2.bindings.userFriendlyValue
 import org.dhis2.commons.simprints.ramp.model.ProgramStageHistoryTableConfig
 import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.simprints.ramp.model.EventHistoryTable
+import org.dhis2.simprints.ramp.model.EventHistoryTableCell
 import org.dhis2.simprints.ramp.model.EventHistoryTableColumn
 import org.dhis2.simprints.ramp.model.EventHistoryTableRow
 import org.dhis2.simprints.ramp.model.EventHistoryTableSection
@@ -76,13 +77,17 @@ class EventHistoryTableRepository(
                             values =
                                 columnIndexes.map { columnIndex ->
                                     val event = eventForColumn(columnIndex)
-                                    row.displayValue(
-                                        rawValue =
-                                            event
-                                                ?.let { eventDataValuesByUid[it.uid()] }
-                                                ?.get(row.dataElementUid)
-                                                .orEmpty(),
-                                        optionDisplayNamesBySet = optionDisplayNamesBySet,
+                                    EventHistoryTableCell(
+                                        value =
+                                            row.displayValue(
+                                                rawValue =
+                                                    event
+                                                        ?.let { eventDataValuesByUid[it.uid()] }
+                                                        ?.get(row.dataElementUid)
+                                                        .orEmpty(),
+                                                optionDisplayNamesBySet = optionDisplayNamesBySet,
+                                            ),
+                                        valueType = row.valueType,
                                     )
                                 },
                         )
