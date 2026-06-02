@@ -63,7 +63,7 @@ class RampDatastoreRepository(
                         .orEmpty()
                         .filter { it.isValid() },
             )
-        } catch (exception: Exception) {
+        } catch (exception: JsonParseException) {
             Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
             RampDatastoreConfig()
         } catch (exception: IllegalStateException) {
