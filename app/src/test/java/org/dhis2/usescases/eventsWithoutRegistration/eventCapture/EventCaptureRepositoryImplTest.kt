@@ -6,6 +6,7 @@ import org.dhis2.data.dhislogic.AUTH_ALL
 import org.dhis2.data.dhislogic.AUTH_UNCOMPLETE_EVENT
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.dataelement.DataElement
+import org.hisp.dhis.android.core.datastore.DataStoreEntry.builder
 import org.hisp.dhis.android.core.enrollment.Enrollment
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
 import org.hisp.dhis.android.core.event.Event
@@ -22,6 +23,7 @@ import org.junit.Test
 import org.mockito.Mockito
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doReturnConsecutively
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -618,6 +620,80 @@ class EventCaptureRepositoryImplTest {
     }
 
     @Test
+    fun `hasSimprintsRampProgramStageHistoryTable should return true if RAMP program stage history table is configured for event`() {
+        mockEvent()
+        stubRampConfigRawValue(
+            """
+            {
+              "programStageHistoryTable": [
+                {
+                  "programId": " $testEventProgramUid ",
+                  "followUpVisitProgramStageId": " $testEventStageUid ",
+                  "followUpVisitMaxNumber": 3,
+                  "headerVisitNumberDataElementId": "visitNumberUid"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val repository =
+            EventCaptureRepositoryImpl(
+                eventUid,
+                d2,
+            )
+
+        assertTrue(repository.hasSimprintsRampProgramStageHistoryTable())
+    }
+
+    @Test
+    fun `hasSimprintsRampProgramStageHistoryTable should not cache false if event is unavailable for RAMP program stage history table`() {
+        whenever(
+            d2
+                .eventModule()
+                .events()
+                .uid(eventUid)
+                .blockingGet(),
+        ) doReturnConsecutively
+            listOf(
+                null,
+                Event
+                    .builder()
+                    .uid(eventUid)
+                    .programStage(testEventStageUid)
+                    .eventDate(GregorianCalendar(2021, 0, 1).time)
+                    .organisationUnit(testEventOrgUnitUid)
+                    .deleted(false)
+                    .status(EventStatus.ACTIVE)
+                    .program(testEventProgramUid)
+                    .build(),
+            )
+        stubRampConfigRawValue(
+            """
+            {
+              "programStageHistoryTable": [
+                {
+                  "programId": "$testEventProgramUid",
+                  "followUpVisitProgramStageId": "$testEventStageUid",
+                  "followUpVisitMaxNumber": 3,
+                  "headerVisitNumberDataElementId": "visitNumberUid"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val repository =
+            EventCaptureRepositoryImpl(
+                eventUid,
+                d2,
+            )
+
+        assertFalse(repository.hasSimprintsRampProgramStageHistoryTable())
+        assertTrue(repository.hasSimprintsRampProgramStageHistoryTable())
+    }
+
+    @Test
     fun `Should have analytics if there are indicators`() {
         mockEvent()
         mockSections()
@@ -690,6 +766,20 @@ class EventCaptureRepositoryImplTest {
                 .status(status)
                 .program(testEventProgramUid)
                 .build()
+    }
+
+    private fun stubRampConfigRawValue(value: String) {
+        whenever(
+            d2
+                .dataStoreModule()
+                .dataStore()
+                .value("simprints", "ramp")
+                .blockingGet(),
+        ) doReturn builder()
+            .namespace("simprints")
+            .key("ramp")
+            .value(value)
+            .build()
     }
 
     private fun mockEmptySections() {

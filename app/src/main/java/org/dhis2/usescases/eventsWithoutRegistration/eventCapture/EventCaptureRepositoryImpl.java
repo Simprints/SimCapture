@@ -220,14 +220,25 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
         }
 
         Event currentEvent = getCurrentEvent();
-        hasSimprintsRampProgramStageHistoryTable = false;
+        if (currentEvent == null) {
+            return false;
+        }
+
+        String programUid = trimToValue(currentEvent.program());
+        String programStageUid = trimToValue(currentEvent.programStage());
+        if (programUid == null || programStageUid == null) {
+            return false;
+        }
+
+        boolean hasProgramStageHistoryTable = false;
         for (ProgramStageHistoryTableConfig config : new RampDatastoreRepository(d2, new Gson()).getConfig().getProgramStageHistoryTables()) {
-            if (Objects.equals(trimToValue(config.getProgramId()), currentEvent.program()) &&
-                    Objects.equals(trimToValue(config.getFollowUpVisitProgramStageId()), currentEvent.programStage())) {
-                hasSimprintsRampProgramStageHistoryTable = true;
+            if (Objects.equals(trimToValue(config.getProgramId()), programUid) &&
+                    Objects.equals(trimToValue(config.getFollowUpVisitProgramStageId()), programStageUid)) {
+                hasProgramStageHistoryTable = true;
                 break;
             }
         }
+        hasSimprintsRampProgramStageHistoryTable = hasProgramStageHistoryTable;
         return hasSimprintsRampProgramStageHistoryTable;
     }
 
