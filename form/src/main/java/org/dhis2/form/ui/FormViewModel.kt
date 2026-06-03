@@ -301,23 +301,10 @@ class FormViewModel(
     }
 
     private fun handleOnTextChangeAction(action: RowAction): StoreResult {
-        updateSimprintsRampHistoryChart(
-            repository.updateValueOnList(action.id, action.value, action.valueType),
-        )
+        repository.updateValueOnList(action.id, action.value, action.valueType)
         return StoreResult(
             action.id,
             ValueStoreResult.TEXT_CHANGING,
-        )
-    }
-
-    private fun updateSimprintsRampHistoryChart(updatedField: FieldUiModel?) {
-        val chartField = updatedField?.takeIf { it.simprintsRampHistoryChart != null } ?: return
-        val currentItems = _items.value ?: return
-
-        _items.postValue(
-            currentItems.map { item ->
-                if (item.uid == chartField.uid) chartField else item
-            },
         )
     }
 

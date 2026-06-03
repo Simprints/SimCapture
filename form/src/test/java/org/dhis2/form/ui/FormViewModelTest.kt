@@ -2,6 +2,7 @@ package org.dhis2.form.ui
 
 import android.content.Intent
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import androidx.lifecycle.Observer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -126,7 +127,7 @@ class FormViewModelTest {
         }
 
     @Test
-    fun `Should publish updated simprints ramp chart field when text is changing`() =
+    fun `Should not emit form items when simprints ramp chart field text is changing`() =
         runTest {
             val initialField =
                 FieldUiModelImpl(
@@ -153,15 +154,22 @@ class FormViewModelTest {
                     dispatcher,
                     geometryController,
                     resultDialogUiProvider = resultDialogUiProvider,
-                )
+            )
             advanceUntilIdle()
             whenever(repository.updateValueOnList("weight", "", ValueType.NUMBER)) doReturn updatedField
+            val emittedItems = mutableListOf<List<FieldUiModel>>()
+            val itemsObserver = Observer<List<FieldUiModel>> { emittedItems.add(it) }
+            viewModel.items.observeForever(itemsObserver)
+            emittedItems.clear()
 
             viewModel.submitIntent(FormIntent.OnTextChange("weight", "", ValueType.NUMBER))
             advanceUntilIdle()
 
-            assertEquals(updatedField, viewModel.items.value?.first())
+            assertTrue(emittedItems.isEmpty())
+            assertEquals(initialField, viewModel.items.value?.first())
             verify(repository).updateValueOnList("weight", "", ValueType.NUMBER)
+
+            viewModel.items.removeObserver(itemsObserver)
         }
 
     private val futureDate: String = LocalDate.now().plusDays(1).format(DateTimeFormatter.ISO_DATE)

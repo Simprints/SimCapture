@@ -76,6 +76,23 @@ fun FieldProvider(
     var visibleArea by remember { mutableStateOf(Rect.Zero) }
     val scope = rememberCoroutineScope()
     val keyboardState by keyboardAsState()
+    var simprintsRampHistoryChart by remember(
+        fieldUiModel.uid,
+        fieldUiModel.simprintsRampHistoryChart,
+    ) {
+        mutableStateOf(fieldUiModel.simprintsRampHistoryChart)
+    }
+    val fieldIntentHandler: (FormIntent) -> Unit =
+        if (fieldUiModel.simprintsRampHistoryChart == null) {
+            intentHandler
+        } else {
+            { intent ->
+                if (intent is FormIntent.OnTextChange && intent.uid == fieldUiModel.uid) {
+                    simprintsRampHistoryChart = simprintsRampHistoryChart?.withCurrentValue(intent.value)
+                }
+                intentHandler(intent)
+            }
+        }
 
     var modifierWithFocus =
         modifier
@@ -116,9 +133,9 @@ fun FieldProvider(
                     modifier = modifierWithFocus,
                     inputStyle = inputStyle,
                     fieldUiModel = fieldUiModel,
-                    intentHandler = intentHandler,
+                    intentHandler = fieldIntentHandler,
                     fetchOptions = {
-                        intentHandler(
+                        fieldIntentHandler(
                             FormIntent.FetchOptions(
                                 fieldUiModel.uid,
                                 fieldUiModel.optionSet!!,
@@ -131,7 +148,7 @@ fun FieldProvider(
             fieldUiModel.customIntent != null -> {
                 ProvideCustomIntentInput(
                     fieldUiModel = fieldUiModel,
-                    intentHandler = intentHandler,
+                    intentHandler = fieldIntentHandler,
                     uiEventHandler = uiEventHandler,
                     resources = resources,
                     inputStyle = inputStyle,
@@ -152,7 +169,7 @@ fun FieldProvider(
                     modifier = modifierWithFocus,
                     inputStyle = inputStyle,
                     fieldUiModel = fieldUiModel,
-                    intentHandler = intentHandler,
+                    intentHandler = fieldIntentHandler,
                     uiEventHandler = uiEventHandler,
                     resources = resources,
                     focusRequester = focusRequester,
@@ -161,7 +178,7 @@ fun FieldProvider(
                     onFileSelected = onFileSelected,
                 )
         }
-        fieldUiModel.simprintsRampHistoryChart?.let { SimprintsRampFormHistoryChartView(it) }
+        simprintsRampHistoryChart?.let { SimprintsRampFormHistoryChartView(it) }
     }
 }
 
