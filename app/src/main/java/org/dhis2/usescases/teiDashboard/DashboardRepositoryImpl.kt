@@ -52,6 +52,8 @@ class DashboardRepositoryImpl(
     private val programConfigurationRepository: ProgramConfigurationRepository,
     private val featureConfigRepository: FeatureConfigRepository,
 ) : DashboardRepository {
+    private val simprintsRampDatastoreRepository = SimprintsRampDatastoreRepository(d2)
+
     override fun getTeiHeader(): String? =
         d2
             .trackedEntityModule()
@@ -818,7 +820,7 @@ class DashboardRepositoryImpl(
         try {
             !programUid.isNullOrBlank() &&
                 !enrollmentUid.isNullOrBlank() &&
-                SimprintsRampDatastoreRepository(d2)
+                simprintsRampDatastoreRepository
                     .getConfig()
                     .programStageHistoryTables
                     .any { config -> config.programId?.trim() == programUid }

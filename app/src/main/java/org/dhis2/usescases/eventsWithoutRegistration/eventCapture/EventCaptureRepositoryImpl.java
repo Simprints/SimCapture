@@ -36,11 +36,12 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
 
     private final String eventUid;
     private final D2 d2;
-    private Boolean hasSimprintsRampProgramStageHistoryTable;
+    private final RampDatastoreRepository rampDatastoreRepository;
 
     public EventCaptureRepositoryImpl(String eventUid, D2 d2) {
         this.eventUid = eventUid;
         this.d2 = d2;
+        this.rampDatastoreRepository = new RampDatastoreRepository(d2, new Gson());
     }
 
     private Event getCurrentEvent() {
@@ -215,10 +216,6 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
 
     @Override
     public boolean hasSimprintsRampProgramStageHistoryTable() {
-        if (hasSimprintsRampProgramStageHistoryTable != null) {
-            return hasSimprintsRampProgramStageHistoryTable;
-        }
-
         Event currentEvent = getCurrentEvent();
         if (currentEvent == null) {
             return false;
@@ -231,15 +228,14 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
         }
 
         boolean hasProgramStageHistoryTable = false;
-        for (ProgramStageHistoryTableConfig config : new RampDatastoreRepository(d2, new Gson()).getConfig().getProgramStageHistoryTables()) {
+        for (ProgramStageHistoryTableConfig config : rampDatastoreRepository.getConfig().getProgramStageHistoryTables()) {
             if (Objects.equals(trimToValue(config.getProgramId()), programUid) &&
                     Objects.equals(trimToValue(config.getFollowUpVisitProgramStageId()), programStageUid)) {
                 hasProgramStageHistoryTable = true;
                 break;
             }
         }
-        hasSimprintsRampProgramStageHistoryTable = hasProgramStageHistoryTable;
-        return hasSimprintsRampProgramStageHistoryTable;
+        return hasProgramStageHistoryTable;
     }
 
     @NonNull
