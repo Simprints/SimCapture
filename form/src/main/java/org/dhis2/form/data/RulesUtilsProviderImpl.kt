@@ -380,7 +380,7 @@ class RulesUtilsProviderImpl(
                     fieldViewModels[fieldUid] = it
                 }
             }
-        } ?: {
+        } ?: run {
             if (!hiddenFields.contains(assign.field())) {
                 valuesToChange[fieldUid] = ruleEffect.data?.formatData()
             }

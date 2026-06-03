@@ -27,6 +27,7 @@ import org.dhis2.form.model.EventMode
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.OptionSetConfiguration
 import org.dhis2.form.model.PeriodSelector
+import org.dhis2.form.simprints.ramp.data.GetFormHistoryChartUseCase as GetSimprintsRampFormHistoryChartUseCase
 import org.dhis2.form.ui.FieldViewModelFactory
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository
 import org.dhis2.mobile.commons.extensions.toColor
@@ -61,6 +62,7 @@ class EventRepository(
     private val eventResourcesProvider: EventResourcesProvider,
     private val eventMode: EventMode,
     private val customIntentRepository: CustomIntentRepository,
+    private val getSimprintsRampFormHistoryChart: GetSimprintsRampFormHistoryChartUseCase,
     dispatcherProvider: DispatcherProvider,
 ) : DataEntryBaseRepository(
         FormBaseConfiguration(d2, dispatcherProvider),
@@ -574,6 +576,22 @@ class EventRepository(
         } ?: emptyMap()
     }
 
+    override fun updateField(
+        fieldUiModel: FieldUiModel,
+        warningMessage: String?,
+        optionsToHide: List<String>,
+        optionGroupsToHide: List<String>,
+        optionGroupsToShow: List<String>,
+    ): FieldUiModel =
+        super
+            .updateField(
+                fieldUiModel,
+                warningMessage,
+                optionsToHide,
+                optionGroupsToHide,
+                optionGroupsToShow,
+            ).withSimprintsRampHistoryChart()
+
     private fun getFieldsForSingleSection(): Single<List<FieldUiModel>> =
         Single.fromCallable {
             val stageDataElements =
@@ -752,7 +770,11 @@ class EventRepository(
         }
 
         return fieldViewModel
+            .withSimprintsRampHistoryChart()
     }
+
+    private fun FieldUiModel.withSimprintsRampHistoryChart(): FieldUiModel =
+        setSimprintsRampHistoryChart(getSimprintsRampFormHistoryChart(this))
 
     private fun getConflictErrorsAndWarnings(
         dataElementUid: String,

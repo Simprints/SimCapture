@@ -1,9 +1,13 @@
 package org.dhis2.data.services
 
 import io.reactivex.Completable
+import io.reactivex.Completable.complete
 import io.reactivex.Observable
+import io.reactivex.Observable.fromArray
+import io.reactivex.Observable.just
 import org.dhis2.commons.bindings.program
 import org.dhis2.commons.prefs.PreferenceProvider
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository as SimprintsRampDatastoreRepository
 import org.dhis2.data.service.SyncPresenterImpl
 import org.dhis2.data.service.SyncRepository
 import org.dhis2.data.service.SyncResult
@@ -21,17 +25,20 @@ import org.hisp.dhis.android.core.fileresource.FileResourceDomainType
 import org.hisp.dhis.android.core.program.Program
 import org.hisp.dhis.android.core.program.ProgramType
 import org.hisp.dhis.android.core.settings.GeneralSettings
+import org.hisp.dhis.android.core.settings.GeneralSettings.builder
 import org.hisp.dhis.android.core.settings.LimitScope
 import org.hisp.dhis.android.core.settings.ProgramSetting
 import org.hisp.dhis.android.core.settings.ProgramSettings
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstance
 import org.hisp.dhis.android.core.tracker.exporter.TrackerD2Progress
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mockito
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -47,6 +54,7 @@ class SyncPresenterTest {
     private val analyticsHelper: AnalyticsHelper = mock()
     private val syncStatusController: SyncStatusController = mock()
     private val syncRepository: SyncRepository = mock()
+    private val simprintsRampDatastoreRepository: SimprintsRampDatastoreRepository = mock()
 
     @Before
     fun setUp() {
@@ -58,6 +66,7 @@ class SyncPresenterTest {
                 analyticsHelper,
                 syncStatusController,
                 syncRepository,
+                simprintsRampDatastoreRepository,
             )
     }
 
@@ -247,6 +256,69 @@ class SyncPresenterTest {
 
         verify(analyticsHelper, times(0)).updateMatomoSecondaryTracker(any(), any(), any())
         verify(analyticsHelper).clearMatomoSecondaryTracker()
+    }
+
+    @Test
+    fun `Should sync simprints ramp datastore when syncing metadata`() {
+        whenever(
+            d2.metadataModule().download(),
+        ) doReturn fromArray(BaseD2Progress.empty(2))
+        whenever(
+            d2.settingModule().generalSetting().blockingGet(),
+        ) doReturn
+                builder()
+                    .encryptDB(false)
+                    .build()
+        whenever(
+            d2.mapsModule().mapLayersDownloader().downloadMetadata(),
+        ) doReturn complete()
+        whenever(
+            d2
+                .fileResourceModule()
+                .fileResourceDownloader()
+                .byDomainType()
+                .eq(FileResourceDomainType.ICON)
+                .download(),
+        ) doReturn just(BaseD2Progress.empty(1))
+
+        presenter.syncMetadata { }
+
+        verify(simprintsRampDatastoreRepository).sync()
+    }
+
+    @Test
+    fun `Should throw when simprints ramp datastore sync fails`() {
+        whenever(
+            d2.metadataModule().download(),
+        ) doReturn fromArray(BaseD2Progress.empty(2))
+        whenever(
+            d2.settingModule().generalSetting().blockingGet(),
+        ) doReturn
+                builder()
+                    .encryptDB(false)
+                    .build()
+        whenever(
+            d2.mapsModule().mapLayersDownloader().downloadMetadata(),
+        ) doReturn complete()
+        whenever(
+            d2
+                .fileResourceModule()
+                .fileResourceDownloader()
+                .byDomainType()
+                .eq(FileResourceDomainType.ICON)
+                .download(),
+        ) doReturn just(BaseD2Progress.empty(1))
+
+        val syncError = RuntimeException("network down")
+        whenever(simprintsRampDatastoreRepository.sync()) doThrow syncError
+
+        val thrown =
+            assertThrows(RuntimeException::class.java) {
+                presenter.syncMetadata { }
+            }
+
+        assertTrue(thrown === syncError)
+        verify(simprintsRampDatastoreRepository).sync()
     }
 
     @Test

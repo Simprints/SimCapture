@@ -20,6 +20,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.databinding.DataBindingUtil
@@ -47,6 +49,7 @@ import org.dhis2.commons.sync.SyncContext
 import org.dhis2.databinding.ActivityDashboardMobileBinding
 import org.dhis2.form.model.EnrollmentMode
 import org.dhis2.mobile.commons.orgunit.OrgUnitSelectorScope
+import org.dhis2.simprints.ramp.ui.EventHistoryTableFragment
 import org.dhis2.tracker.TEIDashboardItems
 import org.dhis2.tracker.relationships.ui.state.RelationshipTopBarIconState
 import org.dhis2.ui.ThemeManager
@@ -133,6 +136,7 @@ class TeiDashboardMobileActivity :
 
     private var elevation = 0f
     private var restartingActivity = false
+    private var isSimprintsRampHistoryTableLandscapeFullscreen = false
 
     private val detailsLauncher =
         registerForActivityResult(
@@ -360,6 +364,8 @@ class TeiDashboardMobileActivity :
     }
 
     private fun navigateToFragment(item: TEIDashboardItems) {
+        setSimprintsRampHistoryTableLandscapeFullscreen(item == TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
+
         val fragment =
             when (item) {
                 TEIDashboardItems.DETAILS ->
@@ -396,6 +402,16 @@ class TeiDashboardMobileActivity :
                     presenter.trackDashboardNotes()
                     NotesFragment.newTrackerInstance(programUid!!, teiUid!!)
                 }
+
+                TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE -> {
+                    val simprintsRampProgramUid = programUid ?: return
+                    val simprintsRampEnrollmentUid = enrollmentUid ?: return
+
+                    EventHistoryTableFragment.newEnrollmentInstance(
+                        simprintsRampProgramUid,
+                        simprintsRampEnrollmentUid,
+                    )
+                }
             }
 
         supportFragmentManager
@@ -404,6 +420,40 @@ class TeiDashboardMobileActivity :
             .commitAllowingStateLoss()
 
         updateTopBar(item)
+    }
+
+    private fun setSimprintsRampHistoryTableLandscapeFullscreen(enabled: Boolean) {
+        if (!this.isLandscape() || isSimprintsRampHistoryTableLandscapeFullscreen == enabled) {
+            return
+        }
+
+        val mainView = findViewById<ConstraintLayout>(R.id.main_view) ?: return
+        ConstraintSet()
+            .apply {
+                clone(mainView)
+                setVisibility(R.id.tei_primary_color_view, if (enabled) View.GONE else View.VISIBLE)
+                setVisibility(R.id.tei_form_view, if (enabled) View.GONE else View.VISIBLE)
+                clear(R.id.fragmentContainer, ConstraintSet.START)
+                connect(
+                    R.id.fragmentContainer,
+                    ConstraintSet.START,
+                    if (enabled) ConstraintSet.PARENT_ID else R.id.guideline625,
+                    if (enabled) ConstraintSet.START else ConstraintSet.END,
+                )
+                clear(R.id.navigationBar, ConstraintSet.START)
+                connect(
+                    R.id.navigationBar,
+                    ConstraintSet.START,
+                    if (enabled) ConstraintSet.PARENT_ID else R.id.guideline625,
+                    ConstraintSet.START,
+                )
+            }.applyTo(mainView)
+
+        isSimprintsRampHistoryTableLandscapeFullscreen = enabled
+        binding.fragmentContainer.post {
+            binding.fragmentContainer.requestLayout()
+            binding.navigationBar.requestLayout()
+        }
     }
 
     private fun updateTopBar(item: TEIDashboardItems) {

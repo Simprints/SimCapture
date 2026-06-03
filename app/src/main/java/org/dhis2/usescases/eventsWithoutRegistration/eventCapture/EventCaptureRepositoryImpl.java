@@ -3,7 +3,11 @@ package org.dhis2.usescases.eventsWithoutRegistration.eventCapture;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.google.gson.Gson;
+
 import org.dhis2.commons.bindings.SdkExtensionsKt;
+import org.dhis2.commons.simprints.ramp.model.ProgramStageHistoryTableConfig;
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository;
 import org.dhis2.data.dhislogic.AuthoritiesKt;
 import org.hisp.dhis.android.core.D2;
 import org.hisp.dhis.android.core.common.BaseIdentifiableObject;
@@ -32,10 +36,12 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
 
     private final String eventUid;
     private final D2 d2;
+    private final RampDatastoreRepository rampDatastoreRepository;
 
     public EventCaptureRepositoryImpl(String eventUid, D2 d2) {
         this.eventUid = eventUid;
         this.d2 = d2;
+        this.rampDatastoreRepository = new RampDatastoreRepository(d2, new Gson());
     }
 
     private Event getCurrentEvent() {
@@ -208,6 +214,30 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
                 .blockingIsEmpty();
     }
 
+    @Override
+    public boolean hasSimprintsRampProgramStageHistoryTable() {
+        Event currentEvent = getCurrentEvent();
+        if (currentEvent == null) {
+            return false;
+        }
+
+        String programUid = trimToValue(currentEvent.program());
+        String programStageUid = trimToValue(currentEvent.programStage());
+        if (programUid == null || programStageUid == null) {
+            return false;
+        }
+
+        boolean hasProgramStageHistoryTable = false;
+        for (ProgramStageHistoryTableConfig config : rampDatastoreRepository.getConfig().getProgramStageHistoryTables()) {
+            if (Objects.equals(trimToValue(config.getProgramId()), programUid) &&
+                    Objects.equals(trimToValue(config.getFollowUpVisitProgramStageId()), programStageUid)) {
+                hasProgramStageHistoryTable = true;
+                break;
+            }
+        }
+        return hasProgramStageHistoryTable;
+    }
+
     @NonNull
     @Override
     public ValidationStrategy validationStrategy() {
@@ -235,5 +265,11 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
         Enrollment enrollment = d2.enrollmentModule().enrollments().uid(getEnrollmentUid()).blockingGet();
         return enrollment != null ? enrollment.trackedEntityInstance() : null;
     }
-}
 
+    private static String trimToValue(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return value.trim();
+    }
+}

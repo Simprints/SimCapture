@@ -1,6 +1,7 @@
 package org.dhis2.form.model
 
 import androidx.databinding.ObservableField
+import org.dhis2.form.simprints.ramp.model.FormHistoryChart as SimprintsRampFormHistoryChart
 import org.dhis2.form.ui.event.UiEventFactory
 import org.dhis2.form.ui.intent.FormIntent
 import org.dhis2.form.ui.intent.FormIntent.OnFocus
@@ -45,6 +46,7 @@ data class SectionUiModelImpl(
     override val eventCategories: List<EventCategory>? = null,
     override val periodSelector: PeriodSelector? = null,
     override var customIntent: CustomIntentModel? = null,
+    override val simprintsRampHistoryChart: SimprintsRampFormHistoryChart? = null,
 ) : FieldUiModel {
     private var sectionNumber: Int = 0
     private var showBottomShadow: Boolean = false
@@ -126,6 +128,11 @@ data class SectionUiModelImpl(
 
     override fun setOptionSetConfiguration(optionSetConfiguration: OptionSetConfiguration) =
         this.copy(optionSetConfiguration = optionSetConfiguration)
+
+    override fun setSimprintsRampHistoryChart(
+        simprintsRampHistoryChart: SimprintsRampFormHistoryChart?,
+    ) =
+        this.copy(simprintsRampHistoryChart = simprintsRampHistoryChart)
 
     override fun isSectionWithFields() = totalFields > 0
 

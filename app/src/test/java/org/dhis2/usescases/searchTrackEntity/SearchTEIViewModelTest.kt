@@ -38,6 +38,7 @@ import org.dhis2.maps.geometry.mapper.EventsByProgramStage
 import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.mobile.commons.model.CustomIntentModel
 import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
+import org.dhis2.simprints.SimprintsMapBiometricSearchResultUseCase
 import org.dhis2.simprints.SimprintsSearchViewModel
 import org.dhis2.usescases.searchTrackEntity.listView.SearchResult.SearchResultType
 import org.dhis2.utils.customviews.navigationbar.NavigationPage
@@ -90,6 +91,7 @@ class SearchTEIViewModelTest {
     private val filterManager: FilterManager = mock()
     private val simprintsSearchViewModel: SimprintsSearchViewModel = mock()
     private val loadSimprintsBiometricSearchResultsUseCase: SimprintsLoadBiometricSearchResultsUseCase = mock()
+    private val mapSimprintsBiometricSearchResult: SimprintsMapBiometricSearchResultUseCase = mock()
     private val simprintsBiometricSearchNavigation = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private val simprintsBiometricSearch = MutableLiveData(false)
     private val simprintsUseLastBiometricsLabel = MutableLiveData(false)
@@ -134,6 +136,7 @@ class SearchTEIViewModelTest {
                 filterManager = filterManager,
                 simprintsSearchViewModel = simprintsSearchViewModel,
                 loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
+                mapSimprintsBiometricSearchResult = mapSimprintsBiometricSearchResult,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
     }
@@ -207,25 +210,116 @@ class SearchTEIViewModelTest {
     }
 
     @Test
-    fun `Should keep Search screen open after Simprints biometric no matches when list screen is refreshed`() {
-        viewModel.onSimprintsBiometricNoMatches()
+    fun `Should request Simprints biometric identification launch instead of opening search form`() =
+        runTest {
+            viewModel.setListScreen()
+            viewModel.searchParametersUiState =
+                viewModel.searchParametersUiState.copy(
+                    items = listOf(simprintsBiometricSearchField()),
+                )
 
-        viewModel.setListScreen()
+            viewModel.simprintsBiometricIdentificationLaunch.test {
+                viewModel.onSearchFormRequested()
+                testingDispatcher.scheduler.advanceUntilIdle()
 
-        val screenState = viewModel.screenState.value as SearchList
-        assertTrue(screenState.searchForm.isOpened)
-        assertFalse(screenState.searchForm.isForced)
+                awaitItem()
+                val screenState = viewModel.screenState.value
+                assertTrue(screenState is SearchList)
+                assertFalse((screenState as SearchList).searchForm.isOpened)
+                verify(simprintsSearchViewModel).clearPendingSession()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `Should not replay Simprints biometric identification launch when no collector is listening`() =
+        runTest {
+            viewModel.setListScreen()
+            viewModel.searchParametersUiState =
+                viewModel.searchParametersUiState.copy(
+                    items = listOf(simprintsBiometricSearchField()),
+                )
+
+            viewModel.onSearchFormRequested()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.simprintsBiometricIdentificationLaunch.test {
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `Should open search form when program does not have Simprints biometric search`() {
+        viewModel.searchParametersUiState =
+            viewModel.searchParametersUiState.copy(
+                items =
+                    listOf(
+                        FieldUiModelImpl(
+                            uid = "name",
+                            label = "Name",
+                            autocompleteList = emptyList(),
+                            optionSetConfiguration = null,
+                            valueType = ValueType.TEXT,
+                        ),
+                    ),
+            )
+
+        viewModel.onSearchFormRequested()
+        testingDispatcher.scheduler.advanceUntilIdle()
+
+        val screenState = viewModel.screenState.value
+        assertTrue(screenState is SearchList)
+        assertTrue((screenState as SearchList).searchForm.isOpened)
     }
 
     @Test
-    fun `Should stop keeping Search screen open after follow up search`() {
-        viewModel.onSimprintsBiometricNoMatches()
+    fun `Should navigate to empty result list after Simprints biometric no matches`() =
+        runTest {
+            setCurrentProgram(testingProgram(displayFrontPageList = false, minAttributesToSearch = 2))
+            setAllowCreateBeforeSearch(false)
+            whenever(resourceManager.getString(R.string.simprints_biometric_search)) doReturn "Biometric search"
+            viewModel.searchParametersUiState =
+                viewModel.searchParametersUiState.copy(
+                    items = listOf(simprintsBiometricSearchField()),
+                )
 
-        viewModel.onSearch()
+            val snapshot =
+                async {
+                    viewModel.searchPagingData
+                        .drop(1)
+                        .take(1)
+                        .asSnapshot()
+                }
+            viewModel.onSimprintsBiometricNoMatches("biometric")
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            val screenState = viewModel.screenState.value as SearchList
+            assertEquals(SearchScreenState.LIST, screenState.screenState)
+            assertFalse(screenState.searchForm.isOpened)
+            assertFalse(screenState.searchForm.isForced)
+            assertEquals(mapOf("biometric" to "Biometric search"), viewModel.searchParametersUiState.searchedItems)
+            assertTrue(snapshot.await().isEmpty())
+            verify(repository).clearFetchedList()
+        }
+
+    @Test
+    fun `Should show no results state after Simprints biometric no matches`() {
+        whenever(resourceManager.getString(R.string.simprints_biometric_search)) doReturn "Biometric search"
+        viewModel.searchParametersUiState =
+            viewModel.searchParametersUiState.copy(
+                items = listOf(simprintsBiometricSearchField()),
+            )
+
+        viewModel.onSimprintsBiometricNoMatches("biometric")
         testingDispatcher.scheduler.advanceUntilIdle()
+        viewModel.onDataLoaded(0, null)
 
-        val screenState = viewModel.screenState.value as SearchList
-        assertFalse(screenState.searchForm.isOpened)
+        viewModel.dataResult.value?.apply {
+            assertTrue(isNotEmpty())
+            assertTrue(size == 1)
+            assertEquals(SearchResultType.NO_RESULTS, first().type)
+        }
     }
 
     @Test
@@ -815,6 +909,7 @@ class SearchTEIViewModelTest {
                     filterManager = filterManager,
                     simprintsSearchViewModel = simprintsSearchViewModel,
                     loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
+                    mapSimprintsBiometricSearchResult = mapSimprintsBiometricSearchResult,
                 )
 
             viewModel.fetchSearchParameters(initialProgram, "teiTypeUid")
@@ -1437,6 +1532,7 @@ class SearchTEIViewModelTest {
                 filterManager = filterManager,
                 simprintsSearchViewModel = simprintsSearchViewModel,
                 loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
+                mapSimprintsBiometricSearchResult = mapSimprintsBiometricSearchResult,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
 
@@ -1485,6 +1581,7 @@ class SearchTEIViewModelTest {
                 filterManager = filterManager,
                 simprintsSearchViewModel = simprintsSearchViewModel,
                 loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
+                mapSimprintsBiometricSearchResult = mapSimprintsBiometricSearchResult,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
 

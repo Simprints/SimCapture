@@ -1,6 +1,8 @@
 package org.dhis2.usescases.teiDashboard;
 
 import org.dhis2.commons.di.dagger.PerActivity;
+import org.dhis2.simprints.ramp.di.EventHistoryTableComponent;
+import org.dhis2.simprints.ramp.di.EventHistoryTableModule;
 import org.dhis2.usescases.teiDashboard.dashboardfragments.indicators.IndicatorsComponent;
 import org.dhis2.usescases.teiDashboard.dashboardfragments.indicators.IndicatorsModule;
 import org.dhis2.usescases.notes.NotesComponent;
@@ -25,6 +27,9 @@ public interface TeiDashboardComponent {
 
     @NonNull
     TEIDataComponent plus(TEIDataModule teiDataModule);
+
+    @NonNull
+    EventHistoryTableComponent plus(EventHistoryTableModule simprintsRampHistoryTableModule);
 
     DashboardViewModelFactory dashboardViewModelFactory();
 

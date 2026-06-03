@@ -38,6 +38,7 @@ import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttributeValue
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstance
 import org.hisp.dhis.mobile.ui.designsystem.theme.SurfaceColor
 import timber.log.Timber
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository as SimprintsRampDatastoreRepository
 
 class DashboardRepositoryImpl(
     private val d2: D2,
@@ -51,6 +52,8 @@ class DashboardRepositoryImpl(
     private val programConfigurationRepository: ProgramConfigurationRepository,
     private val featureConfigRepository: FeatureConfigRepository,
 ) : DashboardRepository {
+    private val simprintsRampDatastoreRepository = SimprintsRampDatastoreRepository(d2)
+
     override fun getTeiHeader(): String? =
         d2
             .trackedEntityModule()
@@ -810,6 +813,18 @@ class DashboardRepositoryImpl(
                     ?: false
             hasDisplayRuleActions || hasProgramIndicator || hasCharts
         } else {
+            false
+        }
+
+    override fun programHasSimprintsRampProgramStageHistoryTable(): Boolean =
+        try {
+            !programUid.isNullOrBlank() &&
+                !enrollmentUid.isNullOrBlank() &&
+                simprintsRampDatastoreRepository
+                    .getConfig()
+                    .programStageHistoryTables
+                    .any { config -> config.programId?.trim() == programUid }
+        } catch (_: D2Error) {
             false
         }
 

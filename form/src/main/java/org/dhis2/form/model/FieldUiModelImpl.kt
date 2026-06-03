@@ -1,5 +1,6 @@
 package org.dhis2.form.model
 
+import org.dhis2.form.simprints.ramp.model.FormHistoryChart
 import org.dhis2.form.ui.event.UiEventFactory
 import org.dhis2.form.ui.intent.FormIntent
 import org.dhis2.mobile.commons.model.CustomIntentModel
@@ -36,6 +37,7 @@ data class FieldUiModelImpl(
     override val eventCategories: List<EventCategory>? = null,
     override val periodSelector: PeriodSelector? = null,
     override var customIntent: CustomIntentModel? = null,
+    override val simprintsRampHistoryChart: FormHistoryChart? = null,
 ) : FieldUiModel {
     private var callback: FieldUiModel.Callback? = null
 
@@ -80,7 +82,11 @@ data class FieldUiModelImpl(
     override val isNegativeChecked: Boolean
         get() = value?.toBoolean() == false
 
-    override fun setValue(value: String?) = this.copy(value = value)
+    override fun setValue(value: String?) =
+        this.copy(
+            value = value,
+            simprintsRampHistoryChart = simprintsRampHistoryChart?.withCurrentValue(value),
+        )
 
     override fun setSelectableDates(selectableDates: SelectableDates?) = this.copy(selectableDates = selectableDates)
 
@@ -107,6 +113,9 @@ data class FieldUiModelImpl(
     override fun setOptionSetConfiguration(optionSetConfiguration: OptionSetConfiguration) =
         this.copy(optionSetConfiguration = optionSetConfiguration)
 
+    override fun setSimprintsRampHistoryChart(simprintsRampHistoryChart: FormHistoryChart?) =
+        this.copy(simprintsRampHistoryChart = simprintsRampHistoryChart)
+
     override fun equals(item: FieldUiModel): Boolean {
         if (this === item) return true
         if (javaClass != item.javaClass) return false
@@ -132,6 +141,7 @@ data class FieldUiModelImpl(
         if (selectableDates != item.selectableDates) return false
         if (eventCategories != item.eventCategories) return false
         if (customIntent != item.customIntent) return false
+        if (simprintsRampHistoryChart != item.simprintsRampHistoryChart) return false
         if (optionSetConfiguration != item.optionSetConfiguration) return false
         return true
     }

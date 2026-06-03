@@ -7,8 +7,10 @@ import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Hub
+import androidx.compose.material.icons.outlined.TableChart
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -164,6 +166,17 @@ class DashboardViewModel(
                 label = resourcesManager.getString(R.string.navigation_notes),
             ),
         )
+
+        if (pageConfigurator.displayTableView()) {
+            enrollmentItems.add(
+                NavigationBarItem(
+                    id = TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
+                    icon = Icons.Outlined.TableChart,
+                    selectedIcon = Icons.Filled.TableChart,
+                    label = resourcesManager.getString(R.string.navigation_simprints_ramp_history),
+                ),
+            )
+        }
 
         _navigationBarUIState.value = _navigationBarUIState.value.copy(items = enrollmentItems)
 

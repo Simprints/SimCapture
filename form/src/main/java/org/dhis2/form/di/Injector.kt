@@ -10,6 +10,7 @@ import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.EventResourcesProvider
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository as SimprintsRampDatastoreRepository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.data.DataEntryRepository
@@ -29,6 +30,8 @@ import org.dhis2.form.model.EnrollmentRecords
 import org.dhis2.form.model.EventRecords
 import org.dhis2.form.model.FormRepositoryRecords
 import org.dhis2.form.model.coroutine.FormDispatcher
+import org.dhis2.form.simprints.ramp.data.FormHistoryChartRepository as SimprintsRampFormHistoryChartRepository
+import org.dhis2.form.simprints.ramp.data.GetFormHistoryChartUseCase as GetSimprintsRampFormHistoryChartUseCase
 import org.dhis2.form.ui.FieldViewModelFactory
 import org.dhis2.form.ui.FieldViewModelFactoryImpl
 import org.dhis2.form.ui.FormViewModelFactory
@@ -180,6 +183,14 @@ object Injector {
             eventMode = eventRecords.eventMode,
             dispatcherProvider = provideDispatchers(),
             customIntentRepository = provideCustomIntentProvider(),
+            getSimprintsRampFormHistoryChart =
+                GetSimprintsRampFormHistoryChartUseCase(
+                    SimprintsRampDatastoreRepository(provideD2()),
+                    SimprintsRampFormHistoryChartRepository(
+                        eventUid = eventRecords.eventUid,
+                        d2 = provideD2(),
+                    ),
+                ),
         )
 
     private fun provideEnrollmentFormLabelsProvider(context: Context) = EnrollmentFormLabelsProvider(provideResourcesManager(context))

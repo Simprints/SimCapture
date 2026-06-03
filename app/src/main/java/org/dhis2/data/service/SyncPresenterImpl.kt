@@ -22,6 +22,7 @@ import org.dhis2.commons.prefs.Preference.Companion.TIME_DAILY
 import org.dhis2.commons.prefs.Preference.Companion.TIME_DATA
 import org.dhis2.commons.prefs.Preference.Companion.TIME_META
 import org.dhis2.commons.prefs.PreferenceProvider
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository as SimprintsRampDatastoreRepository
 import org.dhis2.data.service.workManager.WorkManagerController
 import org.dhis2.data.service.workManager.WorkerItem
 import org.dhis2.data.service.workManager.WorkerType
@@ -49,6 +50,7 @@ class SyncPresenterImpl(
     private val analyticsHelper: AnalyticsHelper,
     private val syncStatusController: SyncStatusController,
     private val syncRepository: SyncRepository,
+    private val simprintsRampDatastoreRepository: SimprintsRampDatastoreRepository,
 ) : SyncPresenter {
     override fun initSyncControllerMap() {
         Completable
@@ -266,6 +268,10 @@ class SyncPresenterImpl(
                         .eq(FileResourceDomainType.ICON)
                         .download(),
                 ),
+            ).andThen(
+                Completable
+                    .fromAction { simprintsRampDatastoreRepository.sync() }
+                    .doOnError { Timber.e(it, "Error syncing Simprints RAMP datastore") },
             ).blockingAwait()
     }
 

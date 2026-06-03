@@ -38,7 +38,7 @@ interface FormRepository {
         uid: String,
         value: String?,
         valueType: ValueType?,
-    )
+    ): FieldUiModel?
 
     fun currentFocusedItem(): FieldUiModel?
 

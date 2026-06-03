@@ -1,6 +1,5 @@
 package org.dhis2.usescases.searchTrackEntity.searchparameters
 
-import android.app.Activity.RESULT_OK
 import android.content.Intent
 import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -25,7 +24,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,24 +45,21 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.journeyapps.barcodescanner.ScanOptions
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 import org.dhis2.R
 import org.dhis2.commons.Constants
 import org.dhis2.commons.resources.ColorUtils
 import org.dhis2.commons.resources.ResourceManager
-import org.dhis2.commons.simprints.usecases.SimprintsHasAutoOpenEligibleIdentificationUseCase
 import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.form.data.scan.ScanContract
-import org.dhis2.form.di.Injector
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.FieldUiModelImpl
-import org.dhis2.form.ui.customintent.CustomIntentActivityResultContract
 import org.dhis2.form.ui.event.RecyclerViewUiEvents
 import org.dhis2.form.ui.intent.FormIntent
-import org.dhis2.mobile.commons.model.CustomIntentResponseDataModel
 import org.dhis2.mobile.commons.orgunit.OrgUnitSelectorScope
 import org.dhis2.usescases.searchTrackEntity.SearchTEIViewModel
 import org.dhis2.usescases.searchTrackEntity.searchparameters.model.SearchParametersUiState
@@ -79,15 +74,14 @@ import org.hisp.dhis.mobile.ui.designsystem.theme.Radius
 import org.hisp.dhis.mobile.ui.designsystem.theme.Shape
 import org.hisp.dhis.mobile.ui.designsystem.theme.SurfaceColor
 import org.hisp.dhis.mobile.ui.designsystem.theme.TextColor
-import timber.log.Timber
 
 @Composable
 fun SearchParametersScreen(
     resourceManager: ResourceManager,
     uiState: SearchParametersUiState,
     intentHandler: (FormIntent) -> Unit,
-    onSimprintsBiometricIdentificationResult: (String, String?, Boolean) -> Unit,
-    onSimprintsBiometricNoMatches: () -> Unit,
+    onSimprintsBiometricSearchResult: (String, ValueType?, String?, Int, Intent?, Boolean) -> Unit,
+    simprintsBiometricIdentificationLaunch: Flow<Unit> = emptyFlow(),
     onShowOrgUnit: (
         uid: String,
         preselectedOrgUnits: List<String>,
@@ -101,68 +95,50 @@ fun SearchParametersScreen(
     val snackBarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
-    val context = LocalContext.current.applicationContext
     val configuration = LocalConfiguration.current
-    var showSimprintsBiometricNoMatchesMessage by rememberSaveable { mutableStateOf(false) }
     var pendingSimprintsFieldUid by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingSimprintsValueTypeName by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingSimprintsResponseDataJson by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingSimprintsCapturesSessionId by rememberSaveable { mutableStateOf(false) }
+    val gson = remember { Gson() }
 
-    val simprintsSessionRepository =
-        remember(context) {
-            Injector.provideSimprintsSessionRepository(context)
-        }
-    val simprintsHasAutoOpenEligibleIdentificationUseCase =
-        remember {
-            SimprintsHasAutoOpenEligibleIdentificationUseCase()
-        }
     val simprintsIdentifyLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val uid = pendingSimprintsFieldUid
             val valueType =
                 pendingSimprintsValueTypeName
                     ?.let(ValueType::valueOf)
-            val returnedValue =
-                mapPendingSimprintsSearchResult(
-                    responseDataJson = pendingSimprintsResponseDataJson,
-                    resultCode = result.resultCode,
-                    data = result.data,
-                    capturesSessionId = pendingSimprintsCapturesSessionId,
-                    sessionRepository = simprintsSessionRepository,
-                )
+            val responseDataJson = pendingSimprintsResponseDataJson
+            val capturesSessionId = pendingSimprintsCapturesSessionId
 
             pendingSimprintsFieldUid = null
             pendingSimprintsValueTypeName = null
             pendingSimprintsResponseDataJson = null
             pendingSimprintsCapturesSessionId = false
 
-            val shouldShowNoMatchesMessage =
-                shouldShowSimprintsBiometricNoMatchesMessage(
-                    resultCode = result.resultCode,
-                    returnedValue = returnedValue,
-                )
-            if (uid != null && result.resultCode == RESULT_OK && returnedValue != null) {
-                showSimprintsBiometricNoMatchesMessage = false
-                onSimprintsBiometricIdentificationResult(
+            if (uid != null) {
+                onSimprintsBiometricSearchResult(
                     uid,
-                    returnedValue,
-                    simprintsHasAutoOpenEligibleIdentificationUseCase(result.data?.extras),
+                    valueType,
+                    responseDataJson,
+                    result.resultCode,
+                    result.data,
+                    capturesSessionId,
                 )
-                intentHandler(
-                    FormIntent.OnSave(
-                        uid = uid,
-                        value = returnedValue,
-                        valueType = valueType,
-                    ),
-                )
-            } else {
-                if (shouldShowNoMatchesMessage) {
-                    onSimprintsBiometricNoMatches()
-                }
-                showSimprintsBiometricNoMatchesMessage = shouldShowNoMatchesMessage
             }
         }
+
+    fun launchSimprintsBiometricIdentification(fieldUiModel: FieldUiModel) {
+        val customIntent = fieldUiModel.customIntent ?: return
+        if (!SimprintsIntentUtils.isIdentifyCallout(customIntent)) return
+
+        val callout = SimprintsIntentUtils.prepareCallout(customIntent)
+        pendingSimprintsFieldUid = fieldUiModel.uid
+        pendingSimprintsValueTypeName = fieldUiModel.valueType?.name
+        pendingSimprintsResponseDataJson = callout.responseData?.let(gson::toJson)
+        pendingSimprintsCapturesSessionId = true
+        simprintsIdentifyLauncher.launch(callout.launchIntent)
+    }
 
     val scanContract = remember { ScanContract() }
     val qrScanLauncher =
@@ -241,10 +217,18 @@ fun SearchParametersScreen(
     LaunchedEffect(uiState.isOnBackPressed) {
         uiState.isOnBackPressed.collectLatest {
             if (it) {
-                showSimprintsBiometricNoMatchesMessage = false
                 focusManager.clearFocus()
                 onClose()
             }
+        }
+    }
+
+    LaunchedEffect(simprintsBiometricIdentificationLaunch, uiState.items) {
+        simprintsBiometricIdentificationLaunch.collectLatest {
+            uiState.items
+                .firstOrNull { fieldUiModel ->
+                    SimprintsIntentUtils.isIdentifyCallout(fieldUiModel.customIntent)
+                }?.let(::launchSimprintsBiometricIdentification)
         }
     }
 
@@ -343,7 +327,6 @@ fun SearchParametersScreen(
                                         capturesSessionId,
                                         launchIntent,
                                         ->
-                                        showSimprintsBiometricNoMatchesMessage = false
                                         pendingSimprintsFieldUid = uid
                                         pendingSimprintsValueTypeName = valueType?.name
                                         pendingSimprintsResponseDataJson = responseDataJson
@@ -358,16 +341,6 @@ fun SearchParametersScreen(
                                     },
                                 ),
                         )
-                    }
-
-                    if (showSimprintsBiometricNoMatchesMessage) {
-                        item {
-                            Text(
-                                text = resourceManager.getString(R.string.simprints_biometric_search_no_matches),
-                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
-                                color = Color.Black.copy(alpha = 0.6f),
-                            )
-                        }
                     }
                 }
 
@@ -390,7 +363,6 @@ fun SearchParametersScreen(
                                 },
                             ) {
                                 focusManager.clearFocus()
-                                showSimprintsBiometricNoMatchesMessage = false
                                 onClear()
                             }
                         }
@@ -422,7 +394,6 @@ fun SearchParametersScreen(
                     )
                 },
             ) {
-                showSimprintsBiometricNoMatchesMessage = false
                 focusManager.clearFocus()
                 onSearch()
             }
@@ -453,57 +424,13 @@ fun SearchFormPreview() {
                     },
             ),
         intentHandler = {},
-        onSimprintsBiometricIdentificationResult = { _, _, _ -> },
-        onSimprintsBiometricNoMatches = {},
+        onSimprintsBiometricSearchResult = { _, _, _, _, _, _ -> },
         onShowOrgUnit = { _, _, _, _ -> },
         onSearch = {},
         onClear = {},
         onClose = {},
     )
 }
-
-private fun mapPendingSimprintsSearchResult(
-    responseDataJson: String?,
-    resultCode: Int,
-    data: Intent?,
-    capturesSessionId: Boolean,
-    sessionRepository: org.dhis2.commons.simprints.repository.SimprintsSessionRepository,
-): String? {
-    if (resultCode != RESULT_OK) {
-        return null
-    }
-
-    val responseData =
-        responseDataJson
-            ?.let {
-                try {
-                    Gson().fromJson<List<CustomIntentResponseDataModel>>(
-                        it,
-                        object : TypeToken<List<CustomIntentResponseDataModel>>() {}.type,
-                    )
-                } catch (e: Exception) {
-                    Timber.e(e, "Failed to parse CustomIntentResponseDataModel")
-                    null
-                }
-            } ?: return null
-
-    val returnedValue =
-        CustomIntentActivityResultContract()
-            .mapIntentResponseData(responseData, data)
-            ?.takeUnless(List<String>::isEmpty)
-            ?.joinToString(separator = ",") ?: return null
-
-    if (capturesSessionId) {
-        SimprintsIntentUtils.extractSessionId(data?.extras)?.let(sessionRepository::save)
-    }
-
-    return returnedValue
-}
-
-internal fun shouldShowSimprintsBiometricNoMatchesMessage(
-    resultCode: Int,
-    returnedValue: String?,
-): Boolean = resultCode == RESULT_OK && returnedValue == null
 
 @Preview(showBackground = true)
 @Composable
@@ -529,8 +456,7 @@ fun SearchFormPreviewWithClear() {
                     },
             ),
         intentHandler = {},
-        onSimprintsBiometricIdentificationResult = { _, _, _ -> },
-        onSimprintsBiometricNoMatches = {},
+        onSimprintsBiometricSearchResult = { _, _, _, _, _, _ -> },
         onShowOrgUnit = { _, _, _, _ -> },
         onSearch = {},
         onClear = {},
@@ -562,8 +488,8 @@ fun initSearchScreen(
             uiState = viewModel.searchParametersUiState,
             onSearch = viewModel::onSearch,
             intentHandler = viewModel::onParameterIntent,
-            onSimprintsBiometricIdentificationResult = viewModel::onSimprintsBiometricIdentificationResult,
-            onSimprintsBiometricNoMatches = viewModel::onSimprintsBiometricNoMatches,
+            onSimprintsBiometricSearchResult = viewModel::onSimprintsBiometricSearchResult,
+            simprintsBiometricIdentificationLaunch = viewModel.simprintsBiometricIdentificationLaunch,
             onShowOrgUnit = onShowOrgUnit,
             onClear = {
                 onClear()
@@ -571,7 +497,6 @@ fun initSearchScreen(
                 viewModel.clearFocus()
             },
             onClose = {
-                viewModel.clearSimprintsBiometricNoMatchesState()
                 viewModel.clearFocus()
             },
         )

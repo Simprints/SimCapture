@@ -2,6 +2,7 @@ package org.dhis2.form.ui.provider.inputfield
 
 import android.content.Intent
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -35,6 +36,7 @@ import org.dhis2.form.extensions.supportingText
 import org.dhis2.form.model.EnrollmentDetail
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.UiRenderType
+import org.dhis2.form.simprints.ramp.ui.FormHistoryChartView as SimprintsRampFormHistoryChartView
 import org.dhis2.form.ui.event.RecyclerViewUiEvents
 import org.dhis2.form.ui.intent.FormIntent
 import org.dhis2.form.ui.keyboard.keyboardAsState
@@ -74,6 +76,23 @@ fun FieldProvider(
     var visibleArea by remember { mutableStateOf(Rect.Zero) }
     val scope = rememberCoroutineScope()
     val keyboardState by keyboardAsState()
+    var simprintsRampHistoryChart by remember(
+        fieldUiModel.uid,
+        fieldUiModel.simprintsRampHistoryChart,
+    ) {
+        mutableStateOf(fieldUiModel.simprintsRampHistoryChart)
+    }
+    val fieldIntentHandler: (FormIntent) -> Unit =
+        if (fieldUiModel.simprintsRampHistoryChart == null) {
+            intentHandler
+        } else {
+            { intent ->
+                if (intent is FormIntent.OnTextChange && intent.uid == fieldUiModel.uid) {
+                    simprintsRampHistoryChart = simprintsRampHistoryChart?.withCurrentValue(intent.value)
+                }
+                intentHandler(intent)
+            }
+        }
 
     var modifierWithFocus =
         modifier
@@ -107,56 +126,59 @@ fun FieldProvider(
         }
     }
 
-    when {
-        fieldUiModel.optionSet != null && fieldUiModel.valueType != ValueType.MULTI_TEXT ->
-            ProvideByOptionSet(
-                modifier = modifierWithFocus,
-                inputStyle = inputStyle,
-                fieldUiModel = fieldUiModel,
-                intentHandler = intentHandler,
-                fetchOptions = {
-                    intentHandler(
-                        FormIntent.FetchOptions(
-                            fieldUiModel.uid,
-                            fieldUiModel.optionSet!!,
-                            value = fieldUiModel.value,
-                        ),
-                    )
-                },
-            )
+    Column(Modifier.fillMaxWidth()) {
+        when {
+            fieldUiModel.optionSet != null && fieldUiModel.valueType != ValueType.MULTI_TEXT ->
+                ProvideByOptionSet(
+                    modifier = modifierWithFocus,
+                    inputStyle = inputStyle,
+                    fieldUiModel = fieldUiModel,
+                    intentHandler = fieldIntentHandler,
+                    fetchOptions = {
+                        fieldIntentHandler(
+                            FormIntent.FetchOptions(
+                                fieldUiModel.uid,
+                                fieldUiModel.optionSet!!,
+                                value = fieldUiModel.value,
+                            ),
+                        )
+                    },
+                )
 
-        fieldUiModel.customIntent != null -> {
-            ProvideCustomIntentInput(
-                fieldUiModel = fieldUiModel,
-                intentHandler = intentHandler,
-                uiEventHandler = uiEventHandler,
-                resources = resources,
-                inputStyle = inputStyle,
-                reEvaluateRequestParams = reEvaluateCustomIntentRequestParameters,
-                modifier = modifierWithFocus,
-            )
+            fieldUiModel.customIntent != null -> {
+                ProvideCustomIntentInput(
+                    fieldUiModel = fieldUiModel,
+                    intentHandler = fieldIntentHandler,
+                    uiEventHandler = uiEventHandler,
+                    resources = resources,
+                    inputStyle = inputStyle,
+                    reEvaluateRequestParams = reEvaluateCustomIntentRequestParameters,
+                    modifier = modifierWithFocus,
+                )
+            }
+
+            fieldUiModel.eventCategories != null ->
+                ProvideCategorySelectorInput(
+                    modifier = modifierWithFocus,
+                    inputStyle = inputStyle,
+                    fieldUiModel = fieldUiModel,
+                )
+
+            else ->
+                ProvideByValueType(
+                    modifier = modifierWithFocus,
+                    inputStyle = inputStyle,
+                    fieldUiModel = fieldUiModel,
+                    intentHandler = fieldIntentHandler,
+                    uiEventHandler = uiEventHandler,
+                    resources = resources,
+                    focusRequester = focusRequester,
+                    onNextClicked = onNextClicked,
+                    focusManager = focusManager,
+                    onFileSelected = onFileSelected,
+                )
         }
-
-        fieldUiModel.eventCategories != null ->
-            ProvideCategorySelectorInput(
-                modifier = modifierWithFocus,
-                inputStyle = inputStyle,
-                fieldUiModel = fieldUiModel,
-            )
-
-        else ->
-            ProvideByValueType(
-                modifier = modifierWithFocus,
-                inputStyle = inputStyle,
-                fieldUiModel = fieldUiModel,
-                intentHandler = intentHandler,
-                uiEventHandler = uiEventHandler,
-                resources = resources,
-                focusRequester = focusRequester,
-                onNextClicked = onNextClicked,
-                focusManager = focusManager,
-                onFileSelected = onFileSelected,
-            )
+        simprintsRampHistoryChart?.let { SimprintsRampFormHistoryChartView(it) }
     }
 }
 

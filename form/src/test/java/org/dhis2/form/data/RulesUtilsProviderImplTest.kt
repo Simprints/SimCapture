@@ -441,6 +441,47 @@ class RulesUtilsProviderImplTest {
     }
 
     @Test
+    fun `RuleActionAssign should persist unrendered field value`() {
+        val testingUid = "unrenderedUid"
+        testRuleEffects.add(
+            RuleEffect(
+                "ruleUid",
+                RuleAction(
+                    "13",
+                    ProgramRuleActionType.ASSIGN.name,
+                    mutableMapOf(
+                        "content" to "content",
+                        "field" to testingUid,
+                    ),
+                ),
+                "13",
+            ),
+        )
+        whenever(valueStore.saveWithTypeCheck(testingUid, "13")) doReturn
+            Flowable.just(
+                StoreResult(
+                    testingUid,
+                    ValueStoreResult.VALUE_CHANGED,
+                ),
+            )
+
+        val result =
+            ruleUtils.applyRuleEffects(
+                true,
+                testFieldViewModels,
+                testRuleEffects,
+                valueStore,
+            )
+
+        verify(valueStore).saveWithTypeCheck(testingUid, "13")
+        assertTrue(
+            result.fieldsToUpdate.any {
+                it.fieldUid == testingUid && it.newValue == "13"
+            },
+        )
+    }
+
+    @Test
     fun `RuleActionAssign should assign a value to an empty field with option set`() {
         val newValue = "New Value"
         // Given a rule effect with an action of type ASSIGN
