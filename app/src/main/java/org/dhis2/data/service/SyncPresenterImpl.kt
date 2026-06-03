@@ -269,7 +269,9 @@ class SyncPresenterImpl(
                         .download(),
                 ),
             ).andThen(
-                Completable.fromAction { simprintsRampDatastoreRepository.sync() },
+                Completable
+                    .fromAction { simprintsRampDatastoreRepository.sync() }
+                    .doOnError { Timber.e(it, "Error syncing Simprints RAMP datastore") },
             ).blockingAwait()
     }
 
