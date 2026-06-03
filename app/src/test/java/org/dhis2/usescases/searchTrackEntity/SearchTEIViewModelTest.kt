@@ -232,6 +232,24 @@ class SearchTEIViewModelTest {
         }
 
     @Test
+    fun `Should not replay Simprints biometric identification launch when no collector is listening`() =
+        runTest {
+            viewModel.setListScreen()
+            viewModel.searchParametersUiState =
+                viewModel.searchParametersUiState.copy(
+                    items = listOf(simprintsBiometricSearchField()),
+                )
+
+            viewModel.onSearchFormRequested()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.simprintsBiometricIdentificationLaunch.test {
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `Should open search form when program does not have Simprints biometric search`() {
         viewModel.searchParametersUiState =
             viewModel.searchParametersUiState.copy(

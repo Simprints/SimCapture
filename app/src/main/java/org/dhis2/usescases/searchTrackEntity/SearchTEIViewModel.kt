@@ -25,6 +25,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -151,9 +152,9 @@ class SearchTEIViewModel(
     val isScrollingDown = MutableLiveData(false)
     val simprintsBiometricSearchNavigation: Flow<Unit> =
         simprintsSearchViewModel.simprintsBiometricSearchNavigation
-    private val _simprintsBiometricIdentificationLaunch = Channel<Unit>(Channel.BUFFERED)
+    private val _simprintsBiometricIdentificationLaunch = MutableSharedFlow<Unit>(replay = 0)
     val simprintsBiometricIdentificationLaunch: Flow<Unit> =
-        _simprintsBiometricIdentificationLaunch.receiveAsFlow()
+        _simprintsBiometricIdentificationLaunch.asSharedFlow()
     val isSimprintsBiometricSearch: LiveData<Boolean> =
         simprintsSearchViewModel.isSimprintsBiometricSearch
     val isSimprintsUseLastBiometricsLabel: LiveData<Boolean> =
@@ -418,7 +419,7 @@ class SearchTEIViewModel(
         if (shouldLaunchSimprintsBiometricIdentification()) {
             simprintsSearchViewModel.clearPendingSession()
             viewModelScope.launch {
-                _simprintsBiometricIdentificationLaunch.send(Unit)
+                _simprintsBiometricIdentificationLaunch.emit(Unit)
             }
         } else {
             setSearchScreen()
