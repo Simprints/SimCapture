@@ -32,7 +32,6 @@ import org.dhis2.utils.analytics.ACTIVE_FOLLOW_UP
 import org.dhis2.utils.analytics.AnalyticsHelper
 import org.dhis2.utils.analytics.FOLLOW_UP
 import org.dhis2.utils.customviews.navigationbar.NavigationPageConfigurator
-import org.dhis2.utils.isPortrait
 import org.hisp.dhis.android.core.common.State
 import org.hisp.dhis.android.core.common.State.SYNCED
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
@@ -49,6 +48,7 @@ class DashboardViewModel(
     private val eventUid = MutableLiveData<String>()
 
     private val selectedEventUid = MutableLiveData<String>()
+    private var displayDetailsNavigationItem = pageConfigurator.displayDetails()
 
     val showStatusErrorMessages = MutableLiveData(StatusChangeResultCode.CHANGED)
 
@@ -123,9 +123,13 @@ class DashboardViewModel(
     }
 
     private fun loadNavigationBarItems() {
+        updateNavigationBarItems(_navigationBarUIState.value.selectedItem)
+    }
+
+    private fun updateNavigationBarItems(selectedItem: TEIDashboardItems?) {
         val enrollmentItems = mutableListOf<NavigationBarItem<TEIDashboardItems>>()
 
-        if (isPortrait()) {
+        if (displayDetailsNavigationItem || selectedItem == TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE) {
             enrollmentItems.add(
                 NavigationBarItem(
                     id = TEIDashboardItems.DETAILS,
@@ -180,15 +184,16 @@ class DashboardViewModel(
             )
         }
 
-        _navigationBarUIState.value = _navigationBarUIState.value.copy(items = enrollmentItems)
+        val resolvedSelectedItem =
+            selectedItem
+                ?.takeIf { item -> enrollmentItems.any { it.id == item } }
+                ?: enrollmentItems.firstOrNull()?.id
 
-        if (navigationBarUIState.value.items.none { it.id == navigationBarUIState.value.selectedItem }) {
-            onNavigationItemSelected(
-                navigationBarUIState.value.items
-                    .first()
-                    .id,
+        _navigationBarUIState.value =
+            _navigationBarUIState.value.copy(
+                items = enrollmentItems,
+                selectedItem = resolvedSelectedItem,
             )
-        }
     }
 
     private fun fetchGrouping() {
@@ -301,8 +306,24 @@ class DashboardViewModel(
     }
 
     fun onNavigationItemSelected(itemId: TEIDashboardItems) {
-        _navigationBarUIState.value = _navigationBarUIState.value.copy(selectedItem = itemId)
+        updateNavigationBarItems(itemId)
     }
+
+    fun setDetailsNavigationItemVisible(visible: Boolean) {
+        if (displayDetailsNavigationItem != visible) {
+            displayDetailsNavigationItem = visible
+            updateNavigationBarItems(_navigationBarUIState.value.selectedItem)
+        }
+    }
+
+    fun getDefaultLandscapeNavigationItemExceptHistory(): TEIDashboardItems? =
+        _navigationBarUIState
+            .value
+            .items
+            .firstOrNull {
+                it.id != TEIDashboardItems.DETAILS && // not in tab bar in landscape
+                    it.id != TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE
+            }?.id
 
     fun checkIfTeiCanBeTransferred(): Boolean = repository.teiCanBeTransferred()
 
