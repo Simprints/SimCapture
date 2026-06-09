@@ -26,7 +26,14 @@ class EventPageConfiguratorTest {
     }
 
     @Test
-    fun `displayNotes should be false`() {
+    fun `displayNotes should be true when Simprints RAMP history table is not configured`() {
+        whenever(eventCaptureRepository.hasSimprintsRampProgramStageHistoryTable()) doReturn false
+        assertTrue(pageConfigurator.displayNotes())
+    }
+
+    @Test
+    fun `displayNotes should be false when Simprints RAMP history table is configured`() {
+        whenever(eventCaptureRepository.hasSimprintsRampProgramStageHistoryTable()) doReturn true
         assertFalse(pageConfigurator.displayNotes())
     }
 }

@@ -14,7 +14,7 @@ class EventPageConfigurator(
 
     override fun displayRelationships(): Boolean = eventCaptureRepository.hasRelationships()
 
-    override fun displayNotes(): Boolean = false
+    override fun displayNotes(): Boolean = !displayTableView()
 
     override fun displayTableView(): Boolean = eventCaptureRepository.hasSimprintsRampProgramStageHistoryTable()
 }

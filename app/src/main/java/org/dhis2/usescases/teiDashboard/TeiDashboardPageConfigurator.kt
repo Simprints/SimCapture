@@ -12,7 +12,7 @@ class TeiDashboardPageConfigurator(
 
     override fun displayRelationships(): Boolean = dashboardRepository.programHasRelationships()
 
-    override fun displayNotes(): Boolean = false
+    override fun displayNotes(): Boolean = !displayTableView()
 
     override fun displayTableView(): Boolean = dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()
 }

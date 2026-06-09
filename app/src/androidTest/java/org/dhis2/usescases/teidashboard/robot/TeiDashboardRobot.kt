@@ -60,13 +60,13 @@ fun teiDashboardRobot(
 
 class TeiDashboardRobot(val composeTestRule: ComposeTestRule) : BaseRobot() {
 
-    fun checkNotesTabDoesNotExist() {
+    fun goToNotes() {
         composeTestRule.onNodeWithText(
             InstrumentationRegistry.getInstrumentation().targetContext.getString(
                 R.string.navigation_notes
-            ),
-            useUnmergedTree = true,
-        ).assertDoesNotExist()
+            )
+        ).performClick()
+        waitToDebounce(500)
     }
 
     fun goToRelationships() {

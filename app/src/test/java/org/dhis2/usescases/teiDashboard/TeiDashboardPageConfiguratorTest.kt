@@ -44,7 +44,14 @@ class TeiDashboardPageConfiguratorTest {
     }
 
     @Test
-    fun `Should not display the notes screen`() {
+    fun `Should display notes screen when history screen is not configured`() {
+        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn false
+        assertTrue(pageConfigurator.displayNotes())
+    }
+
+    @Test
+    fun `Should not display notes screen when history screen is configured`() {
+        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn true
         assertFalse(pageConfigurator.displayNotes())
     }
 
