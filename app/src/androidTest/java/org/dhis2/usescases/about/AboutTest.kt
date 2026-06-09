@@ -3,6 +3,7 @@ package org.dhis2.usescases.about
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.ActivityTestRule
 import org.dhis2.bindings.buildInfo
+import org.dhis2.bindings.rampCaptureBuildInfo
 import org.dhis2.BuildConfig
 import org.dhis2.R
 import org.dhis2.usescases.BaseTest
@@ -21,6 +22,7 @@ class AboutTest : BaseTest() {
     @Test
     fun shouldCheckVersionsWhenOpenAboutScreen() {
         startActivity()
+        val rampCaptureVersion = getRampCaptureVersionName()
         val appVersion = getAppVersionName()
         val sdkVersion = getSDKVersionName()
 
@@ -30,7 +32,7 @@ class AboutTest : BaseTest() {
         }
 
         aboutRobot {
-            checkVersionNames(appVersion, sdkVersion)
+            checkVersionNames(rampCaptureVersion, appVersion, sdkVersion)
         }
     }
 
@@ -38,9 +40,14 @@ class AboutTest : BaseTest() {
         rule.launchActivity(null)
     }
 
-    private fun getAppVersionName(): String {
-        return context.buildInfo()
-    }
+    private fun getRampCaptureVersionName() =
+        String.format(
+            context.getString(R.string.ramp_capture_version),
+            context.rampCaptureBuildInfo(),
+        )
+
+    private fun getAppVersionName() =
+        String.format(context.getString(R.string.about_app), context.buildInfo())
 
     private fun getSDKVersionName() =
         String.format(context.getString(R.string.about_sdk), BuildConfig.SDK_VERSION)

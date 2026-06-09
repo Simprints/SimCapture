@@ -93,8 +93,10 @@ android {
         multiDexEnabled = true
 
         val bitriseSentryDSN = System.getenv("SENTRY_DSN") ?: ""
+        val rampCaptureVersion = System.getenv("RAMP_CAPTURE_VERSION") ?: "local build"
 
         buildConfigField("String", "SDK_VERSION", "\"" + libs.versions.dhis2sdk.get() + "\"")
+        buildConfigField("String", "RAMP_CAPTURE_VERSION", "\"$rampCaptureVersion\"")
         buildConfigField("String", "MATOMO_URL", "\"https://usage.analytics.dhis2.org/matomo.php\"")
         buildConfigField("long", "VERSION_CODE", "${defaultConfig.versionCode}")
         buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}\"")

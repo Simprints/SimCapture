@@ -14,6 +14,13 @@ fun Context.buildInfo(): String =
         "v${BuildConfig.VERSION_NAME} : ${BuildConfig.GIT_SHA} "
     }
 
+fun Context.rampCaptureBuildInfo(): String =
+    if (BuildConfig.BUILD_TYPE == "release") {
+        BuildConfig.RAMP_CAPTURE_VERSION
+    } else {
+        "${BuildConfig.RAMP_CAPTURE_VERSION} : ${BuildConfig.GIT_SHA} "
+    }
+
 fun Fragment.checkSMSPermission(
     requestPermission: Boolean,
     request: Int,
