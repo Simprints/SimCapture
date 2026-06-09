@@ -296,6 +296,8 @@ class EventHistoryTableRepository(
                     .eq(tableContext.enrollmentUid)
                     .byProgramStageUid()
                     .eq(followUpVisitProgramStageUid)
+                    .byDeleted()
+                    .isFalse
                     .blockingGet()
             }
         val events =

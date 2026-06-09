@@ -3,6 +3,7 @@ package org.dhis2.form.simprints.ramp.data
 import org.dhis2.commons.simprints.ramp.model.DataElementHistoryChartConfig
 import org.dhis2.form.model.FieldUiModelImpl
 import org.hisp.dhis.android.core.D2
+import org.hisp.dhis.android.core.arch.repositories.filters.internal.BooleanFilterConnector
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.StringFilterConnector
 import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.event.Event
@@ -29,6 +30,8 @@ class FormHistoryChartRepositoryTest {
     private val enrollmentEvents: EventCollectionRepository = mock()
     private val programStageFilter: StringFilterConnector<EventCollectionRepository> = mock()
     private val followUpEvents: EventCollectionRepository = mock()
+    private val deletedFilter: BooleanFilterConnector<EventCollectionRepository> = mock()
+    private val activeFollowUpEvents: EventCollectionRepository = mock()
     private val repository = FormHistoryChartRepository(CURRENT_EVENT_UID, d2)
 
     @Test
@@ -186,6 +189,63 @@ class FormHistoryChartRepositoryTest {
     }
 
     @Test
+    fun `getChart should exclude locally deleted follow-up events`() {
+        val currentEvent =
+            getEvent(
+                uid = CURRENT_EVENT_UID,
+                eventDate = Date(2_000),
+                dataValues =
+                    listOf(
+                        dataValue(VISIT_NUMBER_UID, "1"),
+                        dataValue(DATA_ELEMENT_UID, "9.0"),
+                    ),
+            )
+        stubCurrentEvent(currentEvent)
+        stubFollowUpEvents(
+            eventsToReturn =
+                listOf(
+                    getEvent(
+                        uid = "active",
+                        eventDate = Date(1_000),
+                        dataValues =
+                            listOf(
+                                dataValue(VISIT_NUMBER_UID, "0"),
+                                dataValue(DATA_ELEMENT_UID, "8.0"),
+                            ),
+                    ),
+                ),
+            unfilteredEvents =
+                listOf(
+                    getEvent(
+                        uid = "deleted",
+                        eventDate = Date(1_000),
+                        dataValues =
+                            listOf(
+                                dataValue(VISIT_NUMBER_UID, "0"),
+                                dataValue(DATA_ELEMENT_UID, "99.0"),
+                            ),
+                    ).toBuilder().deleted(true).build(),
+                ),
+        )
+
+        val chart =
+            repository.getChart(
+                fieldUiModel =
+                    FieldUiModelImpl(
+                        uid = DATA_ELEMENT_UID,
+                        value = "9.5",
+                        label = "Weight",
+                        valueType = ValueType.NUMBER,
+                        optionSetConfiguration = null,
+                        autocompleteList = null,
+                    ),
+                configs = listOf(getConfig()),
+            )
+
+        assertEquals(listOf(8f, 9.5f, null, null), chart?.values)
+    }
+
+    @Test
     fun `getChart should reuse loaded current event and follow up events`() {
         val currentEvent =
             getEvent(
@@ -212,7 +272,7 @@ class FormHistoryChartRepositoryTest {
         repository.getChart(fieldUiModel, listOf(getConfig()))
 
         verify(currentEventRepository, times(2)).blockingGet()
-        verify(followUpEvents, times(1)).blockingGet()
+        verify(activeFollowUpEvents, times(1)).blockingGet()
     }
 
     private fun getConfig() =
@@ -231,13 +291,19 @@ class FormHistoryChartRepositoryTest {
         whenever(currentEventRepository.blockingGet()) doReturn event
     }
 
-    private fun stubFollowUpEvents(eventsToReturn: List<Event>) {
+    private fun stubFollowUpEvents(
+        eventsToReturn: List<Event>,
+        unfilteredEvents: List<Event> = eventsToReturn,
+    ) {
         whenever(events.withTrackedEntityDataValues()) doReturn eventsWithDataValues
         whenever(eventsWithDataValues.byEnrollmentUid()) doReturn enrollmentFilter
         whenever(enrollmentFilter.eq(ENROLLMENT_UID)) doReturn enrollmentEvents
         whenever(enrollmentEvents.byProgramStageUid()) doReturn programStageFilter
         whenever(programStageFilter.eq(PROGRAM_STAGE_UID)) doReturn followUpEvents
-        whenever(followUpEvents.blockingGet()) doReturn eventsToReturn
+        whenever(followUpEvents.blockingGet()) doReturn unfilteredEvents
+        whenever(followUpEvents.byDeleted()) doReturn deletedFilter
+        whenever(deletedFilter.isFalse) doReturn activeFollowUpEvents
+        whenever(activeFollowUpEvents.blockingGet()) doReturn eventsToReturn
     }
 
     private fun getEvent(

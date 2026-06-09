@@ -4,6 +4,7 @@ import org.dhis2.commons.simprints.ramp.model.ProgramStageHistoryTableConfig
 import org.dhis2.commons.simprints.ramp.model.RampDatastoreConfig
 import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.hisp.dhis.android.core.D2
+import org.hisp.dhis.android.core.arch.repositories.filters.internal.BooleanFilterConnector
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.StringFilterConnector
 import org.hisp.dhis.android.core.arch.repositories.`object`.ReadOnlyOneObjectRepositoryFinalImpl
 import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope
@@ -40,6 +41,8 @@ class EventHistoryTableRepositoryTest {
     private val enrollmentEvents: EventCollectionRepository = mock()
     private val programStageFilter: StringFilterConnector<EventCollectionRepository> = mock()
     private val followUpEvents: EventCollectionRepository = mock()
+    private val deletedFilter: BooleanFilterConnector<EventCollectionRepository> = mock()
+    private val activeFollowUpEvents: EventCollectionRepository = mock()
     private val programStageDataElements: ProgramStageDataElementCollectionRepository = mock()
     private val programStageDataElementsWithRenderType: ProgramStageDataElementCollectionRepository = mock()
     private val programStageDataElementProgramStageFilter:
@@ -205,6 +208,60 @@ class EventHistoryTableRepositoryTest {
         )
     }
 
+    @Test
+    fun `table should exclude locally deleted follow-up events`() {
+        stubRampConfig()
+        stubRowsAndSections()
+        stubFollowUpEvents(
+            events =
+                listOf(
+                    event(
+                        uid = "active",
+                        eventDate = Date(1_000),
+                        values =
+                            listOf(
+                                value(VISIT_NUMBER_UID, "0"),
+                                value(WEIGHT_UID, "8.0"),
+                            ),
+                    ),
+                ),
+            unfilteredEvents =
+                listOf(
+                    event(
+                        uid = "deleted",
+                        eventDate = Date(1_000),
+                        values =
+                            listOf(
+                                value(VISIT_NUMBER_UID, "0"),
+                                value(WEIGHT_UID, "99.0"),
+                            ),
+                    ).toBuilder().deleted(true).build(),
+                ),
+        )
+        stubOptions()
+
+        val table =
+            EventHistoryTableRepository(
+                d2 = d2,
+                simprintsRampDatastoreRepository = simprintsRampDatastoreRepository,
+                programUid = PROGRAM_UID,
+                enrollmentUid = ENROLLMENT_UID,
+            ).getTable()
+
+        assertEquals("active", table?.columns?.get(0)?.eventUid)
+        assertEquals(
+            "8.0",
+            table
+                ?.sections
+                ?.single()
+                ?.rows
+                ?.first()
+                ?.values
+                ?.first()
+                ?.value,
+        )
+    }
+
     private fun stubRampConfig() {
         whenever(simprintsRampDatastoreRepository.getConfig()) doReturn
             RampDatastoreConfig(
@@ -230,14 +287,20 @@ class EventHistoryTableRepositoryTest {
         whenever(currentEventRepository.blockingGet()) doReturn event
     }
 
-    private fun stubFollowUpEvents(events: List<Event>) {
+    private fun stubFollowUpEvents(
+        events: List<Event>,
+        unfilteredEvents: List<Event> = events,
+    ) {
         whenever(d2.eventModule().events()) doReturn this.events
         whenever(this.events.withTrackedEntityDataValues()) doReturn eventsWithDataValues
         whenever(eventsWithDataValues.byEnrollmentUid()) doReturn enrollmentFilter
         whenever(enrollmentFilter.eq(ENROLLMENT_UID)) doReturn enrollmentEvents
         whenever(enrollmentEvents.byProgramStageUid()) doReturn programStageFilter
         whenever(programStageFilter.eq(PROGRAM_STAGE_UID)) doReturn followUpEvents
-        whenever(followUpEvents.blockingGet()) doReturn events
+        whenever(followUpEvents.blockingGet()) doReturn unfilteredEvents
+        whenever(followUpEvents.byDeleted()) doReturn deletedFilter
+        whenever(deletedFilter.isFalse) doReturn activeFollowUpEvents
+        whenever(activeFollowUpEvents.blockingGet()) doReturn events
     }
 
     private fun stubRowsAndSections() {

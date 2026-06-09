@@ -98,6 +98,8 @@ class FormHistoryChartRepository(
                         .eq(enrollmentUid)
                         .byProgramStageUid()
                         .eq(followUpVisitProgramStageUid)
+                        .byDeleted()
+                        .isFalse
                         .blockingGet()
                         .also { followUpVisitEventsByProgramStage[followUpVisitProgramStageUid] = it }
             }
