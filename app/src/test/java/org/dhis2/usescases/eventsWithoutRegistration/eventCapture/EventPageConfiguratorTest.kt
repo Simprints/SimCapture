@@ -24,4 +24,9 @@ class EventPageConfiguratorTest {
         whenever(eventCaptureRepository.hasSimprintsRampProgramStageHistoryTable()) doReturn false
         assertFalse(pageConfigurator.displayTableView())
     }
+
+    @Test
+    fun `displayNotes should be false`() {
+        assertFalse(pageConfigurator.displayNotes())
+    }
 }

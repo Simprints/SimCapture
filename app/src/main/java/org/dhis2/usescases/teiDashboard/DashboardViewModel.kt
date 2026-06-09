@@ -158,14 +158,16 @@ class DashboardViewModel(
             )
         }
 
-        enrollmentItems.add(
-            NavigationBarItem(
-                id = TEIDashboardItems.NOTES,
-                icon = Icons.AutoMirrored.Outlined.StickyNote2,
-                selectedIcon = Icons.AutoMirrored.Filled.StickyNote2,
-                label = resourcesManager.getString(R.string.navigation_notes),
-            ),
-        )
+        if (pageConfigurator.displayNotes()) {
+            enrollmentItems.add(
+                NavigationBarItem(
+                    id = TEIDashboardItems.NOTES,
+                    icon = Icons.AutoMirrored.Outlined.StickyNote2,
+                    selectedIcon = Icons.AutoMirrored.Filled.StickyNote2,
+                    label = resourcesManager.getString(R.string.navigation_notes),
+                ),
+            )
+        }
 
         if (pageConfigurator.displayTableView()) {
             enrollmentItems.add(

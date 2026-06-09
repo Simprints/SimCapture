@@ -170,6 +170,7 @@ class EventCaptureActivity :
                 pageConfigurator!!.displayAnalytics(),
                 pageConfigurator!!.displayTableView(),
                 pageConfigurator!!.displayRelationships(),
+                pageConfigurator!!.displayNotes(),
                 intent.getBooleanExtra(OPEN_ERROR_LOCATION, false),
                 eventMode,
             )

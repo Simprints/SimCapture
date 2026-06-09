@@ -20,7 +20,6 @@ import org.dhis2.usescases.teidashboard.robot.analyticsRobot
 import org.dhis2.usescases.teidashboard.robot.enrollmentRobot
 import org.dhis2.usescases.teidashboard.robot.eventRobot
 import org.dhis2.usescases.teidashboard.robot.indicatorsRobot
-import org.dhis2.usescases.teidashboard.robot.noteRobot
 import org.dhis2.usescases.teidashboard.robot.teiDashboardRobot
 import org.hisp.dhis.android.core.mockwebserver.ResponseController
 import org.junit.Assume
@@ -48,36 +47,7 @@ class TeiDashboardTest : BaseTest() {
     }
 
     @Test
-    fun shouldSuccessfullyCreateANoteWhenClickCreateNote() {
-        enableIntents()
-        mockWebServerRobot.addResponse(
-            method = ResponseController.GET,
-            path = API_UNIQUE_ID_TRACKED_ENTITY_ATTRIBUTES_RESERVED_VALUES_PATH,
-            sdkResource = API_UNIQUE_ID_TRACKED_ENTITY_ATTRIBUTES_RESERVED_VALUES_RESPONSE,
-            responseCode = 200,
-        )
-
-        setupCredentials()
-
-        prepareTeiCompletedProgrammeAndLaunchActivity(rule)
-
-        teiDashboardRobot(composeTestRule) {
-            goToNotes()
-        }
-
-        noteRobot {
-            clickOnFabAddNewNote()
-            verifyNoteDetailActivityIsLaunched()
-            typeNote(NOTE_VALID)
-            clickOnSaveButton()
-            checkNewNoteWasCreated(NOTE_VALID)
-        }
-
-    }
-
-    @Test
-    fun shouldNotCreateANoteWhenClickClear() {
-        enableIntents()
+    fun shouldNotDisplayNotesTab() {
         mockWebServerRobot.addResponse(
             method = ResponseController.GET,
             path = API_UNIQUE_ID_TRACKED_ENTITY_ATTRIBUTES_RESERVED_VALUES_PATH,
@@ -88,39 +58,7 @@ class TeiDashboardTest : BaseTest() {
         prepareTeiCompletedProgrammeAndLaunchActivity(rule)
 
         teiDashboardRobot(composeTestRule) {
-            goToNotes()
-        }
-
-        noteRobot {
-            clickOnFabAddNewNote()
-            verifyNoteDetailActivityIsLaunched()
-            typeNote(NOTE_INVALID)
-            clickOnClearButton()
-            clickYesOnAlertDialog()
-            checkNoteWasNotCreated(NOTE_INVALID)
-        }
-    }
-
-    @Test
-    fun shouldOpenNotesDetailsWhenClickOnNote() {
-        mockWebServerRobot.addResponse(
-            method = ResponseController.GET,
-            path = API_UNIQUE_ID_TRACKED_ENTITY_ATTRIBUTES_RESERVED_VALUES_PATH,
-            sdkResource = API_UNIQUE_ID_TRACKED_ENTITY_ATTRIBUTES_RESERVED_VALUES_RESPONSE,
-            responseCode = 200,
-        )
-
-        prepareTeiWithExistingNoteAndLaunchActivity(rule)
-
-        teiDashboardRobot(composeTestRule) {
-            goToNotes()
-        }
-
-        noteRobot {
-            clickOnFabAddNewNote()
-            typeNote(NOTE_EXISTING_TEXT)
-            clickOnSaveButton()
-            checkNoteDetails("@$USER", NOTE_EXISTING_TEXT)
+            checkNotesTabDoesNotExist()
         }
     }
 
