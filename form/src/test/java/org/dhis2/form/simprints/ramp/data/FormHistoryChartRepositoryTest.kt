@@ -154,6 +154,7 @@ class FormHistoryChartRepositoryTest {
             )
 
         assertNull(chart)
+        verify(currentEventRepository, times(0)).blockingGet()
     }
 
     @Test

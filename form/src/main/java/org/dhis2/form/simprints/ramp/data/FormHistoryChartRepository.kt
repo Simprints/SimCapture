@@ -17,6 +17,10 @@ class FormHistoryChartRepository(
         fieldUiModel: FieldUiModel,
         configs: List<DataElementHistoryChartConfig>,
     ): FormHistoryChart? {
+        configs.firstOrNull { config ->
+            config.dataElementId?.trim() == fieldUiModel.uid
+        } ?: return null
+
         val currentEvent = loadCurrentEvent() ?: return null
         val chartConfig =
             configs.firstOrNull { config ->
