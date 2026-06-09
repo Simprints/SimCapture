@@ -37,7 +37,7 @@ import kotlin.math.roundToInt
 private const val HISTORY_CHART_HEIGHT_DP = 180
 private const val HISTORY_CHART_PERIOD_STEP = 1L
 private const val HISTORY_CHART_X_AXIS_LABEL_ROTATION = 30f
-private const val HISTORY_CHART_TEXT_SIZE_FACTOR = 1.25f
+private const val HISTORY_CHART_TEXT_SIZE_FACTOR = 1.5f
 private const val HISTORY_CHART_TEXT_SIZE = DEFAULT_VALUE_TEXT_SIZE * HISTORY_CHART_TEXT_SIZE_FACTOR
 private const val HISTORY_CHART_Y_AXIS_LABEL_COUNT = 5
 private const val HISTORY_CHART_FLAT_RANGE_EPSILON = 0.0001f
