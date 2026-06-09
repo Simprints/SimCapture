@@ -89,6 +89,51 @@ class FormHistoryChartRepositoryTest {
     }
 
     @Test
+    fun `getChart should plot current input value when current event not saved yet`() {
+        val currentEvent =
+            getEvent(
+                uid = CURRENT_EVENT_UID,
+                eventDate = Date(2_000),
+                dataValues =
+                    listOf(
+                        dataValue(VISIT_NUMBER_UID, "1"),
+                        dataValue(DATA_ELEMENT_UID, "9.0"),
+                    ),
+            )
+        stubCurrentEvent(currentEvent)
+        stubFollowUpEvents(
+            listOf(
+                getEvent(
+                    uid = "previous",
+                    eventDate = Date(1_000),
+                    dataValues =
+                        listOf(
+                            dataValue(VISIT_NUMBER_UID, "0"),
+                            dataValue(DATA_ELEMENT_UID, "8.0"),
+                        ),
+                ),
+            ),
+        )
+
+        val chart =
+            repository.getChart(
+                fieldUiModel =
+                    FieldUiModelImpl(
+                        uid = DATA_ELEMENT_UID,
+                        value = "9.5",
+                        label = "Weight",
+                        valueType = ValueType.NUMBER,
+                        optionSetConfiguration = null,
+                        autocompleteList = null,
+                    ),
+                configs = listOf(getConfig()),
+            )
+
+        assertEquals(listOf(8f, 9.5f, null, null), chart?.values)
+        assertEquals(1, chart?.currentValueIndex)
+    }
+
+    @Test
     fun `getChart should return null when field is not configured`() {
         stubCurrentEvent(getEvent(uid = CURRENT_EVENT_UID))
 
@@ -166,7 +211,7 @@ class FormHistoryChartRepositoryTest {
         repository.getChart(fieldUiModel, listOf(getConfig()))
         repository.getChart(fieldUiModel, listOf(getConfig()))
 
-        verify(currentEventRepository, times(1)).blockingGet()
+        verify(currentEventRepository, times(2)).blockingGet()
         verify(followUpEvents, times(1)).blockingGet()
     }
 
@@ -181,7 +226,8 @@ class FormHistoryChartRepositoryTest {
 
     private fun stubCurrentEvent(event: Event) {
         whenever(d2.eventModule().events()) doReturn events
-        whenever(events.uid(CURRENT_EVENT_UID)) doReturn currentEventRepository
+        whenever(events.withTrackedEntityDataValues()) doReturn eventsWithDataValues
+        whenever(eventsWithDataValues.uid(CURRENT_EVENT_UID)) doReturn currentEventRepository
         whenever(currentEventRepository.blockingGet()) doReturn event
     }
 
