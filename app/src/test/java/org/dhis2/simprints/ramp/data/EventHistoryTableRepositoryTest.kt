@@ -262,6 +262,64 @@ class EventHistoryTableRepositoryTest {
         )
     }
 
+    @Test
+    fun `table should follow section form order for sections and rows`() {
+        stubRampConfig()
+        stubRowsAndSections(
+            programStageDataElementUids =
+                listOf(
+                    VISIT_NUMBER_UID,
+                    WEIGHT_UID,
+                    STATUS_UID,
+                    BOOLEAN_UID,
+                    EXCLUDED_UID,
+                ),
+            sections =
+                listOf(
+                    TestSectionDefinition(
+                        uid = "second-section",
+                        displayName = "Second section",
+                        sortOrder = 2,
+                        dataElementUids = listOf(BOOLEAN_UID),
+                    ),
+                    TestSectionDefinition(
+                        uid = "first-section",
+                        displayName = "First section",
+                        sortOrder = 1,
+                        dataElementUids = listOf(STATUS_UID, WEIGHT_UID),
+                    ),
+                ),
+        )
+        stubFollowUpEvents(emptyList())
+        stubOptions()
+
+        val table =
+            EventHistoryTableRepository(
+                d2 = d2,
+                simprintsRampDatastoreRepository = simprintsRampDatastoreRepository,
+                programUid = PROGRAM_UID,
+                enrollmentUid = ENROLLMENT_UID,
+            ).getTable()
+
+        assertEquals(listOf("First section", "Second section"), table?.sections?.map { it.title })
+        assertEquals(
+            listOf("Status", "Weight"),
+            table
+                ?.sections
+                ?.first()
+                ?.rows
+                ?.map { it.label },
+        )
+        assertEquals(
+            listOf("Confirmed"),
+            table
+                ?.sections
+                ?.get(1)
+                ?.rows
+                ?.map { it.label },
+        )
+    }
+
     private fun stubRampConfig() {
         whenever(simprintsRampDatastoreRepository.getConfig()) doReturn
             RampDatastoreConfig(
@@ -303,21 +361,49 @@ class EventHistoryTableRepositoryTest {
         whenever(activeFollowUpEvents.blockingGet()) doReturn events
     }
 
-    private fun stubRowsAndSections() {
+    private fun stubRowsAndSections(
+        programStageDataElementUids: List<String> =
+            listOf(
+                VISIT_NUMBER_UID,
+                WEIGHT_UID,
+                STATUS_UID,
+                BOOLEAN_UID,
+                EXCLUDED_UID,
+            ),
+        sections: List<TestSectionDefinition> =
+            listOf(
+                TestSectionDefinition(
+                    uid = "section",
+                    displayName = "Follow up",
+                    sortOrder = 1,
+                    dataElementUids = listOf(WEIGHT_UID, STATUS_UID, BOOLEAN_UID, EXCLUDED_UID),
+                ),
+                TestSectionDefinition(
+                    uid = "empty-section",
+                    displayName = "Hidden",
+                    sortOrder = 2,
+                    dataElementUids = listOf(EXCLUDED_UID),
+                ),
+            ),
+    ) {
         val programStage = ObjectWithUid.create(PROGRAM_STAGE_UID)
         val weightDataElement = dataElement(WEIGHT_UID)
         val statusDataElement = dataElement(STATUS_UID)
         val booleanDataElement = dataElement(BOOLEAN_UID)
         val excludedDataElement = dataElement(EXCLUDED_UID)
         val visitNumberDataElement = dataElement(VISIT_NUMBER_UID)
-        val programStageDataElementsForStage =
+        val dataElementsByUid =
             listOf(
-                programStageDataElement(programStage, visitNumberDataElement),
-                programStageDataElement(programStage, weightDataElement),
-                programStageDataElement(programStage, statusDataElement),
-                programStageDataElement(programStage, booleanDataElement),
-                programStageDataElement(programStage, excludedDataElement),
-            )
+                weightDataElement,
+                statusDataElement,
+                booleanDataElement,
+                excludedDataElement,
+                visitNumberDataElement,
+            ).associateBy { dataElement -> dataElement.uid().orEmpty() }
+        val programStageDataElementsForStage =
+            programStageDataElementUids.map { dataElementUid ->
+                programStageDataElement(programStage, dataElementsByUid.getValue(dataElementUid))
+            }
 
         whenever(d2.programModule().programStageDataElements()) doReturn programStageDataElements
         whenever(programStageDataElements.withRenderType()) doReturn programStageDataElementsWithRenderType
@@ -332,24 +418,16 @@ class EventHistoryTableRepositoryTest {
         whenever(programStageSectionFilter.eq(PROGRAM_STAGE_UID)) doReturn programStageSectionsByStage
         whenever(programStageSectionsByStage.withDataElements()) doReturn programStageSectionsWithDataElements
         whenever(programStageSectionsWithDataElements.blockingGet()) doReturn
-            listOf(
+            sections.map { section ->
                 ProgramStageSection
                     .builder()
-                    .uid("section")
-                    .displayName("Follow up")
-                    .sortOrder(1)
+                    .uid(section.uid)
+                    .displayName(section.displayName)
+                    .sortOrder(section.sortOrder)
                     .programStage(programStage)
-                    .dataElements(listOf(weightDataElement, statusDataElement, booleanDataElement, excludedDataElement))
-                    .build(),
-                ProgramStageSection
-                    .builder()
-                    .uid("empty-section")
-                    .displayName("Hidden")
-                    .sortOrder(2)
-                    .programStage(programStage)
-                    .dataElements(listOf(excludedDataElement))
-                    .build(),
-            )
+                    .dataElements(section.dataElementUids.map(dataElementsByUid::getValue))
+                    .build()
+            }
         whenever(
             d2
                 .dataElementModule()
@@ -464,6 +542,13 @@ class EventHistoryTableRepositoryTest {
             .build()
 
     private fun dataElement(uid: String): DataElement = DataElement.builder().uid(uid).build()
+
+    private data class TestSectionDefinition(
+        val uid: String,
+        val displayName: String,
+        val sortOrder: Int?,
+        val dataElementUids: List<String>,
+    )
 
     private companion object {
         const val CURRENT_EVENT_UID = "current"
