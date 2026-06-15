@@ -72,6 +72,7 @@ class FormHistoryChartRepository(
             labels = labels,
             values = values,
             currentValueIndex = currentValueIndex,
+            displayMaxDecimalPlaces = chartConfig.displayMaxDecimalPlaces,
         )
     }
 

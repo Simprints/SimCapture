@@ -22,6 +22,8 @@ data class DataElementHistoryChartConfig(
     val xAxisVisitNumberDataElementId: String? = null,
     @SerializedName("followUpVisitMaxNumber")
     val followUpVisitMaxNumber: Int? = null,
+    @SerializedName("displayMaxDecimalPlaces")
+    val displayMaxDecimalPlaces: Int? = null,
 ) {
     fun isValid(): Boolean =
         !programId.isNullOrBlank() &&

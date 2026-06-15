@@ -5,6 +5,7 @@ data class FormHistoryChart(
     val labels: List<String>,
     val values: List<Float?>,
     val currentValueIndex: Int? = null,
+    val displayMaxDecimalPlaces: Int? = null,
 ) {
     fun withCurrentValue(value: String?): FormHistoryChart {
         val index = currentValueIndex?.takeIf { it in values.indices } ?: return this

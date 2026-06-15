@@ -89,6 +89,7 @@ class FormHistoryChartRepositoryTest {
         assertEquals(listOf("0", "1", "2", "3"), chart?.labels)
         assertEquals(listOf(8f, 9.5f, null, null), chart?.values)
         assertEquals(1, chart?.currentValueIndex)
+        assertEquals(1, chart?.displayMaxDecimalPlaces)
     }
 
     @Test
@@ -283,6 +284,7 @@ class FormHistoryChartRepositoryTest {
             dataElementId = DATA_ELEMENT_UID,
             xAxisVisitNumberDataElementId = VISIT_NUMBER_UID,
             followUpVisitMaxNumber = 3,
+            displayMaxDecimalPlaces = 1,
         )
 
     private fun stubCurrentEvent(event: Event) {

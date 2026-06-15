@@ -43,6 +43,7 @@ private const val HISTORY_CHART_Y_AXIS_LABEL_COUNT = 5
 private const val HISTORY_CHART_FLAT_RANGE_EPSILON = 0.0001f
 private const val HISTORY_CHART_INTEGER_GRANULARITY_MIN_SPAN = 1f
 private const val HISTORY_CHART_INTEGER_GRANULARITY = 1f
+private const val HISTORY_CHART_DEFAULT_MAX_DECIMAL_PLACES = 2
 
 @Composable
 fun FormHistoryChartView(historyChart: FormHistoryChart) {
@@ -87,11 +88,12 @@ private fun LineChart.configureHistoryChart(
     historyChart: FormHistoryChart,
     graph: Graph,
 ) {
-    val valueFormatter = IntegerAwareValueFormatter()
+    val axisValueFormatter = IntegerAwareValueFormatter()
+    val pointValueFormatter = IntegerAwareValueFormatter(historyChart.displayMaxDecimalPlaces)
 
     setHighlightPerTapEnabled(false)
     setHighlightPerDragEnabled(false)
-    data = graph.toHistoryLineData(valueFormatter)
+    data = graph.toHistoryLineData(pointValueFormatter)
     xAxis.apply {
         axisMinimum = -1f
         axisMaximum = historyChart.labels.size.toFloat()
@@ -102,7 +104,7 @@ private fun LineChart.configureHistoryChart(
         textSize = HISTORY_CHART_TEXT_SIZE
     }
     axisLeft.apply {
-        this.valueFormatter = valueFormatter
+        this.valueFormatter = axisValueFormatter
         setLabelCount(HISTORY_CHART_Y_AXIS_LABEL_COUNT, false)
         textSize = HISTORY_CHART_TEXT_SIZE
     }
@@ -180,9 +182,14 @@ private fun Graph.toHistoryLineData(valueFormatter: ValueFormatter) =
             setValueTextSize(HISTORY_CHART_TEXT_SIZE)
         }
 
-private class IntegerAwareValueFormatter : ValueFormatter() {
+internal class IntegerAwareValueFormatter(
+    maxDecimalPlaces: Int? = null,
+) : ValueFormatter() {
     private val decimalFormat =
-        DecimalFormat("0.##", DecimalFormatSymbols(Locale.US))
+        DecimalFormat("0", DecimalFormatSymbols(Locale.US)).apply {
+            minimumFractionDigits = 0
+            maximumFractionDigits = maxDecimalPlaces.validMaxDecimalPlaces()
+        }
 
     override fun getFormattedValue(value: Float): String =
         if (abs(value - value.roundToInt()) < INTEGER_VALUE_EPSILON) {
@@ -200,6 +207,9 @@ private class IntegerAwareValueFormatter : ValueFormatter() {
         const val INTEGER_VALUE_EPSILON = 0.0001f
     }
 }
+
+private fun Int?.validMaxDecimalPlaces(): Int =
+    this?.takeIf { it >= 0 } ?: HISTORY_CHART_DEFAULT_MAX_DECIMAL_PLACES
 
 private fun FormHistoryChart.toAnalyticsGraph(): Graph =
     Graph(

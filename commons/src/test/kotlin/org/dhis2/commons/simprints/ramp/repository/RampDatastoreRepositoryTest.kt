@@ -30,7 +30,8 @@ class RampDatastoreRepositoryTest {
                   "followUpVisitProgramStageId": "follow-stage",
                   "dataElementId": "weight",
                   "xAxisVisitNumberDataElementId": "visit-number",
-                  "followUpVisitMaxNumber": 12
+                  "followUpVisitMaxNumber": 12,
+                  "displayMaxDecimalPlaces": 1
                 },
                 {
                   "programId": "program",
@@ -69,6 +70,7 @@ class RampDatastoreRepositoryTest {
             assertEquals("weight", chart.dataElementId)
             assertEquals("visit-number", chart.xAxisVisitNumberDataElementId)
             assertEquals(12, chart.followUpVisitMaxNumber)
+            assertEquals(1, chart.displayMaxDecimalPlaces)
         }
         assertEquals(1, config.programStageHistoryTables.size)
         config.programStageHistoryTables.first().let { table ->
