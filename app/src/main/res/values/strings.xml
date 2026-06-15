@@ -760,7 +760,7 @@
     <string name="navigation_charts">Charts</string>
     <string name="navigation_relationships">Relations</string>
     <string name="navigation_notes">Notes</string>
-    <string name="navigation_simprints_ramp_history">History</string>
+    <string name="navigation_simprints_ramp_history_chart">Chart</string>
     <string name="navigation_data_entry">Data entry</string>
     <string name="navigation_form">Form</string>
     <string name="navigation_tei_data">Details</string>

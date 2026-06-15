@@ -158,7 +158,7 @@ class EventCapturePresenterImpl(
                     id = NavigationPage.TABLE_VIEW,
                     icon = Icons.Outlined.TableChart,
                     selectedIcon = Icons.Filled.TableChart,
-                    label = resourceManager.getString(R.string.navigation_simprints_ramp_history),
+                    label = resourceManager.getString(R.string.navigation_simprints_ramp_history_chart),
                 ),
             )
         }

@@ -179,7 +179,7 @@ class DashboardViewModel(
                     id = TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
                     icon = Icons.Outlined.TableChart,
                     selectedIcon = Icons.Filled.TableChart,
-                    label = resourcesManager.getString(R.string.navigation_simprints_ramp_history),
+                    label = resourcesManager.getString(R.string.navigation_simprints_ramp_history_chart),
                 ),
             )
         }
