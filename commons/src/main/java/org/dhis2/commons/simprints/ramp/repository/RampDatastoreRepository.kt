@@ -6,6 +6,7 @@ import com.google.gson.JsonParseException
 import com.google.gson.JsonParser
 import org.dhis2.commons.simprints.ramp.model.DataElementHistoryChartConfig
 import org.dhis2.commons.simprints.ramp.model.ProgramStageHistoryTableConfig
+import org.dhis2.commons.simprints.ramp.model.ProgramSpecificSetting
 import org.dhis2.commons.simprints.ramp.model.RampDatastoreConfig
 import org.hisp.dhis.android.core.D2
 import timber.log.Timber
@@ -37,6 +38,20 @@ class RampDatastoreRepository(
             .blockingDownload()
     }
 
+    fun isSearchEnabled(programId: String?): Boolean {
+        if (programId.isNullOrBlank()) return true
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull { it.programId == programId }
+                ?.isSearchEnabled != false
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            true
+        }
+    }
+
     private fun getLocalRampDatastoreValue(): String? =
         d2
             .dataStoreModule()
@@ -60,6 +75,12 @@ class RampDatastoreRepository(
                     root
                         .get(PROGRAM_STAGE_HISTORY_TABLE_KEY)
                         ?.parseList<ProgramStageHistoryTableConfig>()
+                        .orEmpty()
+                        .filter { it.isValid() },
+                programSpecificSettings =
+                    root
+                        .get(PROGRAM_SPECIFIC_SETTINGS_KEY)
+                        ?.parseList<ProgramSpecificSetting>()
                         .orEmpty()
                         .filter { it.isValid() },
             )
@@ -133,6 +154,7 @@ class RampDatastoreRepository(
         private const val RAMP_DATASTORE_KEY = "ramp"
         private const val DATA_ELEMENT_HISTORY_CHARTS_KEY = "dataElementHistoryCharts"
         private const val PROGRAM_STAGE_HISTORY_TABLE_KEY = "programStageHistoryTable"
+        private const val PROGRAM_SPECIFIC_SETTINGS_KEY = "programSpecificSettings"
         private const val DATASTORE_JSON_WRAPPER_NAME = "JsonWrapper"
         private const val DATASTORE_JSON_WRAPPER_JSON_FIELD = "json"
         private const val RAMP_DATASTORE_PARSE_ERROR = "Failed to parse Simprints RAMP datastore config"

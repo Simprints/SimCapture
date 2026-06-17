@@ -5,10 +5,12 @@ import com.google.gson.annotations.SerializedName
 data class RampDatastoreConfig(
     val dataElementHistoryCharts: List<DataElementHistoryChartConfig> = emptyList(),
     val programStageHistoryTables: List<ProgramStageHistoryTableConfig> = emptyList(),
+    val programSpecificSettings: List<ProgramSpecificSetting> = emptyList(),
 ) {
     fun isNotEmpty(): Boolean =
         dataElementHistoryCharts.isNotEmpty() ||
-            programStageHistoryTables.isNotEmpty()
+            programStageHistoryTables.isNotEmpty() ||
+            programSpecificSettings.isNotEmpty()
 }
 
 data class DataElementHistoryChartConfig(
@@ -50,4 +52,13 @@ data class ProgramStageHistoryTableConfig(
             !followUpVisitProgramStageId.isNullOrBlank() &&
             !headerVisitNumberDataElementId.isNullOrBlank() &&
             (followUpVisitMaxNumber ?: -1) >= 0
+}
+
+data class ProgramSpecificSetting(
+    @SerializedName("programId")
+    val programId: String? = null,
+    @SerializedName("isSearchEnabled")
+    val isSearchEnabled: Boolean? = null,
+) {
+    fun isValid(): Boolean = !programId.isNullOrBlank()
 }

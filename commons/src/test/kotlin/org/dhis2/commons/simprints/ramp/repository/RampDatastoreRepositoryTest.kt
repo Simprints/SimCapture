@@ -83,6 +83,35 @@ class RampDatastoreRepositoryTest {
     }
 
     @Test
+    fun `isSearchEnabled should return false only when program disables search`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "programSpecificSettings": [
+                {
+                  "programId": "disabledProgram",
+                  "isSearchEnabled": false
+                },
+                {
+                  "programId": "defaultProgram"
+                },
+                {
+                  "programId": "enabledProgram",
+                  "isSearchEnabled": true
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(false, repository.isSearchEnabled("disabledProgram"))
+        assertEquals(true, repository.isSearchEnabled("enabledProgram"))
+        assertEquals(true, repository.isSearchEnabled("defaultProgram"))
+        assertEquals(true, repository.isSearchEnabled("missingProgram"))
+        assertEquals(true, repository.isSearchEnabled(null))
+    }
+
+    @Test
     fun `getConfig should parse wrapped string datastore value`() {
         val rawJson =
             """

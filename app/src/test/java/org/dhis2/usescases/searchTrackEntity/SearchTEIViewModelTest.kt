@@ -106,6 +106,7 @@ class SearchTEIViewModelTest {
         whenever(pageConfigurator.initVariables()) doReturn pageConfigurator
         setCurrentProgram(testingProgram())
         whenever(repository.canCreateInProgramWithoutSearch()) doReturn true
+        whenever(repository.isSearchEnabled()) doReturn true
         whenever(repository.getTrackedEntityType()) doReturn testingTrackedEntityType()
         whenever(repository.filtersApplyOnGlobalSearch()) doReturn true
         whenever(filterManager.stateFilters) doReturn emptyList()
@@ -207,6 +208,47 @@ class SearchTEIViewModelTest {
 
         val screenState = viewModel.screenState.value
         assertTrue(screenState is SearchList)
+    }
+
+    @Test
+    fun `Should not open search screen when search is disabled`() {
+        whenever(repository.isSearchEnabled()) doReturn false
+        viewModel =
+            SearchTEIViewModel(
+                initialProgram,
+                initialQuery,
+                repository,
+                repositoryKt,
+                pageConfigurator,
+                mapDataRepository,
+                networkUtils,
+                object : DispatcherProvider {
+                    override fun io(): CoroutineDispatcher = testingDispatcher
+
+                    override fun computation(): CoroutineDispatcher = testingDispatcher
+
+                    override fun ui(): CoroutineDispatcher = testingDispatcher
+                },
+                mapStyleConfiguration,
+                resourceManager = resourceManager,
+                displayNameProvider = displayNameProvider,
+                filterManager = filterManager,
+                simprintsSearchViewModel = simprintsSearchViewModel,
+                loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
+                mapSimprintsBiometricSearchResult = mapSimprintsBiometricSearchResult,
+            )
+        testingDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.setListScreen()
+        viewModel.setSearchScreen()
+        viewModel.onSearchFormRequested()
+
+        val screenState = viewModel.screenState.value
+        assertFalse(viewModel.isSearchEnabled.value!!)
+        assertTrue(screenState is SearchList)
+        val searchForm = (screenState as SearchList).searchForm
+        assertFalse(searchForm.isEnabled)
+        assertFalse(searchForm.isOpened)
     }
 
     @Test

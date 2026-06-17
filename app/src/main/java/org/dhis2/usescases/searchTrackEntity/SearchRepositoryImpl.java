@@ -3,6 +3,7 @@ package org.dhis2.usescases.searchTrackEntity;
 import android.database.sqlite.SQLiteConstraintException;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import com.google.gson.Gson;
 import org.dhis2.R;
 import org.dhis2.bindings.ExtensionsKt;
 import org.dhis2.bindings.ValueExtensionsKt;
@@ -18,6 +19,7 @@ import org.dhis2.commons.network.NetworkUtils;
 import org.dhis2.commons.resources.DhisPeriodUtils;
 import org.dhis2.commons.resources.MetadataIconProvider;
 import org.dhis2.commons.resources.ResourceManager;
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository;
 import org.dhis2.data.dhislogic.DhisEnrollmentUtils;
 import org.dhis2.data.forms.dataentry.SearchTEIRepository;
 import org.dhis2.data.forms.dataentry.ValueStore;
@@ -124,6 +126,7 @@ public class SearchRepositoryImpl implements SearchRepository {
 
     private final MetadataIconProvider metadataIconProvider;
     private final ProfilePictureProvider profilePictureProvider;
+    private final RampDatastoreRepository rampDatastoreRepository;
     private CustomIntentRepository customIntentRepository;
 
     SearchRepositoryImpl(String teiType,
@@ -165,6 +168,7 @@ public class SearchRepositoryImpl implements SearchRepository {
         this.metadataIconProvider = metadataIconProvider;
         this.profilePictureProvider = profilePictureProvider;
         this.customIntentRepository = customIntentRepository;
+        this.rampDatastoreRepository = new RampDatastoreRepository(d2, new Gson());
     }
 
 
@@ -1010,6 +1014,11 @@ public class SearchRepositoryImpl implements SearchRepository {
             ProgramConfigurationSetting programConfiguration = d2.settingModule().appearanceSettings().getProgramConfigurationByUid(currentProgram);
             return programConfiguration != null && Boolean.TRUE.equals(programConfiguration.optionalSearch());
         }
+    }
+
+    @Override
+    public boolean isSearchEnabled() {
+        return rampDatastoreRepository.isSearchEnabled(currentProgram);
     }
 
     private boolean displayOrgUnit() {

@@ -223,6 +223,7 @@ class SearchTEList : FragmentGlobalAbstract() {
 
                 if (!teTypeName.isNullOrBlank()) {
                     val isFilterOpened by viewModel.filtersOpened.observeAsState(false)
+                    val isSearchEnabled by viewModel.isSearchEnabled.observeAsState(true)
                     val createButtonVisibility by viewModel
                         .createButtonScrollVisibility
                         .observeAsState(true)
@@ -240,6 +241,7 @@ class SearchTEList : FragmentGlobalAbstract() {
                     FullSearchButtonAndWorkingList(
                         teTypeName = teTypeName!!,
                         modifier = Modifier,
+                        searchButtonVisible = isSearchEnabled,
                         createButtonVisible = createButtonVisibility,
                         closeFilterVisibility = isFilterOpened,
                         isLandscape = isLandscape(),

@@ -148,6 +148,9 @@ class SearchTEIViewModel(
     private val _screenState = MutableLiveData<SearchTEScreenState>()
     val screenState: LiveData<SearchTEScreenState> = _screenState
 
+    private val _isSearchEnabled = MutableLiveData(true)
+    val isSearchEnabled: LiveData<Boolean> = _isSearchEnabled
+
     val createButtonScrollVisibility = MutableLiveData(false)
     val isScrollingDown = MutableLiveData(false)
     val simprintsBiometricSearchNavigation: Flow<Unit> =
@@ -214,6 +217,11 @@ class SearchTEIViewModel(
 
     init {
         viewModelScope.launch(dispatchers.io()) {
+            val isSearchEnabled = searchRepository.isSearchEnabled()
+            withContext(dispatchers.ui()) {
+                _isSearchEnabled.value = isSearchEnabled
+                updateSearchEnabledInCurrentScreen(isSearchEnabled)
+            }
             createButtonScrollVisibility.postValue(
                 searchRepository.canCreateInProgramWithoutSearch(),
             )
@@ -294,10 +302,12 @@ class SearchTEIViewModel(
         _screenState.value.takeIf { it?.screenState == SearchScreenState.MAP }?.let {
             searching = (it as SearchList).isSearching || isSimprintsBiometricNoMatchesSearch()
         }
+        val isSearchEnabled = isSearchEnabled()
         val displayFrontPageList =
             searchRepository.getProgram(initialProgramUid)?.displayFrontPageList() ?: true
         val shouldForceSearch =
-            !displayFrontPageList &&
+            isSearchEnabled &&
+                !displayFrontPageList &&
                 !searchRepository.canCreateInProgramWithoutSearch() &&
                 !searching &&
                 filtersActive.value == false
@@ -326,6 +336,7 @@ class SearchTEIViewModel(
                                 .getProgram(initialProgramUid)
                                 ?.minAttributesRequiredToSearch()
                                 ?: 1,
+                        isEnabled = isSearchEnabled,
                         isForced = shouldForceSearch,
                         isOpened = shouldForceSearch,
                     ),
@@ -363,6 +374,7 @@ class SearchTEIViewModel(
                                 .getProgram(initialProgramUid)
                                 ?.minAttributesRequiredToSearch()
                                 ?: 1,
+                        isEnabled = isSearchEnabled(),
                         isForced = false,
                         isOpened = false,
                     ),
@@ -384,6 +396,8 @@ class SearchTEIViewModel(
     }
 
     fun setSearchScreen() {
+        if (!isSearchEnabled()) return
+
         _screenState.postValue(
             SearchList(
                 previousSate = _screenState.value?.screenState ?: SearchScreenState.NONE,
@@ -416,6 +430,8 @@ class SearchTEIViewModel(
     }
 
     fun onSearchFormRequested() {
+        if (!isSearchEnabled()) return
+
         if (shouldLaunchSimprintsBiometricIdentification()) {
             simprintsSearchViewModel.clearPendingSession()
             viewModelScope.launch {
@@ -1172,8 +1188,10 @@ class SearchTEIViewModel(
 
     private fun handleInitWithoutData() {
         val result =
-            when (searchRepository.canCreateInProgramWithoutSearch()) {
-                true ->
+            when {
+                !isSearchEnabled() -> emptyList()
+
+                searchRepository.canCreateInProgramWithoutSearch() ->
                     listOf(
                         SearchResult(
                             SearchResult.SearchResultType.SEARCH_OR_CREATE,
@@ -1181,7 +1199,7 @@ class SearchTEIViewModel(
                         ),
                     )
 
-                false ->
+                else ->
                     listOf(
                         SearchResult(
                             SearchResult.SearchResultType.SEARCH,
@@ -1190,6 +1208,22 @@ class SearchTEIViewModel(
                     )
             }
         _dataResult.postValue(result)
+    }
+
+    private fun isSearchEnabled(): Boolean = _isSearchEnabled.value ?: true
+
+    private fun updateSearchEnabledInCurrentScreen(isEnabled: Boolean) {
+        (_screenState.value as? SearchList)?.let { currentScreen ->
+            _screenState.value =
+                currentScreen.copy(
+                    searchForm =
+                        currentScreen.searchForm.copy(
+                            isEnabled = isEnabled,
+                            isForced = currentScreen.searchForm.isForced && isEnabled,
+                            isOpened = currentScreen.searchForm.isOpened && isEnabled,
+                        ),
+                )
+        }
     }
 
     fun onBackPressed(

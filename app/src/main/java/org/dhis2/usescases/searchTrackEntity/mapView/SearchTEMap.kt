@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -141,6 +142,7 @@ class SearchTEMap : FragmentGlobalAbstract() {
                 val locationState = teiMapManager?.locationState?.collectAsState()
 
                 val mapDataFinishedLoading = teiMapManager?.dataFinishedLoading?.collectAsState()
+                val isSearchEnabled by viewModel.isSearchEnabled.observeAsState(true)
 
                 LaunchedEffect(key1 = clickedItem) {
                     clickedItem?.let {
@@ -184,17 +186,19 @@ class SearchTEMap : FragmentGlobalAbstract() {
                                 }
                             },
                             actionButtons = {
-                                IconButton(
-                                    style = IconButtonStyle.TONAL,
-                                    icon = {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.ic_search),
-                                            contentDescription = "",
-                                            tint = TextColor.OnPrimaryContainer,
-                                        )
-                                    },
-                                ) {
-                                    viewModel.onSearchFormRequested()
+                                if (isSearchEnabled) {
+                                    IconButton(
+                                        style = IconButtonStyle.TONAL,
+                                        icon = {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_search),
+                                                contentDescription = "",
+                                                tint = TextColor.OnPrimaryContainer,
+                                            )
+                                        },
+                                    ) {
+                                        viewModel.onSearchFormRequested()
+                                    }
                                 }
                                 mapDataFinishedLoading?.let {
                                     if (it.value) {
