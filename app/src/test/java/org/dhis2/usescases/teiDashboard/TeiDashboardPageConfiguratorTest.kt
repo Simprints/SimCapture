@@ -20,8 +20,9 @@ class TeiDashboardPageConfiguratorTest {
     }
 
     @Test
-    fun `Should display analytics screen if the program is configured`() {
+    fun `Should display analytics screen if the program is configured and Simprints RAMP history screen is not configured`() {
         whenever(dashboardRepository.programHasAnalytics()) doReturn true
+        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn false
         assertTrue(pageConfigurator.displayAnalytics())
     }
 
@@ -29,6 +30,13 @@ class TeiDashboardPageConfiguratorTest {
     fun `Should not display analytics screen if the program is configured`() {
         whenever(dashboardRepository.programHasAnalytics()) doReturn false
         assertTrue(!pageConfigurator.displayAnalytics())
+    }
+
+    @Test
+    fun `Should not display analytics screen if Simprints RAMP history screen is configured`() {
+        whenever(dashboardRepository.programHasAnalytics()) doReturn true
+        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn true
+        assertFalse(pageConfigurator.displayAnalytics())
     }
 
     @Test

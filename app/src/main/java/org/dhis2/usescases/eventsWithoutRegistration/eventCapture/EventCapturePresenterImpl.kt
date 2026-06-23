@@ -107,6 +107,7 @@ class EventCapturePresenterImpl(
 
     private fun loadBottomBarItems() {
         val navItems = mutableListOf<NavigationBarItem<NavigationPage>>()
+        val displayTableView = pageConfigurator.displayTableView()
 
         if (pageConfigurator.displayDataEntry() || forceDisplayDataEntryNavigationItemForSimprintsRampTable) {
             navItems.add(
@@ -152,7 +153,7 @@ class EventCapturePresenterImpl(
             )
         }
 
-        if (pageConfigurator.displayTableView()) {
+        if (displayTableView) {
             navItems.add(
                 NavigationBarItem(
                     id = NavigationPage.TABLE_VIEW,
@@ -163,9 +164,16 @@ class EventCapturePresenterImpl(
             )
         }
 
+        val visibleItems = navItems.takeIf { it.size > 1 || displayTableView }.orEmpty()
+        val selectedItem =
+            navigationBarUIState.value.selectedItem
+                ?.takeIf { item -> visibleItems.any { it.id == item } }
+                ?: visibleItems.firstOrNull()?.id
+
         navigationBarUIState.value =
             navigationBarUIState.value.copy(
-                items = navItems.takeIf { it.size > 1 }.orEmpty(),
+                items = visibleItems,
+                selectedItem = selectedItem,
             )
     }
 

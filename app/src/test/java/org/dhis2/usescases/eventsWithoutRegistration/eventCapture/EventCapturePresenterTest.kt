@@ -4,14 +4,22 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import io.reactivex.Flowable
 import io.reactivex.Observable
 import io.reactivex.Single
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.dhis2.commons.prefs.PreferenceProvider
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.data.schedulers.TrampolineSchedulerProvider
+import org.dhis2.utils.customviews.navigationbar.NavigationPage
 import org.dhis2.utils.customviews.navigationbar.NavigationPageConfigurator
 import org.hisp.dhis.android.core.common.ValidationStrategy
 import org.hisp.dhis.android.core.event.EventStatus
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit
 import org.hisp.dhis.android.core.program.ProgramStage
+import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -26,10 +34,12 @@ import org.mockito.kotlin.verifyNoMoreInteractions
 import org.mockito.kotlin.whenever
 import java.util.Date
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class EventCapturePresenterTest {
     @get:Rule
     val rule = InstantTaskExecutorRule()
 
+    private val testingDispatcher = UnconfinedTestDispatcher()
     private lateinit var presenter: EventCapturePresenterImpl
     private val view: EventCaptureContract.View = mock()
     private val eventUid = "eventUid"
@@ -41,6 +51,8 @@ class EventCapturePresenterTest {
 
     @Before
     fun setUp() {
+        Dispatchers.setMain(testingDispatcher)
+        whenever(resourceManager.getString(any<Int>())) doReturn ""
         presenter =
             EventCapturePresenterImpl(
                 view,
@@ -51,6 +63,11 @@ class EventCapturePresenterTest {
                 pageConfigurator,
                 resourceManager,
             )
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
     }
 
     @Test
@@ -291,6 +308,52 @@ class EventCapturePresenterTest {
         verify(view).updateNoteBadge(0)
         presenter.initNoteCounter()
         verify(view).updateNoteBadge(1)
+    }
+
+    @Test
+    fun `Should display one chart navigation item when only Simprints RAMP history table tab is configured`() {
+        initializeMocks()
+        whenever(eventRepository.eventIntegrityCheck()) doReturn Flowable.just(true)
+        whenever(eventRepository.eventStatus()) doReturn Flowable.just(EventStatus.ACTIVE)
+        whenever(eventRepository.isEventEditable("eventUid")) doReturn true
+        whenever(pageConfigurator.displayDataEntry()) doReturn false
+        whenever(pageConfigurator.displayAnalytics()) doReturn false
+        whenever(pageConfigurator.displayRelationships()) doReturn false
+        whenever(pageConfigurator.displayNotes()) doReturn false
+        whenever(pageConfigurator.displayTableView()) doReturn true
+
+        presenter.init()
+
+        assertEquals(
+            listOf(NavigationPage.TABLE_VIEW),
+            presenter.observeNavigationBarUIState().value.items.map { it.id },
+        )
+        assertEquals(
+            NavigationPage.TABLE_VIEW,
+            presenter.observeNavigationBarUIState().value.selectedItem,
+        )
+
+        presenter.setForceDisplayDataEntryNavigationItemForSimprintsRampTable(true)
+
+        assertEquals(
+            listOf(NavigationPage.DATA_ENTRY, NavigationPage.TABLE_VIEW),
+            presenter.observeNavigationBarUIState().value.items.map { it.id },
+        )
+        assertEquals(
+            NavigationPage.TABLE_VIEW,
+            presenter.observeNavigationBarUIState().value.selectedItem,
+        )
+
+        presenter.setForceDisplayDataEntryNavigationItemForSimprintsRampTable(false)
+
+        assertEquals(
+            listOf(NavigationPage.TABLE_VIEW),
+            presenter.observeNavigationBarUIState().value.items.map { it.id },
+        )
+        assertEquals(
+            NavigationPage.TABLE_VIEW,
+            presenter.observeNavigationBarUIState().value.selectedItem,
+        )
     }
 
     private fun initializeMocks() {

@@ -17,7 +17,7 @@ import org.dhis2.tracker.TEIDashboardItems
 import org.hisp.dhis.android.core.common.State
 import org.hisp.dhis.android.core.enrollment.Enrollment
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -105,41 +105,55 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun shouldDisplayDetailsWhenHistoryIsSelectedInLandscape() {
+    fun shouldDisplayOnlyHistoryUntilLandscapeHistoryFullscreenIsForced() {
         mockEnrollmentModel()
         mockGrouping(false)
         whenever(pageConfigurator.displayDetails()) doReturn false
-        whenever(pageConfigurator.displayAnalytics()) doReturn true
+        whenever(pageConfigurator.displayAnalytics()) doReturn false
         whenever(pageConfigurator.displayTableView()) doReturn true
 
         val dashboardViewModel = getViewModel()
 
-        assertTrue(
-            dashboardViewModel.navigationItemIds() ==
-                listOf(
-                    TEIDashboardItems.ANALYTICS,
-                    TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
-                ),
+        assertEquals(
+            listOf(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE),
+            dashboardViewModel.navigationItemIds(),
+        )
+        assertEquals(
+            TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
+            dashboardViewModel.navigationBarUIState.value.selectedItem,
         )
 
         dashboardViewModel.onNavigationItemSelected(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
 
-        assertTrue(
-            dashboardViewModel.navigationItemIds() ==
-                listOf(
-                    TEIDashboardItems.DETAILS,
-                    TEIDashboardItems.ANALYTICS,
-                    TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
-                ),
+        assertEquals(
+            listOf(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE),
+            dashboardViewModel.navigationItemIds(),
         )
-        assertTrue(
-            dashboardViewModel.navigationBarUIState.value.selectedItem ==
+
+        dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(true)
+
+        assertEquals(
+            listOf(
+                TEIDashboardItems.DETAILS,
                 TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
+            ),
+            dashboardViewModel.navigationItemIds(),
+        )
+        assertEquals(
+            TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
+            dashboardViewModel.navigationBarUIState.value.selectedItem,
         )
 
-        dashboardViewModel.onNavigationItemSelected(TEIDashboardItems.ANALYTICS)
+        dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(false)
 
-        assertFalse(dashboardViewModel.navigationItemIds().contains(TEIDashboardItems.DETAILS))
+        assertEquals(
+            listOf(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE),
+            dashboardViewModel.navigationItemIds(),
+        )
+        assertEquals(
+            TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
+            dashboardViewModel.navigationBarUIState.value.selectedItem,
+        )
     }
 
     @Test

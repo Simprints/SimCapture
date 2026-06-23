@@ -49,6 +49,7 @@ class DashboardViewModel(
 
     private val selectedEventUid = MutableLiveData<String>()
     private var displayDetailsNavigationItem = pageConfigurator.displayDetails()
+    private var forceDisplayDetailsNavigationItemForSimprintsRampTable = false
 
     val showStatusErrorMessages = MutableLiveData(StatusChangeResultCode.CHANGED)
 
@@ -129,7 +130,7 @@ class DashboardViewModel(
     private fun updateNavigationBarItems(selectedItem: TEIDashboardItems?) {
         val enrollmentItems = mutableListOf<NavigationBarItem<TEIDashboardItems>>()
 
-        if (displayDetailsNavigationItem || selectedItem == TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE) {
+        if (displayDetailsNavigationItem || forceDisplayDetailsNavigationItemForSimprintsRampTable) {
             enrollmentItems.add(
                 NavigationBarItem(
                     id = TEIDashboardItems.DETAILS,
@@ -316,14 +317,12 @@ class DashboardViewModel(
         }
     }
 
-    fun getDefaultLandscapeNavigationItemExceptHistory(): TEIDashboardItems? =
-        _navigationBarUIState
-            .value
-            .items
-            .firstOrNull {
-                it.id != TEIDashboardItems.DETAILS && // not in tab bar in landscape
-                    it.id != TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE
-            }?.id
+    fun setForceDisplayDetailsNavigationItemForSimprintsRampTable(forceDisplay: Boolean) {
+        if (forceDisplayDetailsNavigationItemForSimprintsRampTable != forceDisplay) {
+            forceDisplayDetailsNavigationItemForSimprintsRampTable = forceDisplay
+            updateNavigationBarItems(_navigationBarUIState.value.selectedItem)
+        }
+    }
 
     fun checkIfTeiCanBeTransferred(): Boolean = repository.teiCanBeTransferred()
 

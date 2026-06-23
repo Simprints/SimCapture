@@ -10,7 +10,7 @@ class EventPageConfigurator(
 
     override fun displayDataEntry(): Boolean = isPortrait
 
-    override fun displayAnalytics(): Boolean = eventCaptureRepository.hasAnalytics()
+    override fun displayAnalytics(): Boolean = eventCaptureRepository.hasAnalytics() && !displayTableView()
 
     override fun displayRelationships(): Boolean = eventCaptureRepository.hasRelationships()
 

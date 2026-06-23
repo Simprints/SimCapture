@@ -360,22 +360,38 @@ class TeiDashboardMobileActivity :
     }
 
     private fun onNavigationBarItemSelected(item: TEIDashboardItems) {
-        if (isLandscape() && item == TEIDashboardItems.DETAILS) {
-            restoreSimprintsRampHistoryTableLandscapeLayoutAndSelectDefaultPage()
+        if (isLandscape()) {
+            when (item) {
+                TEIDashboardItems.DETAILS -> {
+                    restoreSimprintsRampHistoryTableLandscapeLayout()
+                }
+
+                TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE -> {
+                    setSimprintsRampHistoryTableLandscapeFullscreen(true)
+                    dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(true)
+                    dashboardViewModel.onNavigationItemSelected(item)
+                }
+
+                else -> {
+                    setSimprintsRampHistoryTableLandscapeFullscreen(false)
+                    dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(false)
+                    dashboardViewModel.onNavigationItemSelected(item)
+                }
+            }
         } else {
             dashboardViewModel.onNavigationItemSelected(item)
         }
     }
 
-    private fun restoreSimprintsRampHistoryTableLandscapeLayoutAndSelectDefaultPage() {
+    private fun restoreSimprintsRampHistoryTableLandscapeLayout() {
         setSimprintsRampHistoryTableLandscapeFullscreen(false)
-        dashboardViewModel
-            .getDefaultLandscapeNavigationItemExceptHistory()
-            ?.let(dashboardViewModel::onNavigationItemSelected)
+        dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(false)
     }
 
     private fun navigateToFragment(item: TEIDashboardItems) {
-        setSimprintsRampHistoryTableLandscapeFullscreen(item == TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
+        if (item != TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE) {
+            setSimprintsRampHistoryTableLandscapeFullscreen(false)
+        }
 
         val fragment =
             when (item) {
