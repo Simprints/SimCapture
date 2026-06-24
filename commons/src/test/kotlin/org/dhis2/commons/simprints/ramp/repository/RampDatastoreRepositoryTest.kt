@@ -112,6 +112,46 @@ class RampDatastoreRepositoryTest {
     }
 
     @Test
+    fun `program stage options should return false only when stage disables them`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "programStageSpecificSettings": [
+                {
+                  "programStageId": "disabledStage",
+                  "isScheduleOptionEnabled": false,
+                  "isReferOptionEnabled": false
+                },
+                {
+                  "programStageId": "defaultStage"
+                },
+                {
+                  "programStageId": "enabledStage",
+                  "isScheduleOptionEnabled": true,
+                  "isReferOptionEnabled": true
+                },
+                {
+                  "isScheduleOptionEnabled": false,
+                  "isReferOptionEnabled": false
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(false, repository.isScheduleOptionEnabled("disabledStage"))
+        assertEquals(false, repository.isReferOptionEnabled("disabledStage"))
+        assertEquals(true, repository.isScheduleOptionEnabled("enabledStage"))
+        assertEquals(true, repository.isReferOptionEnabled("enabledStage"))
+        assertEquals(true, repository.isScheduleOptionEnabled("defaultStage"))
+        assertEquals(true, repository.isReferOptionEnabled("defaultStage"))
+        assertEquals(true, repository.isScheduleOptionEnabled("missingStage"))
+        assertEquals(true, repository.isReferOptionEnabled("missingStage"))
+        assertEquals(true, repository.isScheduleOptionEnabled(null))
+        assertEquals(true, repository.isReferOptionEnabled(null))
+    }
+
+    @Test
     fun `getConfig should parse wrapped string datastore value`() {
         val rawJson =
             """

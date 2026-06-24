@@ -6,11 +6,13 @@ data class RampDatastoreConfig(
     val dataElementHistoryCharts: List<DataElementHistoryChartConfig> = emptyList(),
     val programStageHistoryTables: List<ProgramStageHistoryTableConfig> = emptyList(),
     val programSpecificSettings: List<ProgramSpecificSetting> = emptyList(),
+    val programStageSpecificSettings: List<ProgramStageSpecificSetting> = emptyList(),
 ) {
     fun isNotEmpty(): Boolean =
         dataElementHistoryCharts.isNotEmpty() ||
             programStageHistoryTables.isNotEmpty() ||
-            programSpecificSettings.isNotEmpty()
+            programSpecificSettings.isNotEmpty() ||
+            programStageSpecificSettings.isNotEmpty()
 }
 
 data class DataElementHistoryChartConfig(
@@ -61,4 +63,15 @@ data class ProgramSpecificSetting(
     val isSearchEnabled: Boolean? = null,
 ) {
     fun isValid(): Boolean = !programId.isNullOrBlank()
+}
+
+data class ProgramStageSpecificSetting(
+    @SerializedName("programStageId")
+    val programStageId: String? = null,
+    @SerializedName("isScheduleOptionEnabled")
+    val isScheduleOptionEnabled: Boolean? = null,
+    @SerializedName("isReferOptionEnabled")
+    val isReferOptionEnabled: Boolean? = null,
+) {
+    fun isValid(): Boolean = !programStageId.isNullOrBlank()
 }

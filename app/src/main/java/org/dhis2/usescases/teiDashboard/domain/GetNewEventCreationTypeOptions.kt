@@ -5,10 +5,12 @@ import org.dhis2.commons.data.EventCreationType.ADDNEW
 import org.dhis2.commons.data.EventCreationType.REFERAL
 import org.dhis2.commons.data.EventCreationType.SCHEDULE
 import org.dhis2.commons.data.ProgramConfigurationRepository
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.hisp.dhis.android.core.program.ProgramStage
 
 class GetNewEventCreationTypeOptions(
     private val programConfigurationRepository: ProgramConfigurationRepository,
+    private val rampDatastoreRepository: RampDatastoreRepository,
 ) {
     operator fun invoke(
         programStage: ProgramStage?,
@@ -16,10 +18,16 @@ class GetNewEventCreationTypeOptions(
     ): List<EventCreationType> {
         val options: MutableList<EventCreationType> = mutableListOf()
         options.add(ADDNEW)
-        if (programStage == null || shouldShowScheduleEvents(programStage)) {
+        if (
+            (programStage == null || shouldShowScheduleEvents(programStage)) &&
+            rampDatastoreRepository.isScheduleOptionEnabled(programStage?.uid())
+        ) {
             options.add(SCHEDULE)
         }
-        if (shouldShowReferralEvents(programUid)) {
+        if (
+            shouldShowReferralEvents(programUid) &&
+            rampDatastoreRepository.isReferOptionEnabled(programStage?.uid())
+        ) {
             options.add(REFERAL)
         }
         return options
