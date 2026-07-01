@@ -3,8 +3,6 @@ package org.dhis2.usescases.eventsWithoutRegistration.eventCapture;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.google.gson.Gson;
-
 import org.dhis2.commons.bindings.SdkExtensionsKt;
 import org.dhis2.commons.simprints.ramp.model.ProgramStageHistoryTableConfig;
 import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository;
@@ -38,10 +36,10 @@ public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCap
     private final D2 d2;
     private final RampDatastoreRepository rampDatastoreRepository;
 
-    public EventCaptureRepositoryImpl(String eventUid, D2 d2) {
+    public EventCaptureRepositoryImpl(String eventUid, D2 d2, RampDatastoreRepository rampDatastoreRepository) {
         this.eventUid = eventUid;
         this.d2 = d2;
-        this.rampDatastoreRepository = new RampDatastoreRepository(d2, new Gson());
+        this.rampDatastoreRepository = rampDatastoreRepository;
     }
 
     private Event getCurrentEvent() {

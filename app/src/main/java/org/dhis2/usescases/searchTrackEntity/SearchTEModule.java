@@ -4,6 +4,8 @@ import android.content.Context;
 
 import androidx.annotation.NonNull;
 
+import com.google.gson.Gson;
+
 import org.dhis2.R;
 import org.dhis2.commons.data.ProgramConfigurationRepository;
 import org.dhis2.commons.date.DateLabelProvider;
@@ -22,6 +24,7 @@ import org.dhis2.commons.resources.ColorUtils;
 import org.dhis2.commons.resources.DhisPeriodUtils;
 import org.dhis2.commons.resources.MetadataIconProvider;
 import org.dhis2.commons.resources.ResourceManager;
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository;
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository;
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository;
 import org.dhis2.commons.simprints.usecases.SimprintsHasAutoOpenEligibleIdentificationUseCase;
@@ -156,6 +159,12 @@ public class SearchTEModule {
 
     @Provides
     @PerActivity
+    RampDatastoreRepository provideRampDatastoreRepository(@NonNull D2 d2) {
+        return new RampDatastoreRepository(d2, new Gson());
+    }
+
+    @Provides
+    @PerActivity
     SearchRepository searchRepository(@NonNull D2 d2,
                                       FilterPresenter filterPresenter,
                                       ResourceManager resources,
@@ -168,7 +177,8 @@ public class SearchTEModule {
                                       ThemeManager themeManager,
                                       MetadataIconProvider metadataIconProvider,
                                       DateUtils dateUtils,
-                                      CustomIntentRepository customIntentRepository) {
+                                      CustomIntentRepository customIntentRepository,
+                                      RampDatastoreRepository rampDatastoreRepository) {
         ProfilePictureProvider profilePictureProvider = new ProfilePictureProvider(d2);
         return new SearchRepositoryImpl(teiType,
                 initialProgram,
@@ -185,7 +195,8 @@ public class SearchTEModule {
                 metadataIconProvider,
                 profilePictureProvider,
                 dateUtils,
-                customIntentRepository);
+                customIntentRepository,
+                rampDatastoreRepository);
     }
 
     @Provides

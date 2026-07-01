@@ -3,7 +3,6 @@ package org.dhis2.usescases.searchTrackEntity;
 import android.database.sqlite.SQLiteConstraintException;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import com.google.gson.Gson;
 import org.dhis2.R;
 import org.dhis2.bindings.ExtensionsKt;
 import org.dhis2.bindings.ValueExtensionsKt;
@@ -144,7 +143,8 @@ public class SearchRepositoryImpl implements SearchRepository {
                          MetadataIconProvider metadataIconProvider,
                          ProfilePictureProvider profilePictureProvider,
                          DateUtils dateUtils,
-                         CustomIntentRepository customIntentRepository
+                         CustomIntentRepository customIntentRepository,
+                         RampDatastoreRepository rampDatastoreRepository
     ) {
         this.teiType = teiType;
         this.d2 = d2;
@@ -168,7 +168,7 @@ public class SearchRepositoryImpl implements SearchRepository {
         this.metadataIconProvider = metadataIconProvider;
         this.profilePictureProvider = profilePictureProvider;
         this.customIntentRepository = customIntentRepository;
-        this.rampDatastoreRepository = new RampDatastoreRepository(d2, new Gson());
+        this.rampDatastoreRepository = rampDatastoreRepository;
     }
 
 
@@ -1030,5 +1030,4 @@ public class SearchRepositoryImpl implements SearchRepository {
     private static final String OPTION_SET_REGEX = "_os_";
 
 }
-
 
