@@ -15,9 +15,9 @@ fun aboutRobot(aboutBody: AboutRobot.() -> Unit) {
 
 class AboutRobot : BaseRobot() {
 
-    fun checkVersionNames(appName: String, sdkName: String) {
-        val appNameText = "App Version: $appName"
-        onView(withId(R.id.aboutApp)).check(matches(withText(appNameText)))
+    fun checkVersionNames(rampCaptureName: String, appName: String, sdkName: String) {
+        onView(withId(R.id.rampCaptureVersion)).check(matches(withText(rampCaptureName)))
+        onView(withId(R.id.aboutApp)).check(matches(withText(appName)))
         onView(withId(R.id.appSDK)).check(matches(withText(sdkName)))
     }
 }

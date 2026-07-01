@@ -24,4 +24,32 @@ class EventPageConfiguratorTest {
         whenever(eventCaptureRepository.hasSimprintsRampProgramStageHistoryTable()) doReturn false
         assertFalse(pageConfigurator.displayTableView())
     }
+
+    @Test
+    fun `displayAnalytics should be true when analytics are configured and Simprints RAMP history table is not configured`() {
+        whenever(eventCaptureRepository.hasAnalytics()) doReturn true
+        whenever(eventCaptureRepository.hasSimprintsRampProgramStageHistoryTable()) doReturn false
+
+        assertTrue(pageConfigurator.displayAnalytics())
+    }
+
+    @Test
+    fun `displayAnalytics should be false when Simprints RAMP history table is configured`() {
+        whenever(eventCaptureRepository.hasAnalytics()) doReturn true
+        whenever(eventCaptureRepository.hasSimprintsRampProgramStageHistoryTable()) doReturn true
+
+        assertFalse(pageConfigurator.displayAnalytics())
+    }
+
+    @Test
+    fun `displayNotes should be true when Simprints RAMP history table is not configured`() {
+        whenever(eventCaptureRepository.hasSimprintsRampProgramStageHistoryTable()) doReturn false
+        assertTrue(pageConfigurator.displayNotes())
+    }
+
+    @Test
+    fun `displayNotes should be false when Simprints RAMP history table is configured`() {
+        whenever(eventCaptureRepository.hasSimprintsRampProgramStageHistoryTable()) doReturn true
+        assertFalse(pageConfigurator.displayNotes())
+    }
 }

@@ -360,7 +360,8 @@
     <string name="downloaded_confirm">Do you want to add more data from QR?</string>
 
     <!--ABOUT-->
-    <string name="about_app">App Version: %s</string>
+    <string name="ramp_capture_version">RAMPcapture Version: %s</string>
+    <string name="about_app">DHIS2 App Version: %s</string>
     <string name="about_sdk">SDK Version: %s</string>
     <string name="about_connected">Connected to: %s</string>
     <string name="about_user">Current user: %s</string>
@@ -759,7 +760,7 @@
     <string name="navigation_charts">Charts</string>
     <string name="navigation_relationships">Relations</string>
     <string name="navigation_notes">Notes</string>
-    <string name="navigation_simprints_ramp_history">History</string>
+    <string name="navigation_simprints_ramp_history_chart">Chart</string>
     <string name="navigation_data_entry">Data entry</string>
     <string name="navigation_form">Form</string>
     <string name="navigation_tei_data">Details</string>

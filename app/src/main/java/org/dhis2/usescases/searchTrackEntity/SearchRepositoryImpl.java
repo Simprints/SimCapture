@@ -18,6 +18,7 @@ import org.dhis2.commons.network.NetworkUtils;
 import org.dhis2.commons.resources.DhisPeriodUtils;
 import org.dhis2.commons.resources.MetadataIconProvider;
 import org.dhis2.commons.resources.ResourceManager;
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository;
 import org.dhis2.data.dhislogic.DhisEnrollmentUtils;
 import org.dhis2.data.forms.dataentry.SearchTEIRepository;
 import org.dhis2.data.forms.dataentry.ValueStore;
@@ -124,6 +125,7 @@ public class SearchRepositoryImpl implements SearchRepository {
 
     private final MetadataIconProvider metadataIconProvider;
     private final ProfilePictureProvider profilePictureProvider;
+    private final RampDatastoreRepository rampDatastoreRepository;
     private CustomIntentRepository customIntentRepository;
 
     SearchRepositoryImpl(String teiType,
@@ -141,7 +143,8 @@ public class SearchRepositoryImpl implements SearchRepository {
                          MetadataIconProvider metadataIconProvider,
                          ProfilePictureProvider profilePictureProvider,
                          DateUtils dateUtils,
-                         CustomIntentRepository customIntentRepository
+                         CustomIntentRepository customIntentRepository,
+                         RampDatastoreRepository rampDatastoreRepository
     ) {
         this.teiType = teiType;
         this.d2 = d2;
@@ -165,6 +168,7 @@ public class SearchRepositoryImpl implements SearchRepository {
         this.metadataIconProvider = metadataIconProvider;
         this.profilePictureProvider = profilePictureProvider;
         this.customIntentRepository = customIntentRepository;
+        this.rampDatastoreRepository = rampDatastoreRepository;
     }
 
 
@@ -1012,6 +1016,11 @@ public class SearchRepositoryImpl implements SearchRepository {
         }
     }
 
+    @Override
+    public boolean isSearchEnabled() {
+        return rampDatastoreRepository.isSearchEnabled(currentProgram);
+    }
+
     private boolean displayOrgUnit() {
         return d2.organisationUnitModule().organisationUnits()
                 .byProgramUids(Collections.singletonList(currentProgram))
@@ -1021,5 +1030,4 @@ public class SearchRepositoryImpl implements SearchRepository {
     private static final String OPTION_SET_REGEX = "_os_";
 
 }
-
 

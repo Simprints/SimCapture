@@ -209,14 +209,15 @@ class EventHistoryTableRepository(
                 rows = followUpRows,
             )
         } else {
+            val rowsByDataElementUid = followUpRows.associateBy { row -> row.dataElementUid }
+
             sections.mapNotNull { section ->
-                val sectionDataElementUids =
+                val rows =
                     section
                         .dataElements()
                         .orEmpty()
-                        .mapNotNull { dataElement -> dataElement.uid() }
-                        .toSet()
-                val rows = followUpRows.filter { row -> row.dataElementUid in sectionDataElementUids }
+                        .mapNotNull { dataElement -> dataElement.uid()?.let(rowsByDataElementUid::get) }
+                        .distinctBy { row -> row.dataElementUid }
 
                 rows
                     .takeIf { it.isNotEmpty() }
@@ -296,6 +297,8 @@ class EventHistoryTableRepository(
                     .eq(tableContext.enrollmentUid)
                     .byProgramStageUid()
                     .eq(followUpVisitProgramStageUid)
+                    .byDeleted()
+                    .isFalse
                     .blockingGet()
             }
         val events =

@@ -18,17 +18,23 @@ class SearchScreenConfigurator(
     val binding: ActivitySearchBinding,
     val filterIsOpenCallback: (isOpen: Boolean) -> Unit,
 ) {
+    private var hasConfiguredLandscape = false
+
     fun configure(screenState: SearchTEScreenState) {
         when (screenState) {
-            is SearchAnalytics -> configureLandscapeAnalyticsScreen(true)
+            is SearchAnalytics -> configureLandscapeAnalyticsScreen(true, withAnimation = hasConfiguredLandscape)
             is SearchList ->
                 if (isPortrait()) {
                     configureListScreen(screenState)
                 } else {
-                    if (screenState.screenState != SearchScreenState.MAP) {
-                        configureLandscapeAnalyticsScreen(false)
+                    val withAnimation = hasConfiguredLandscape
+                    if (screenState.screenState != SearchScreenState.MAP &&
+                        (screenState.searchForm.isEnabled || screenState.searchFilters.isOpened)
+                    ) {
+                        configureLandscapeAnalyticsScreen(false, withAnimation = withAnimation)
                     }
-                    configureLandscapeListScreen(screenState)
+                    configureLandscapeListScreen(screenState, withAnimation)
+                    hasConfiguredLandscape = true
                 }
         }
     }
@@ -45,22 +51,39 @@ class SearchScreenConfigurator(
         setFiltersVisibility(!searchConfiguration.searchForm.isOpened)
     }
 
-    private fun configureLandscapeListScreen(searchConfiguration: SearchList) {
-        if (searchConfiguration.searchFilters.isOpened) {
-            openFilters()
-        } else {
-            openSearch()
+    private fun configureLandscapeListScreen(searchConfiguration: SearchList, withAnimation: Boolean) {
+        when {
+            searchConfiguration.searchFilters.isOpened -> {
+                if (searchConfiguration.screenState == SearchScreenState.MAP) {
+                    configureLandscapeAnalyticsScreen(false, withAnimation = withAnimation)
+                }
+                openFilters()
+            }
+
+            searchConfiguration.searchForm.isEnabled -> {
+                if (searchConfiguration.screenState == SearchScreenState.MAP) {
+                    configureLandscapeAnalyticsScreen(false, withAnimation = withAnimation)
+                }
+                openSearch()
+            }
+
+            else -> {
+                configureLandscapeAnalyticsScreen(true, withAnimation = false)
+                closeBackdrop()
+            }
         }
 
         syncButtonVisibility(true)
         setFiltersVisibility(true)
     }
 
-    private fun configureLandscapeAnalyticsScreen(expanded: Boolean) {
+    private fun configureLandscapeAnalyticsScreen(expanded: Boolean, withAnimation: Boolean = true) {
         val constraintSet = ConstraintSet()
         constraintSet.clone(binding.backdropLayout)
         constraintSet.setGuidelinePercent(R.id.backdropGuideDiv, if (expanded) 0.0f else 0.26f)
-        TransitionManager.beginDelayedTransition(binding.backdropLayout)
+        if (withAnimation) {
+            TransitionManager.beginDelayedTransition(binding.backdropLayout)
+        }
         constraintSet.applyTo(binding.backdropLayout)
     }
 

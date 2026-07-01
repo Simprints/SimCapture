@@ -10,6 +10,7 @@ import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.forms.dataentry.SearchTEIRepository
 import org.dhis2.data.sorting.SearchSortingValueSetter
@@ -98,6 +99,7 @@ class SearchRepositoryTest {
     private val searchTEIRepository: SearchTEIRepository = mock()
     private val themeManager: ThemeManager = mock()
     private val profilePictureProvider: ProfilePictureProvider = mock()
+    private val rampDatastoreRepository: RampDatastoreRepository = mock()
     private val dateUtils: DateUtils = DateUtils()
 
     @Before
@@ -147,6 +149,7 @@ class SearchRepositoryTest {
                 profilePictureProvider,
                 dateUtils,
                 customIntentRepository,
+                rampDatastoreRepository,
             )
     }
 

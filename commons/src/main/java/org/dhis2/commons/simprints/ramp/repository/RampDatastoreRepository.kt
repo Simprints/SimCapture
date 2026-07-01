@@ -5,7 +5,9 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonParseException
 import com.google.gson.JsonParser
 import org.dhis2.commons.simprints.ramp.model.DataElementHistoryChartConfig
+import org.dhis2.commons.simprints.ramp.model.ProgramSpecificSetting
 import org.dhis2.commons.simprints.ramp.model.ProgramStageHistoryTableConfig
+import org.dhis2.commons.simprints.ramp.model.ProgramStageSpecificSetting
 import org.dhis2.commons.simprints.ramp.model.RampDatastoreConfig
 import org.hisp.dhis.android.core.D2
 import timber.log.Timber
@@ -37,6 +39,41 @@ class RampDatastoreRepository(
             .blockingDownload()
     }
 
+    fun isSearchEnabled(programId: String?): Boolean {
+        val normalizedProgramId = programId.trimToValue() ?: return true
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull { it.programId == normalizedProgramId }
+                ?.isSearchEnabled != false
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            true
+        }
+    }
+
+    fun isScheduleOptionEnabled(programStageId: String?): Boolean = isProgramStageOptionEnabled(programStageId) { isScheduleOptionEnabled }
+
+    fun isReferOptionEnabled(programStageId: String?): Boolean = isProgramStageOptionEnabled(programStageId) { isReferOptionEnabled }
+
+    private fun isProgramStageOptionEnabled(
+        programStageId: String?,
+        option: ProgramStageSpecificSetting.() -> Boolean?,
+    ): Boolean {
+        val normalizedProgramStageId = programStageId.trimToValue() ?: return true
+
+        return try {
+            getConfig()
+                .programStageSpecificSettings
+                .firstOrNull { it.programStageId == normalizedProgramStageId }
+                ?.option() != false
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            true
+        }
+    }
+
     private fun getLocalRampDatastoreValue(): String? =
         d2
             .dataStoreModule()
@@ -55,12 +92,28 @@ class RampDatastoreRepository(
                         .get(DATA_ELEMENT_HISTORY_CHARTS_KEY)
                         ?.parseList<DataElementHistoryChartConfig>()
                         .orEmpty()
+                        .map { it.normalized() }
                         .filter { it.isValid() },
                 programStageHistoryTables =
                     root
                         .get(PROGRAM_STAGE_HISTORY_TABLE_KEY)
                         ?.parseList<ProgramStageHistoryTableConfig>()
                         .orEmpty()
+                        .map { it.normalized() }
+                        .filter { it.isValid() },
+                programSpecificSettings =
+                    root
+                        .get(PROGRAM_SPECIFIC_SETTINGS_KEY)
+                        ?.parseList<ProgramSpecificSetting>()
+                        .orEmpty()
+                        .map { it.normalized() }
+                        .filter { it.isValid() },
+                programStageSpecificSettings =
+                    root
+                        .get(PROGRAM_STAGE_SPECIFIC_SETTINGS_KEY)
+                        ?.parseList<ProgramStageSpecificSetting>()
+                        .orEmpty()
+                        .map { it.normalized() }
                         .filter { it.isValid() },
             )
         } catch (exception: JsonParseException) {
@@ -123,6 +176,32 @@ class RampDatastoreRepository(
             null
         }
 
+    private fun DataElementHistoryChartConfig.normalized(): DataElementHistoryChartConfig =
+        copy(
+            programId = programId.trimToValue(),
+            followUpVisitProgramStageId = followUpVisitProgramStageId.trimToValue(),
+            dataElementId = dataElementId.trimToValue(),
+            xAxisVisitNumberDataElementId = xAxisVisitNumberDataElementId.trimToValue(),
+        )
+
+    private fun ProgramStageHistoryTableConfig.normalized(): ProgramStageHistoryTableConfig =
+        copy(
+            programId = programId.trimToValue(),
+            followUpVisitProgramStageId = followUpVisitProgramStageId.trimToValue(),
+            headerVisitNumberDataElementId = headerVisitNumberDataElementId.trimToValue(),
+            excludedFollowUpVisitDataElementIds =
+                excludedFollowUpVisitDataElementIds
+                    ?.mapNotNull { it.trimToValue() },
+        )
+
+    private fun ProgramSpecificSetting.normalized(): ProgramSpecificSetting =
+        copy(programId = programId.trimToValue())
+
+    private fun ProgramStageSpecificSetting.normalized(): ProgramStageSpecificSetting =
+        copy(programStageId = programStageId.trimToValue())
+
+    private fun String?.trimToValue(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
+
     private data class CachedConfig(
         val rawValue: String?,
         val config: RampDatastoreConfig,
@@ -133,6 +212,8 @@ class RampDatastoreRepository(
         private const val RAMP_DATASTORE_KEY = "ramp"
         private const val DATA_ELEMENT_HISTORY_CHARTS_KEY = "dataElementHistoryCharts"
         private const val PROGRAM_STAGE_HISTORY_TABLE_KEY = "programStageHistoryTable"
+        private const val PROGRAM_SPECIFIC_SETTINGS_KEY = "programSpecificSettings"
+        private const val PROGRAM_STAGE_SPECIFIC_SETTINGS_KEY = "programStageSpecificSettings"
         private const val DATASTORE_JSON_WRAPPER_NAME = "JsonWrapper"
         private const val DATASTORE_JSON_WRAPPER_JSON_FIELD = "json"
         private const val RAMP_DATASTORE_PARSE_ERROR = "Failed to parse Simprints RAMP datastore config"

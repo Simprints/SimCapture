@@ -22,6 +22,7 @@ class EventCapturePagerAdapter(
     displayAnalyticScreen: Boolean,
     displaySimprintsRampHistoryTableScreen: Boolean,
     displayRelationshipScreen: Boolean,
+    displayNotes: Boolean,
     private val shouldOpenErrorSection: Boolean,
     private val eventMode: EventMode,
 ) : FragmentStateAdapter(fragmentActivity) {
@@ -59,8 +60,11 @@ class EventCapturePagerAdapter(
             portraitPages.add(EventPageType.RELATIONSHIPS)
             landscapePages.add(EventPageType.RELATIONSHIPS)
         }
-        portraitPages.add(EventPageType.NOTES)
-        landscapePages.add(EventPageType.NOTES)
+
+        if (displayNotes) {
+            portraitPages.add(EventPageType.NOTES)
+            landscapePages.add(EventPageType.NOTES)
+        }
 
         if (displaySimprintsRampHistoryTableScreen) {
             portraitPages.add(EventPageType.SIMPRINTS_RAMP_HISTORY_TABLE)

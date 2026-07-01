@@ -244,6 +244,7 @@ fun WrappedSearchButton(
 fun FullSearchButtonAndWorkingList(
     teTypeName: String,
     modifier: Modifier,
+    searchButtonVisible: Boolean = true,
     createButtonVisible: Boolean = false,
     closeFilterVisibility: Boolean = false,
     isLandscape: Boolean = false,
@@ -258,7 +259,12 @@ fun FullSearchButtonAndWorkingList(
     workingListViewModel: WorkingListViewModel? = null,
 ) {
     Column(modifier = modifier) {
-        if (!isLandscape || queryData.isNotEmpty()) {
+        val displaySearchControls =
+            searchButtonVisible ||
+                createButtonVisible ||
+                closeFilterVisibility
+
+        if (displaySearchControls && (!isLandscape || queryData.isNotEmpty())) {
             Row(
                 modifier =
                     Modifier.padding(
@@ -276,7 +282,7 @@ fun FullSearchButtonAndWorkingList(
                             .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(Spacing.Spacing8),
                 ) {
-                    if (queryData.isNotEmpty()) {
+                    if (queryData.isNotEmpty() && searchButtonVisible) {
                         SearchButtonWithQuery(
                             modifier = Modifier.fillMaxWidth(),
                             queryData = queryData,
@@ -285,10 +291,11 @@ fun FullSearchButtonAndWorkingList(
                             onClick = onSearchClick,
                             onClearSearchQuery = onClearSearchQuery,
                         )
-                    } else {
+                    } else if (searchButtonVisible || createButtonVisible) {
                         SearchAndCreateTEIButton(
                             onSearchClick = onSearchClick,
                             teTypeName = teTypeName,
+                            searchButtonVisible = searchButtonVisible,
                             createButtonVisible = createButtonVisible,
                             onEnrollClick = onEnrollClick,
                         )
@@ -322,7 +329,11 @@ fun FullSearchButtonAndWorkingList(
                 }
             }
 
-            if (isSimprintsBiometricSearch && !isSimprintsPossibleDuplicatesSearch && queryData.isNotEmpty()) {
+            if (searchButtonVisible &&
+                isSimprintsBiometricSearch &&
+                !isSimprintsPossibleDuplicatesSearch &&
+                queryData.isNotEmpty()
+            ) {
                 SimprintsBiometricSearchFallbackButton(
                     modifier =
                         Modifier.padding(
@@ -347,15 +358,18 @@ fun FullSearchButtonAndWorkingList(
 private fun SearchAndCreateTEIButton(
     onSearchClick: () -> Unit,
     teTypeName: String,
+    searchButtonVisible: Boolean,
     createButtonVisible: Boolean,
     onEnrollClick: () -> Unit,
 ) {
-    SearchButton(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onSearchClick,
-        teTypeName = teTypeName,
-        createButtonVisible = createButtonVisible,
-    )
+    if (searchButtonVisible) {
+        SearchButton(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onSearchClick,
+            teTypeName = teTypeName,
+            createButtonVisible = createButtonVisible,
+        )
+    }
 
     if (createButtonVisible) {
         AddNewButton(

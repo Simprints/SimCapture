@@ -12,6 +12,7 @@ import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.prefs.PreferenceProvider
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.commons.schedulers.SchedulerProvider
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.data.dhislogic.DhisEnrollmentUtils
 import org.dhis2.data.forms.dataentry.SearchTEIRepository
 import org.dhis2.data.forms.dataentry.SearchTEIRepositoryImpl
@@ -62,7 +63,12 @@ class EventCaptureModule(
 
     @Provides
     @PerActivity
-    fun provideRepository(d2: D2?): EventCaptureRepository = EventCaptureRepositoryImpl(eventUid, d2)
+    fun provideRepository(d2: D2): EventCaptureRepository =
+        EventCaptureRepositoryImpl(
+            eventUid,
+            d2,
+            RampDatastoreRepository(d2),
+        )
 
     @Provides
     @PerActivity

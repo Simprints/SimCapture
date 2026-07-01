@@ -13,9 +13,11 @@ import org.dhis2.utils.analytics.ACTIVE_FOLLOW_UP
 import org.dhis2.utils.analytics.AnalyticsHelper
 import org.dhis2.utils.analytics.FOLLOW_UP
 import org.dhis2.utils.customviews.navigationbar.NavigationPageConfigurator
+import org.dhis2.tracker.TEIDashboardItems
 import org.hisp.dhis.android.core.common.State
 import org.hisp.dhis.android.core.enrollment.Enrollment
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -40,6 +42,7 @@ class DashboardViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testingDispatcher)
+        whenever(resoourcesManager.getString(any<Int>())) doReturn ""
     }
 
     @Test
@@ -99,6 +102,72 @@ class DashboardViewModelTest {
             updateEventUid("eventUid")
             assertTrue(eventUid().value == "eventUid")
         }
+    }
+
+    @Test
+    fun shouldDisplayOnlyHistoryUntilLandscapeHistoryFullscreenIsForced() {
+        mockEnrollmentModel()
+        mockGrouping(false)
+        whenever(pageConfigurator.displayDetails()) doReturn false
+        whenever(pageConfigurator.displayAnalytics()) doReturn false
+        whenever(pageConfigurator.displayTableView()) doReturn true
+
+        val dashboardViewModel = getViewModel()
+
+        assertEquals(
+            listOf(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE),
+            dashboardViewModel.navigationItemIds(),
+        )
+        assertEquals(
+            TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
+            dashboardViewModel.navigationBarUIState.value.selectedItem,
+        )
+
+        dashboardViewModel.onNavigationItemSelected(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
+
+        assertEquals(
+            listOf(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE),
+            dashboardViewModel.navigationItemIds(),
+        )
+
+        dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(true)
+
+        assertEquals(
+            listOf(
+                TEIDashboardItems.DETAILS,
+                TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
+            ),
+            dashboardViewModel.navigationItemIds(),
+        )
+        assertEquals(
+            TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
+            dashboardViewModel.navigationBarUIState.value.selectedItem,
+        )
+
+        dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(false)
+
+        assertEquals(
+            listOf(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE),
+            dashboardViewModel.navigationItemIds(),
+        )
+        assertEquals(
+            TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
+            dashboardViewModel.navigationBarUIState.value.selectedItem,
+        )
+    }
+
+    @Test
+    fun shouldKeepDetailsVisibleInPortrait() {
+        mockEnrollmentModel()
+        mockGrouping(false)
+        whenever(pageConfigurator.displayDetails()) doReturn true
+        whenever(pageConfigurator.displayTableView()) doReturn true
+
+        val dashboardViewModel = getViewModel()
+
+        assertTrue(dashboardViewModel.navigationItemIds().contains(TEIDashboardItems.DETAILS))
+        dashboardViewModel.onNavigationItemSelected(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
+        assertTrue(dashboardViewModel.navigationItemIds().contains(TEIDashboardItems.DETAILS))
     }
 
     @Test
@@ -167,6 +236,9 @@ class DashboardViewModelTest {
         ).also {
             testingDispatcher.scheduler.advanceUntilIdle()
         }
+
+    private fun DashboardViewModel.navigationItemIds(): List<TEIDashboardItems> =
+        navigationBarUIState.value.items.map { it.id }
 
     private fun mockEnrollmentModel() {
         whenever(repository.getDashboardModel()) doReturn mockedEnrollmentModel

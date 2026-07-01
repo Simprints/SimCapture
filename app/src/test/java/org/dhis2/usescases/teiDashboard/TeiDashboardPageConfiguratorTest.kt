@@ -1,6 +1,7 @@
 package org.dhis2.usescases.teiDashboard
 
 import org.dhis2.utils.customviews.navigationbar.NavigationPageConfigurator
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.doReturn
@@ -19,8 +20,9 @@ class TeiDashboardPageConfiguratorTest {
     }
 
     @Test
-    fun `Should display analytics screen if the program is configured`() {
+    fun `Should display analytics screen if the program is configured and Simprints RAMP history screen is not configured`() {
         whenever(dashboardRepository.programHasAnalytics()) doReturn true
+        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn false
         assertTrue(pageConfigurator.displayAnalytics())
     }
 
@@ -28,6 +30,13 @@ class TeiDashboardPageConfiguratorTest {
     fun `Should not display analytics screen if the program is configured`() {
         whenever(dashboardRepository.programHasAnalytics()) doReturn false
         assertTrue(!pageConfigurator.displayAnalytics())
+    }
+
+    @Test
+    fun `Should not display analytics screen if Simprints RAMP history screen is configured`() {
+        whenever(dashboardRepository.programHasAnalytics()) doReturn true
+        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn true
+        assertFalse(pageConfigurator.displayAnalytics())
     }
 
     @Test
@@ -43,8 +52,15 @@ class TeiDashboardPageConfiguratorTest {
     }
 
     @Test
-    fun `Should display the notes screen`() {
+    fun `Should display notes screen when history screen is not configured`() {
+        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn false
         assertTrue(pageConfigurator.displayNotes())
+    }
+
+    @Test
+    fun `Should not display notes screen when history screen is configured`() {
+        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn true
+        assertFalse(pageConfigurator.displayNotes())
     }
 
     @Test

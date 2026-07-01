@@ -11,6 +11,7 @@ import org.dhis2.BuildConfig
 import org.dhis2.R
 import org.dhis2.bindings.app
 import org.dhis2.bindings.buildInfo
+import org.dhis2.bindings.rampCaptureBuildInfo
 import org.dhis2.databinding.FragmentAboutBinding
 import org.dhis2.usescases.general.FragmentGlobalAbstract
 import org.hisp.dhis.android.core.user.User
@@ -41,6 +42,8 @@ class AboutFragment :
                 aboutGit.movementMethod = LinkMovementMethod.getInstance()
                 aboutDev.movementMethod = LinkMovementMethod.getInstance()
                 aboutContact.movementMethod = LinkMovementMethod.getInstance()
+                rampCaptureVersion.text =
+                    getString(R.string.ramp_capture_version).format(context?.rampCaptureBuildInfo())
                 aboutApp.text = getString(R.string.about_app).format(context?.buildInfo())
                 appSDK.text = getString(R.string.about_sdk).format(BuildConfig.SDK_VERSION)
                 privacyPolicy.setOnClickListener { navigateToPrivacyPolicy() }

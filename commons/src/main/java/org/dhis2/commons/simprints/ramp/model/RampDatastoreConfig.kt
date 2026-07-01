@@ -5,10 +5,14 @@ import com.google.gson.annotations.SerializedName
 data class RampDatastoreConfig(
     val dataElementHistoryCharts: List<DataElementHistoryChartConfig> = emptyList(),
     val programStageHistoryTables: List<ProgramStageHistoryTableConfig> = emptyList(),
+    val programSpecificSettings: List<ProgramSpecificSetting> = emptyList(),
+    val programStageSpecificSettings: List<ProgramStageSpecificSetting> = emptyList(),
 ) {
     fun isNotEmpty(): Boolean =
         dataElementHistoryCharts.isNotEmpty() ||
-            programStageHistoryTables.isNotEmpty()
+            programStageHistoryTables.isNotEmpty() ||
+            programSpecificSettings.isNotEmpty() ||
+            programStageSpecificSettings.isNotEmpty()
 }
 
 data class DataElementHistoryChartConfig(
@@ -22,6 +26,8 @@ data class DataElementHistoryChartConfig(
     val xAxisVisitNumberDataElementId: String? = null,
     @SerializedName("followUpVisitMaxNumber")
     val followUpVisitMaxNumber: Int? = null,
+    @SerializedName("displayMaxDecimalPlaces")
+    val displayMaxDecimalPlaces: Int? = null,
 ) {
     fun isValid(): Boolean =
         !programId.isNullOrBlank() &&
@@ -48,4 +54,24 @@ data class ProgramStageHistoryTableConfig(
             !followUpVisitProgramStageId.isNullOrBlank() &&
             !headerVisitNumberDataElementId.isNullOrBlank() &&
             (followUpVisitMaxNumber ?: -1) >= 0
+}
+
+data class ProgramSpecificSetting(
+    @SerializedName("programId")
+    val programId: String? = null,
+    @SerializedName("isSearchEnabled")
+    val isSearchEnabled: Boolean? = null,
+) {
+    fun isValid(): Boolean = !programId.isNullOrBlank()
+}
+
+data class ProgramStageSpecificSetting(
+    @SerializedName("programStageId")
+    val programStageId: String? = null,
+    @SerializedName("isScheduleOptionEnabled")
+    val isScheduleOptionEnabled: Boolean? = null,
+    @SerializedName("isReferOptionEnabled")
+    val isReferOptionEnabled: Boolean? = null,
+) {
+    fun isValid(): Boolean = !programStageId.isNullOrBlank()
 }

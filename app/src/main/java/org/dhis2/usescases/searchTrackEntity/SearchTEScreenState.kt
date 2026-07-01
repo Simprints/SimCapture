@@ -20,6 +20,7 @@ data class SearchList(
 data class SearchForm(
     val queryHasData: Boolean,
     val minAttributesToSearch: Int,
+    val isEnabled: Boolean = true,
     val isForced: Boolean = false,
     val isOpened: Boolean = false,
 )

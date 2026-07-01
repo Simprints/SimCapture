@@ -32,7 +32,6 @@ import org.dhis2.utils.analytics.ACTIVE_FOLLOW_UP
 import org.dhis2.utils.analytics.AnalyticsHelper
 import org.dhis2.utils.analytics.FOLLOW_UP
 import org.dhis2.utils.customviews.navigationbar.NavigationPageConfigurator
-import org.dhis2.utils.isPortrait
 import org.hisp.dhis.android.core.common.State
 import org.hisp.dhis.android.core.common.State.SYNCED
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
@@ -49,6 +48,8 @@ class DashboardViewModel(
     private val eventUid = MutableLiveData<String>()
 
     private val selectedEventUid = MutableLiveData<String>()
+    private var displayDetailsNavigationItem = pageConfigurator.displayDetails()
+    private var forceDisplayDetailsNavigationItemForSimprintsRampTable = false
 
     val showStatusErrorMessages = MutableLiveData(StatusChangeResultCode.CHANGED)
 
@@ -123,9 +124,13 @@ class DashboardViewModel(
     }
 
     private fun loadNavigationBarItems() {
+        updateNavigationBarItems(_navigationBarUIState.value.selectedItem)
+    }
+
+    private fun updateNavigationBarItems(selectedItem: TEIDashboardItems?) {
         val enrollmentItems = mutableListOf<NavigationBarItem<TEIDashboardItems>>()
 
-        if (isPortrait()) {
+        if (displayDetailsNavigationItem || forceDisplayDetailsNavigationItemForSimprintsRampTable) {
             enrollmentItems.add(
                 NavigationBarItem(
                     id = TEIDashboardItems.DETAILS,
@@ -158,14 +163,16 @@ class DashboardViewModel(
             )
         }
 
-        enrollmentItems.add(
-            NavigationBarItem(
-                id = TEIDashboardItems.NOTES,
-                icon = Icons.AutoMirrored.Outlined.StickyNote2,
-                selectedIcon = Icons.AutoMirrored.Filled.StickyNote2,
-                label = resourcesManager.getString(R.string.navigation_notes),
-            ),
-        )
+        if (pageConfigurator.displayNotes()) {
+            enrollmentItems.add(
+                NavigationBarItem(
+                    id = TEIDashboardItems.NOTES,
+                    icon = Icons.AutoMirrored.Outlined.StickyNote2,
+                    selectedIcon = Icons.AutoMirrored.Filled.StickyNote2,
+                    label = resourcesManager.getString(R.string.navigation_notes),
+                ),
+            )
+        }
 
         if (pageConfigurator.displayTableView()) {
             enrollmentItems.add(
@@ -173,20 +180,21 @@ class DashboardViewModel(
                     id = TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
                     icon = Icons.Outlined.TableChart,
                     selectedIcon = Icons.Filled.TableChart,
-                    label = resourcesManager.getString(R.string.navigation_simprints_ramp_history),
+                    label = resourcesManager.getString(R.string.navigation_simprints_ramp_history_chart),
                 ),
             )
         }
 
-        _navigationBarUIState.value = _navigationBarUIState.value.copy(items = enrollmentItems)
+        val resolvedSelectedItem =
+            selectedItem
+                ?.takeIf { item -> enrollmentItems.any { it.id == item } }
+                ?: enrollmentItems.firstOrNull()?.id
 
-        if (navigationBarUIState.value.items.none { it.id == navigationBarUIState.value.selectedItem }) {
-            onNavigationItemSelected(
-                navigationBarUIState.value.items
-                    .first()
-                    .id,
+        _navigationBarUIState.value =
+            _navigationBarUIState.value.copy(
+                items = enrollmentItems,
+                selectedItem = resolvedSelectedItem,
             )
-        }
     }
 
     private fun fetchGrouping() {
@@ -299,7 +307,21 @@ class DashboardViewModel(
     }
 
     fun onNavigationItemSelected(itemId: TEIDashboardItems) {
-        _navigationBarUIState.value = _navigationBarUIState.value.copy(selectedItem = itemId)
+        updateNavigationBarItems(itemId)
+    }
+
+    fun setDetailsNavigationItemVisible(visible: Boolean) {
+        if (displayDetailsNavigationItem != visible) {
+            displayDetailsNavigationItem = visible
+            updateNavigationBarItems(_navigationBarUIState.value.selectedItem)
+        }
+    }
+
+    fun setForceDisplayDetailsNavigationItemForSimprintsRampTable(forceDisplay: Boolean) {
+        if (forceDisplayDetailsNavigationItemForSimprintsRampTable != forceDisplay) {
+            forceDisplayDetailsNavigationItemForSimprintsRampTable = forceDisplay
+            updateNavigationBarItems(_navigationBarUIState.value.selectedItem)
+        }
     }
 
     fun checkIfTeiCanBeTransferred(): Boolean = repository.teiCanBeTransferred()

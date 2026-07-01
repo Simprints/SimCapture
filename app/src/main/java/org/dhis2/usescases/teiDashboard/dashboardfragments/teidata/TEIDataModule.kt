@@ -14,6 +14,7 @@ import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.commons.schedulers.SchedulerProvider
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.dhislogic.DhisEnrollmentUtils
 import org.dhis2.data.forms.dataentry.SearchTEIRepository
@@ -129,7 +130,15 @@ class TEIDataModule(
     @Provides
     fun provideGetNewEventCreationTypeOptions(
         programConfigurationRepository: ProgramConfigurationRepository,
-    ): GetNewEventCreationTypeOptions = GetNewEventCreationTypeOptions(programConfigurationRepository)
+        rampDatastoreRepository: RampDatastoreRepository,
+    ): GetNewEventCreationTypeOptions =
+        GetNewEventCreationTypeOptions(
+            programConfigurationRepository,
+            rampDatastoreRepository,
+        )
+
+    @Provides
+    fun provideRampDatastoreRepository(d2: D2): RampDatastoreRepository = RampDatastoreRepository(d2)
 
     @Provides
     fun provideEventCreationsOptionsMapper(resourceManager: ResourceManager): EventCreationOptionsMapper =

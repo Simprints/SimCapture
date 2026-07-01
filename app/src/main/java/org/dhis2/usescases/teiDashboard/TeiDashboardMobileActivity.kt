@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoveDown
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -200,6 +199,7 @@ class TeiDashboardMobileActivity :
         super.onCreate(savedInstanceState)
         dashboardViewModel =
             ViewModelProvider(this, viewModelFactory)[DashboardViewModel::class.java]
+        dashboardViewModel.setDetailsNavigationItemVisible(isPortrait())
         binding = DataBindingUtil.setContentView(this, R.layout.activity_dashboard_mobile)
         showLoadingProgress(true)
         binding.presenter = presenter
@@ -340,20 +340,16 @@ class TeiDashboardMobileActivity :
         binding.navigationBar.setContent {
             DHIS2Theme {
                 val uiState by dashboardViewModel.navigationBarUIState.collectAsStateWithLifecycle()
-                var selectedHomeItemIndex by remember(uiState) {
-                    mutableIntStateOf(
-                        uiState.items.indexOfFirst {
-                            it.id == uiState.selectedItem
-                        },
-                    )
-                }
+                val selectedHomeItemIndex =
+                    uiState.items.indexOfFirst {
+                        it.id == uiState.selectedItem
+                    }
 
                 NavigationBar(
                     items = uiState.items,
                     selectedItemIndex = selectedHomeItemIndex,
                 ) { itemId ->
-                    selectedHomeItemIndex = uiState.items.indexOfFirst { it.id == itemId }
-                    dashboardViewModel.onNavigationItemSelected(itemId)
+                    onNavigationBarItemSelected(itemId)
                 }
 
                 uiState.selectedItem?.let {
@@ -363,8 +359,39 @@ class TeiDashboardMobileActivity :
         }
     }
 
+    private fun onNavigationBarItemSelected(item: TEIDashboardItems) {
+        if (isLandscape()) {
+            when (item) {
+                TEIDashboardItems.DETAILS -> {
+                    restoreSimprintsRampHistoryTableLandscapeLayout()
+                }
+
+                TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE -> {
+                    setSimprintsRampHistoryTableLandscapeFullscreen(true)
+                    dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(true)
+                    dashboardViewModel.onNavigationItemSelected(item)
+                }
+
+                else -> {
+                    setSimprintsRampHistoryTableLandscapeFullscreen(false)
+                    dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(false)
+                    dashboardViewModel.onNavigationItemSelected(item)
+                }
+            }
+        } else {
+            dashboardViewModel.onNavigationItemSelected(item)
+        }
+    }
+
+    private fun restoreSimprintsRampHistoryTableLandscapeLayout() {
+        setSimprintsRampHistoryTableLandscapeFullscreen(false)
+        dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(false)
+    }
+
     private fun navigateToFragment(item: TEIDashboardItems) {
-        setSimprintsRampHistoryTableLandscapeFullscreen(item == TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
+        if (item != TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE) {
+            setSimprintsRampHistoryTableLandscapeFullscreen(false)
+        }
 
         val fragment =
             when (item) {
@@ -480,6 +507,7 @@ class TeiDashboardMobileActivity :
         super.onResume()
         if (sessionManagerServiceImpl.isUserLoggedIn()) {
             currentOrientation = if (this.isLandscape()) 1 else 0
+            dashboardViewModel.setDetailsNavigationItemVisible(isPortrait())
             presenter.refreshTabCounters()
             dashboardViewModel.updateDashboard()
         }

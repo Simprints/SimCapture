@@ -11,14 +11,17 @@ class FormHistoryChartRepository(
     private val eventUid: String,
     private val d2: D2,
 ) {
-    private val currentEvent by lazy { loadCurrentEvent() }
     private val followUpVisitEventsByProgramStage = mutableMapOf<String, List<Event>>()
 
     fun getChart(
         fieldUiModel: FieldUiModel,
         configs: List<DataElementHistoryChartConfig>,
     ): FormHistoryChart? {
-        val currentEvent = currentEvent ?: return null
+        configs.firstOrNull { config ->
+            config.dataElementId?.trim() == fieldUiModel.uid
+        } ?: return null
+
+        val currentEvent = loadCurrentEvent() ?: return null
         val chartConfig =
             configs.firstOrNull { config ->
                 config.programId?.trim() == currentEvent.program() &&
@@ -69,6 +72,7 @@ class FormHistoryChartRepository(
             labels = labels,
             values = values,
             currentValueIndex = currentValueIndex,
+            displayMaxDecimalPlaces = chartConfig.displayMaxDecimalPlaces,
         )
     }
 
@@ -76,6 +80,7 @@ class FormHistoryChartRepository(
         d2
             .eventModule()
             .events()
+            .withTrackedEntityDataValues()
             .uid(eventUid)
             .blockingGet()
 
@@ -83,20 +88,32 @@ class FormHistoryChartRepository(
         currentEvent: Event,
         followUpVisitProgramStageUid: String,
     ): List<Event> {
-        followUpVisitEventsByProgramStage[followUpVisitProgramStageUid]?.let { return it }
-
-        val enrollmentUid = currentEvent.enrollment() ?: return emptyList()
+        val enrollmentUid = currentEvent.enrollment()
         val currentEventDate = currentEvent.displayDate()
+        val queriedEvents =
+            if (enrollmentUid.isNullOrBlank()) {
+                emptyList()
+            } else {
+                followUpVisitEventsByProgramStage[followUpVisitProgramStageUid]
+                    ?: d2
+                        .eventModule()
+                        .events()
+                        .withTrackedEntityDataValues()
+                        .byEnrollmentUid()
+                        .eq(enrollmentUid)
+                        .byProgramStageUid()
+                        .eq(followUpVisitProgramStageUid)
+                        .byDeleted()
+                        .isFalse
+                        .blockingGet()
+                        .also { followUpVisitEventsByProgramStage[followUpVisitProgramStageUid] = it }
+            }
+        val events =
+            (queriedEvents + currentEvent)
+                .associateBy { event -> event.uid() }
+                .values
 
-        return d2
-            .eventModule()
-            .events()
-            .withTrackedEntityDataValues()
-            .byEnrollmentUid()
-            .eq(enrollmentUid)
-            .byProgramStageUid()
-            .eq(followUpVisitProgramStageUid)
-            .blockingGet()
+        return events
             .filter { followUpEvent ->
                 val followUpEventDate = followUpEvent.displayDate()
                 followUpEvent.uid() == eventUid ||
@@ -108,7 +125,7 @@ class FormHistoryChartRepository(
                     { followUpEvent -> followUpEvent.displayDate() ?: Date(0) },
                     { followUpEvent -> followUpEvent.uid() },
                 ),
-            ).also { followUpVisitEventsByProgramStage[followUpVisitProgramStageUid] = it }
+            )
     }
 
     private fun Event.dataValuesByDataElement(): Map<String, String> =

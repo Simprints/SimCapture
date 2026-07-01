@@ -2,11 +2,13 @@ package org.dhis2.usescases.eventsWithoutRegistration.eventCapture
 
 import io.reactivex.Completable
 import io.reactivex.Single
+import org.dhis2.commons.simprints.ramp.model.ProgramStageHistoryTableConfig
+import org.dhis2.commons.simprints.ramp.model.RampDatastoreConfig
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.data.dhislogic.AUTH_ALL
 import org.dhis2.data.dhislogic.AUTH_UNCOMPLETE_EVENT
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.dataelement.DataElement
-import org.hisp.dhis.android.core.datastore.DataStoreEntry.builder
 import org.hisp.dhis.android.core.enrollment.Enrollment
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
 import org.hisp.dhis.android.core.event.Event
@@ -34,6 +36,7 @@ import java.util.GregorianCalendar
 class EventCaptureRepositoryImplTest {
     private val eventUid = "eventUid"
     private val d2: D2 = Mockito.mock(D2::class.java, Mockito.RETURNS_DEEP_STUBS)
+    private val rampDatastoreRepository: RampDatastoreRepository = mock()
 
     private val trackerEventEnrollmentUid = "enrollmentUid"
     private val testEventStageUid = "stageUid"
@@ -67,6 +70,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         assertTrue(repository.isEnrollmentOpen)
@@ -85,6 +89,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         repository.isEnrollmentOpen
@@ -110,6 +115,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         assertTrue(!repository.isEnrollmentCancelled)
@@ -137,6 +143,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         assertTrue(repository.isEnrollmentCancelled)
@@ -151,6 +158,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         repository.isEventEditable(eventUid)
@@ -184,6 +192,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         val testObserver = repository.programStageName().test()
@@ -201,6 +210,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         whenever(
@@ -231,6 +241,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         whenever(
@@ -257,6 +268,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
         val testStatus = EventStatus.SKIPPED
         whenever(
@@ -279,6 +291,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
         val testNewDate = GregorianCalendar(3021, 11, 1).time
         whenever(
@@ -304,6 +317,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         repository
@@ -318,7 +332,11 @@ class EventCaptureRepositoryImplTest {
         mockEvent()
         mockSections()
 
-        val repository = EventCaptureRepositoryImpl(eventUid, d2)
+        val repository = EventCaptureRepositoryImpl(
+            eventUid,
+            d2,
+            rampDatastoreRepository,
+        )
 
         whenever(
             d2
@@ -337,7 +355,11 @@ class EventCaptureRepositoryImplTest {
         mockEvent()
         mockSections()
 
-        val repository = EventCaptureRepositoryImpl(eventUid, d2)
+        val repository = EventCaptureRepositoryImpl(
+            eventUid,
+            d2,
+            rampDatastoreRepository,
+        )
 
         whenever(
             d2
@@ -360,6 +382,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         repository
@@ -378,6 +401,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         whenever(
@@ -430,6 +454,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         whenever(
@@ -455,6 +480,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         whenever(
@@ -480,6 +506,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         repository
@@ -498,6 +525,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         repository
@@ -516,6 +544,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
         val numberOfNotes = 12
         whenever(
@@ -552,6 +581,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         whenever(
@@ -570,6 +600,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         whenever(
@@ -599,6 +630,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         whenever(
@@ -622,25 +654,16 @@ class EventCaptureRepositoryImplTest {
     @Test
     fun `hasSimprintsRampProgramStageHistoryTable should return true if RAMP program stage history table is configured for event`() {
         mockEvent()
-        stubRampConfigRawValue(
-            """
-            {
-              "programStageHistoryTable": [
-                {
-                  "programId": " $testEventProgramUid ",
-                  "followUpVisitProgramStageId": " $testEventStageUid ",
-                  "followUpVisitMaxNumber": 3,
-                  "headerVisitNumberDataElementId": "visitNumberUid"
-                }
-              ]
-            }
-            """.trimIndent(),
+        mockRampConfig(
+            programUid = " $testEventProgramUid ",
+            programStageUid = " $testEventStageUid ",
         )
 
         val repository =
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         assertTrue(repository.hasSimprintsRampProgramStageHistoryTable())
@@ -668,25 +691,13 @@ class EventCaptureRepositoryImplTest {
                     .program(testEventProgramUid)
                     .build(),
             )
-        stubRampConfigRawValue(
-            """
-            {
-              "programStageHistoryTable": [
-                {
-                  "programId": "$testEventProgramUid",
-                  "followUpVisitProgramStageId": "$testEventStageUid",
-                  "followUpVisitMaxNumber": 3,
-                  "headerVisitNumberDataElementId": "visitNumberUid"
-                }
-              ]
-            }
-            """.trimIndent(),
-        )
+        mockRampConfig()
 
         val repository =
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
 
         assertFalse(repository.hasSimprintsRampProgramStageHistoryTable())
@@ -702,6 +713,7 @@ class EventCaptureRepositoryImplTest {
             EventCaptureRepositoryImpl(
                 eventUid,
                 d2,
+                rampDatastoreRepository,
             )
         whenever(
             d2
@@ -768,18 +780,22 @@ class EventCaptureRepositoryImplTest {
                 .build()
     }
 
-    private fun stubRampConfigRawValue(value: String) {
-        whenever(
-            d2
-                .dataStoreModule()
-                .dataStore()
-                .value("simprints", "ramp")
-                .blockingGet(),
-        ) doReturn builder()
-            .namespace("simprints")
-            .key("ramp")
-            .value(value)
-            .build()
+    private fun mockRampConfig(
+        programUid: String? = testEventProgramUid,
+        programStageUid: String? = testEventStageUid,
+    ) {
+        whenever(rampDatastoreRepository.getConfig()) doReturn
+            RampDatastoreConfig(
+                programStageHistoryTables =
+                    listOf(
+                        ProgramStageHistoryTableConfig(
+                            programId = programUid,
+                            followUpVisitProgramStageId = programStageUid,
+                            followUpVisitMaxNumber = 3,
+                            headerVisitNumberDataElementId = "visitNumberUid",
+                        ),
+                    ),
+            )
     }
 
     private fun mockEmptySections() {

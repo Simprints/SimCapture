@@ -29,12 +29,20 @@
                 android:padding="10dp">
 
                 <TextView
+                    android:id="@+id/rampCaptureVersion"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintStart_toStartOf="parent"
+                    android:text="@string/ramp_capture_version"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <TextView
                     android:id="@+id/aboutApp"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     app:layout_constraintStart_toStartOf="parent"
                     android:text="@string/about_app"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    app:layout_constraintTop_toBottomOf="@id/rampCaptureVersion" />
 
                 <TextView
                     android:id="@+id/appSDK"

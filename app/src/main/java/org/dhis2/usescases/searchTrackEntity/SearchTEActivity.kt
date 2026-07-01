@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.view.ViewTreeObserver
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
@@ -154,6 +155,7 @@ class SearchTEActivity :
     }
 
     private var currentContent: Content? = null
+    private var initialLandscapeDrawReady = true
 
     @OptIn(ExperimentalAnimationApi::class)
     @SuppressLint("ClickableViewAccessibility")
@@ -167,6 +169,7 @@ class SearchTEActivity :
         super.onCreate(savedInstanceState)
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_search)
+        postponeInitialLandscapeDraw() // prevents jitter depending on if search panel set to visible or not
         val currentScreen = savedInstanceState?.getString(CURRENT_SCREEN).orEmpty()
         if (currentScreen.isNotBlank()) {
             currentContent = Content.valueOf(currentScreen)
@@ -188,7 +191,7 @@ class SearchTEActivity :
 
         if (isLandscape()) {
             viewModel.filtersOpened.observe(this) { isOpened: Boolean ->
-                if (java.lang.Boolean.TRUE == isOpened) {
+                if (java.lang.Boolean.TRUE == isOpened || viewModel.isSearchEnabled.value == false) {
                     binding.mainComponent.clipWithRoundedCorners(16.dp)
                 } else {
                     binding.mainComponent.clipWithTopRightRoundedCorner(16.dp)
@@ -541,8 +544,30 @@ class SearchTEActivity :
     }
 
     private fun observeScreenState() {
-        viewModel.screenState.observe(this, searchScreenConfigurator::configure)
+        viewModel.screenState.observe(this) { screenState ->
+            searchScreenConfigurator.configure(screenState)
+            initialLandscapeDrawReady = true
+            binding.root.invalidate()
+        }
         viewModel.screenState.observe(this, viewModel::updateBackdrop)
+    }
+
+    private fun postponeInitialLandscapeDraw() {
+        if (!isLandscape()) return
+        initialLandscapeDrawReady = false
+        binding.root.viewTreeObserver.addOnPreDrawListener(
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean =
+                    if (initialLandscapeDrawReady) {
+                        binding.root.viewTreeObserver
+                            .takeIf { it.isAlive }
+                            ?.removeOnPreDrawListener(this)
+                        true
+                    } else {
+                        false
+                    }
+            },
+        )
     }
 
     private fun observeDownload() {
