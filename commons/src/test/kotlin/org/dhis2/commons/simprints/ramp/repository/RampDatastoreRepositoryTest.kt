@@ -83,13 +83,71 @@ class RampDatastoreRepositoryTest {
     }
 
     @Test
+    fun `getConfig should trim configured identifiers across all RAMP config sections`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "dataElementHistoryCharts": [
+                {
+                  "programId": " program ",
+                  "followUpVisitProgramStageId": " follow-stage ",
+                  "dataElementId": " weight ",
+                  "xAxisVisitNumberDataElementId": " visit-number ",
+                  "followUpVisitMaxNumber": 12
+                }
+              ],
+              "programStageHistoryTable": [
+                {
+                  "programId": " program ",
+                  "followUpVisitProgramStageId": " follow-stage ",
+                  "followUpVisitMaxNumber": 12,
+                  "headerVisitNumberDataElementId": " visit-number ",
+                  "excludedFollowUpVisitDataElementIds": [" excluded ", " "]
+                }
+              ],
+              "programSpecificSettings": [
+                {
+                  "programId": " disabledProgram ",
+                  "isSearchEnabled": false
+                }
+              ],
+              "programStageSpecificSettings": [
+                {
+                  "programStageId": " disabledStage ",
+                  "isScheduleOptionEnabled": false,
+                  "isReferOptionEnabled": false
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val config = repository.getConfig()
+
+        config.dataElementHistoryCharts.single().let { chart ->
+            assertEquals("program", chart.programId)
+            assertEquals("follow-stage", chart.followUpVisitProgramStageId)
+            assertEquals("weight", chart.dataElementId)
+            assertEquals("visit-number", chart.xAxisVisitNumberDataElementId)
+        }
+        config.programStageHistoryTables.single().let { table ->
+            assertEquals("program", table.programId)
+            assertEquals("follow-stage", table.followUpVisitProgramStageId)
+            assertEquals("visit-number", table.headerVisitNumberDataElementId)
+            assertEquals(listOf("excluded"), table.excludedFollowUpVisitDataElementIds)
+        }
+        assertEquals("disabledProgram", config.programSpecificSettings.single().programId)
+        assertEquals("disabledStage", config.programStageSpecificSettings.single().programStageId)
+    }
+
+    @Test
     fun `isSearchEnabled should return false only when program disables search`() {
         stubRampConfigRawValue(
             """
             {
               "programSpecificSettings": [
                 {
-                  "programId": "disabledProgram",
+                  "programId": " disabledProgram ",
                   "isSearchEnabled": false
                 },
                 {
@@ -105,10 +163,12 @@ class RampDatastoreRepositoryTest {
         )
 
         assertEquals(false, repository.isSearchEnabled("disabledProgram"))
+        assertEquals(false, repository.isSearchEnabled(" disabledProgram "))
         assertEquals(true, repository.isSearchEnabled("enabledProgram"))
         assertEquals(true, repository.isSearchEnabled("defaultProgram"))
         assertEquals(true, repository.isSearchEnabled("missingProgram"))
         assertEquals(true, repository.isSearchEnabled(null))
+        assertEquals(true, repository.isSearchEnabled(" "))
     }
 
     @Test
@@ -118,7 +178,7 @@ class RampDatastoreRepositoryTest {
             {
               "programStageSpecificSettings": [
                 {
-                  "programStageId": "disabledStage",
+                  "programStageId": " disabledStage ",
                   "isScheduleOptionEnabled": false,
                   "isReferOptionEnabled": false
                 },
@@ -141,6 +201,8 @@ class RampDatastoreRepositoryTest {
 
         assertEquals(false, repository.isScheduleOptionEnabled("disabledStage"))
         assertEquals(false, repository.isReferOptionEnabled("disabledStage"))
+        assertEquals(false, repository.isScheduleOptionEnabled(" disabledStage "))
+        assertEquals(false, repository.isReferOptionEnabled(" disabledStage "))
         assertEquals(true, repository.isScheduleOptionEnabled("enabledStage"))
         assertEquals(true, repository.isReferOptionEnabled("enabledStage"))
         assertEquals(true, repository.isScheduleOptionEnabled("defaultStage"))
@@ -149,6 +211,8 @@ class RampDatastoreRepositoryTest {
         assertEquals(true, repository.isReferOptionEnabled("missingStage"))
         assertEquals(true, repository.isScheduleOptionEnabled(null))
         assertEquals(true, repository.isReferOptionEnabled(null))
+        assertEquals(true, repository.isScheduleOptionEnabled(" "))
+        assertEquals(true, repository.isReferOptionEnabled(" "))
     }
 
     @Test

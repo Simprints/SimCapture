@@ -40,12 +40,12 @@ class RampDatastoreRepository(
     }
 
     fun isSearchEnabled(programId: String?): Boolean {
-        if (programId.isNullOrBlank()) return true
+        val normalizedProgramId = programId.trimToValue() ?: return true
 
         return try {
             getConfig()
                 .programSpecificSettings
-                .firstOrNull { it.programId == programId }
+                .firstOrNull { it.programId == normalizedProgramId }
                 ?.isSearchEnabled != false
         } catch (exception: RuntimeException) {
             Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
@@ -61,12 +61,12 @@ class RampDatastoreRepository(
         programStageId: String?,
         option: ProgramStageSpecificSetting.() -> Boolean?,
     ): Boolean {
-        if (programStageId.isNullOrBlank()) return true
+        val normalizedProgramStageId = programStageId.trimToValue() ?: return true
 
         return try {
             getConfig()
                 .programStageSpecificSettings
-                .firstOrNull { it.programStageId == programStageId }
+                .firstOrNull { it.programStageId == normalizedProgramStageId }
                 ?.option() != false
         } catch (exception: RuntimeException) {
             Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
@@ -92,24 +92,28 @@ class RampDatastoreRepository(
                         .get(DATA_ELEMENT_HISTORY_CHARTS_KEY)
                         ?.parseList<DataElementHistoryChartConfig>()
                         .orEmpty()
+                        .map { it.normalized() }
                         .filter { it.isValid() },
                 programStageHistoryTables =
                     root
                         .get(PROGRAM_STAGE_HISTORY_TABLE_KEY)
                         ?.parseList<ProgramStageHistoryTableConfig>()
                         .orEmpty()
+                        .map { it.normalized() }
                         .filter { it.isValid() },
                 programSpecificSettings =
                     root
                         .get(PROGRAM_SPECIFIC_SETTINGS_KEY)
                         ?.parseList<ProgramSpecificSetting>()
                         .orEmpty()
+                        .map { it.normalized() }
                         .filter { it.isValid() },
                 programStageSpecificSettings =
                     root
                         .get(PROGRAM_STAGE_SPECIFIC_SETTINGS_KEY)
                         ?.parseList<ProgramStageSpecificSetting>()
                         .orEmpty()
+                        .map { it.normalized() }
                         .filter { it.isValid() },
             )
         } catch (exception: JsonParseException) {
@@ -171,6 +175,32 @@ class RampDatastoreRepository(
             Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
             null
         }
+
+    private fun DataElementHistoryChartConfig.normalized(): DataElementHistoryChartConfig =
+        copy(
+            programId = programId.trimToValue(),
+            followUpVisitProgramStageId = followUpVisitProgramStageId.trimToValue(),
+            dataElementId = dataElementId.trimToValue(),
+            xAxisVisitNumberDataElementId = xAxisVisitNumberDataElementId.trimToValue(),
+        )
+
+    private fun ProgramStageHistoryTableConfig.normalized(): ProgramStageHistoryTableConfig =
+        copy(
+            programId = programId.trimToValue(),
+            followUpVisitProgramStageId = followUpVisitProgramStageId.trimToValue(),
+            headerVisitNumberDataElementId = headerVisitNumberDataElementId.trimToValue(),
+            excludedFollowUpVisitDataElementIds =
+                excludedFollowUpVisitDataElementIds
+                    ?.mapNotNull { it.trimToValue() },
+        )
+
+    private fun ProgramSpecificSetting.normalized(): ProgramSpecificSetting =
+        copy(programId = programId.trimToValue())
+
+    private fun ProgramStageSpecificSetting.normalized(): ProgramStageSpecificSetting =
+        copy(programStageId = programStageId.trimToValue())
+
+    private fun String?.trimToValue(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 
     private data class CachedConfig(
         val rawValue: String?,
