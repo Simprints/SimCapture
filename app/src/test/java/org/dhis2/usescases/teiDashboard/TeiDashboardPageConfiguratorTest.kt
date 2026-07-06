@@ -1,7 +1,6 @@
 package org.dhis2.usescases.teiDashboard
 
 import org.dhis2.utils.customviews.navigationbar.NavigationPageConfigurator
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.doReturn
@@ -20,26 +19,6 @@ class TeiDashboardPageConfiguratorTest {
     }
 
     @Test
-    fun `Should display analytics screen if the program is configured and Simprints RAMP history screen is not configured`() {
-        whenever(dashboardRepository.programHasAnalytics()) doReturn true
-        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn false
-        assertTrue(pageConfigurator.displayAnalytics())
-    }
-
-    @Test
-    fun `Should not display analytics screen if the program is configured`() {
-        whenever(dashboardRepository.programHasAnalytics()) doReturn false
-        assertTrue(!pageConfigurator.displayAnalytics())
-    }
-
-    @Test
-    fun `Should not display analytics screen if Simprints RAMP history screen is configured`() {
-        whenever(dashboardRepository.programHasAnalytics()) doReturn true
-        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn true
-        assertFalse(pageConfigurator.displayAnalytics())
-    }
-
-    @Test
     fun `Should display relationships screen if the program is configured`() {
         whenever(dashboardRepository.programHasRelationships()) doReturn true
         assertTrue(pageConfigurator.displayRelationships())
@@ -52,26 +31,7 @@ class TeiDashboardPageConfiguratorTest {
     }
 
     @Test
-    fun `Should display notes screen when history screen is not configured`() {
-        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn false
+    fun `Should display the notes screen`() {
         assertTrue(pageConfigurator.displayNotes())
-    }
-
-    @Test
-    fun `Should not display notes screen when history screen is configured`() {
-        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn true
-        assertFalse(pageConfigurator.displayNotes())
-    }
-
-    @Test
-    fun `Should display history screen if the program is configured`() {
-        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn true
-        assertTrue(pageConfigurator.displayTableView())
-    }
-
-    @Test
-    fun `Should not display history screen if the program is not configured`() {
-        whenever(dashboardRepository.programHasSimprintsRampProgramStageHistoryTable()) doReturn false
-        assertTrue(!pageConfigurator.displayTableView())
     }
 }

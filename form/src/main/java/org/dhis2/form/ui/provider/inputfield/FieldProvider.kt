@@ -27,7 +27,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.form.data.EventRepository.Companion.EVENT_ORG_UNIT_UID
 import org.dhis2.form.extensions.autocompleteList
 import org.dhis2.form.extensions.inputState
@@ -61,11 +60,10 @@ import org.hisp.dhis.mobile.ui.designsystem.component.model.RegExValidations
 @Composable
 fun FieldProvider(
     modifier: Modifier,
-    inputStyle: InputStyle = InputStyle.DataInputStyle(),
+    inputStyle: InputStyle = InputStyle.DarkInputStyle(),
     fieldUiModel: FieldUiModel,
     uiEventHandler: (RecyclerViewUiEvents) -> Unit,
     intentHandler: (FormIntent) -> Unit,
-    resources: ResourceManager,
     focusManager: FocusManager,
     onNextClicked: () -> Unit,
     onFileSelected: (String) -> Unit,
@@ -142,15 +140,14 @@ fun FieldProvider(
                                 value = fieldUiModel.value,
                             ),
                         )
-                    },
-                )
+                },
+            )
 
             fieldUiModel.customIntent != null -> {
                 ProvideCustomIntentInput(
                     fieldUiModel = fieldUiModel,
                     intentHandler = fieldIntentHandler,
                     uiEventHandler = uiEventHandler,
-                    resources = resources,
                     inputStyle = inputStyle,
                     reEvaluateRequestParams = reEvaluateCustomIntentRequestParameters,
                     modifier = modifierWithFocus,
@@ -171,7 +168,6 @@ fun FieldProvider(
                     fieldUiModel = fieldUiModel,
                     intentHandler = fieldIntentHandler,
                     uiEventHandler = uiEventHandler,
-                    resources = resources,
                     focusRequester = focusRequester,
                     onNextClicked = onNextClicked,
                     focusManager = focusManager,
@@ -189,7 +185,6 @@ fun ProvideByValueType(
     fieldUiModel: FieldUiModel,
     intentHandler: (FormIntent) -> Unit,
     uiEventHandler: (RecyclerViewUiEvents) -> Unit,
-    resources: ResourceManager,
     focusRequester: FocusRequester,
     onNextClicked: () -> Unit,
     focusManager: FocusManager,
@@ -332,7 +327,6 @@ fun ProvideByValueType(
             ProvideInputFileResource(
                 modifier = modifier,
                 fieldUiModel = fieldUiModel,
-                resources = resources,
                 onFileSelected = onFileSelected,
                 uiEventHandler = uiEventHandler,
             )
@@ -360,7 +354,6 @@ fun ProvideByValueType(
                         inputStyle = inputStyle,
                         fieldUiModel = fieldUiModel,
                         intentHandler = intentHandler,
-                        resources = resources,
                     )
                 }
 
@@ -370,7 +363,6 @@ fun ProvideByValueType(
                         inputStyle = inputStyle,
                         fieldUiModel = fieldUiModel,
                         intentHandler = intentHandler,
-                        resources = resources,
                     )
                 }
             }
@@ -452,7 +444,6 @@ fun ProvideByValueType(
                         fieldUiModel = fieldUiModel,
                         intentHandler = intentHandler,
                         uiEventHandler = uiEventHandler,
-                        resources = resources,
                         onFileSelected = onFileSelected,
                     )
                 }
@@ -474,7 +465,6 @@ fun ProvideByValueType(
                         fieldUiModel = fieldUiModel,
                         intentHandler = intentHandler,
                         uiEventHandler = uiEventHandler,
-                        resources = resources,
                     )
                 }
             }
@@ -486,7 +476,6 @@ fun ProvideByValueType(
                 inputStyle = inputStyle,
                 fieldUiModel = fieldUiModel,
                 intentHandler = intentHandler,
-                resources = resources,
                 onNextClicked = onNextClicked,
             )
         }
@@ -607,7 +596,7 @@ private fun ProvideIntegerPositive(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
+        onImeActionClick = {
             clickedOnNext = true
             onNextClicked()
         },
@@ -676,7 +665,7 @@ private fun ProvideIntegerPositiveOrZero(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
+        onImeActionClick = {
             clickedOnNext = true
             onNextClicked()
         },
@@ -745,7 +734,7 @@ private fun ProvidePercentage(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
+        onImeActionClick = {
             clickedOnNext = true
             onNextClicked()
         },
@@ -814,7 +803,7 @@ private fun ProvideNumber(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
+        onImeActionClick = {
             clickedOnNext = true
             onNextClicked()
         },
@@ -888,7 +877,7 @@ private fun ProvideIntegerNegative(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
+        onImeActionClick = {
             clickedOnNext = true
             onNextClicked()
         },
@@ -957,9 +946,13 @@ private fun ProvideLongText(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
-            clickedOnNext = true
-            onNextClicked()
+        onImeActionClick = { imeAction ->
+            when (imeAction) {
+                ImeAction.Next -> {
+                    clickedOnNext = true
+                    onNextClicked()
+                }
+            }
         },
         onValueChanged = {
             value = it ?: TextFieldValue()
@@ -1027,7 +1020,7 @@ private fun ProvideLetter(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
+        onImeActionClick = {
             clickedOnNext = true
             onNextClicked()
         },
@@ -1096,7 +1089,7 @@ private fun ProvideInteger(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
+        onImeActionClick = {
             clickedOnNext = true
             onNextClicked()
         },
@@ -1166,7 +1159,7 @@ private fun ProvideEmail(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
+        onImeActionClick = {
             clickedOnNext = true
             onNextClicked()
         },
@@ -1245,7 +1238,7 @@ private fun ProvideInputPhoneNumber(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
+        onImeActionClick = {
             clickedOnNext = true
             onNextClicked()
         },
@@ -1324,7 +1317,7 @@ private fun ProvideInputLink(
         legendData = fieldUiModel.legend(),
         inputTextFieldValue = value,
         isRequiredField = fieldUiModel.mandatory,
-        onNextClicked = {
+        onImeActionClick = {
             clickedOnNext = true
             onNextClicked()
         },

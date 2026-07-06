@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.toLowerCase
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -159,7 +160,8 @@ fun AddNewButton(
         modifier =
             Modifier
                 .requiredHeight(44.dp)
-                .then(modifier),
+                .then(modifier)
+                .testTag("ADD_NEW_BUTTON"),
         colors =
             ButtonDefaults.buttonColors(
                 containerColor = SurfaceColor.PrimaryContainer,
@@ -700,7 +702,7 @@ fun CreateNewButton(
     ) {
         if (it) {
             ExtendedFAB(
-                modifier = modifier,
+                modifier = modifier.testTag("ADD_NEW_BUTTON"),
                 onClick = onClick,
                 text = stringResource(
                     if (isSimprintsUseLastBiometricsLabel) {
@@ -715,7 +717,7 @@ fun CreateNewButton(
             )
         } else {
             FAB(
-                modifier = modifier,
+                modifier = modifier.testTag("ADD_NEW_BUTTON"),
                 onClick = onClick,
                 icon = icon,
                 style = FABStyle.SECONDARY,

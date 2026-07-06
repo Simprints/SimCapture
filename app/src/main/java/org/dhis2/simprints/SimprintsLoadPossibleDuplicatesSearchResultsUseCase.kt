@@ -1,32 +1,33 @@
 package org.dhis2.simprints
 
 import org.dhis2.commons.filters.sorting.SortingItem
-import org.dhis2.data.search.SearchParametersModel
-import org.dhis2.usescases.searchTrackEntity.SearchRepository
 import org.dhis2.usescases.searchTrackEntity.SearchRepositoryKt
 import org.dhis2.usescases.searchTrackEntity.SearchTeiModel
+import org.dhis2.tracker.search.domain.SearchTrackedEntities
+import org.dhis2.tracker.search.model.QueryData
+import org.dhis2.tracker.search.model.SearchTrackedEntitiesInput
 
 class SimprintsLoadPossibleDuplicatesSearchResultsUseCase(
-    private val searchRepository: SearchRepository,
     private val searchRepositoryKt: SearchRepositoryKt,
+    private val searchTrackedEntities: SearchTrackedEntities,
 ) {
     suspend operator fun invoke(
-        searchParametersModel: SearchParametersModel,
-        isOnline: Boolean,
-        offlineOnly: Boolean,
+        queryDataList: List<QueryData>,
+        searchInput: SearchTrackedEntitiesInput,
         sortingItem: SortingItem?,
     ): List<SearchTeiModel>? {
-        val simprintsQueryData = searchParametersModel.queryData.orEmpty()
+        val simprintsQueryData = queryDataList.associateBy(QueryData::attributeId)
         val simprintsQueryEntry =
-            simprintsQueryData.entries.firstOrNull { (_, values) ->
-                (values?.size ?: 0) > 1
-            } ?: simprintsQueryData.entries.firstOrNull { (_, values) ->
-                !values.isNullOrEmpty()
+            simprintsQueryData.entries.firstOrNull { (_, queryData) ->
+                (queryData.values?.size ?: 0) > 1
+            } ?: simprintsQueryData.entries.firstOrNull { (_, queryData) ->
+                !queryData.values.isNullOrEmpty()
             } ?: return null
 
         val simprintsQueryValues =
             simprintsQueryEntry
                 .value
+                .values
                 .orEmpty()
                 .filter(String::isNotBlank)
                 .distinct()
@@ -37,28 +38,28 @@ class SimprintsLoadPossibleDuplicatesSearchResultsUseCase(
             buildList {
                 simprintsQueryValues.forEach { guidValue ->
                     addAll(
-                        searchRepositoryKt.searchTrackedEntitiesImmediate(
-                            searchParametersModel =
-                                searchParametersModel.copy(
-                                    queryData =
-                                        simprintsQueryData.toMutableMap().apply {
-                                            put(simprintsQueryEntry.key, listOf(guidValue))
+                        searchTrackedEntities
+                            .invokeImmediate(
+                                searchInput.copy(
+                                    queryDataList =
+                                        queryDataList.map { queryData ->
+                                            if (queryData.attributeId == simprintsQueryEntry.key) {
+                                                queryData.copy(values = listOf(guidValue))
+                                            } else {
+                                                queryData
+                                            }
                                         },
                                 ),
-                            isOnline = isOnline,
-                        ),
+                            ).getOrThrow(),
                     )
                 }
-            }.distinctBy { it.uid() }
+            }.distinctBy { it.uid }
 
-        return searchItems.map { searchItem ->
-            searchRepository.transform(
-                searchItem,
-                searchParametersModel.selectedProgram,
-                offlineOnly,
+        return searchItems.map { trackedEntity ->
+            searchRepositoryKt.mapTrackedEntitySearchItemResultToSearchTeiModel(
+                trackedEntity,
                 sortingItem,
             )
         }
     }
 }
-

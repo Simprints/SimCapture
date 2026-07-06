@@ -108,8 +108,9 @@ class CustomIntentRepositoryImpl(
         if (customIntent.packageName() != simprintsIdentifyAction) {
             return this
         }
-        val orgUnitName = currentUserOrgUnitName()
-            ?: return this
+        val orgUnitName =
+            currentUserOrgUnitName()
+                ?: return this
         return this + (simprintsModuleIdKey to orgUnitName)
     }
 

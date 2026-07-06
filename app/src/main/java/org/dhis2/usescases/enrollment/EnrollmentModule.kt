@@ -9,7 +9,6 @@ import io.reactivex.processors.PublishProcessor
 import org.dhis2.commons.data.EntryMode
 import org.dhis2.commons.di.dagger.PerActivity
 import org.dhis2.commons.matomo.MatomoAnalyticsController
-import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.prefs.PreferenceProvider
 import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.EventResourcesProvider
@@ -43,7 +42,7 @@ import org.dhis2.form.ui.provider.LegendValueProviderImpl
 import org.dhis2.form.ui.provider.UiEventTypesProviderImpl
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository
 import org.dhis2.mobile.commons.customintents.CustomIntentRepositoryImpl
-import org.dhis2.mobile.commons.providers.FieldErrorMessageProvider
+import org.dhis2.mobile.commons.network.NetworkStatusProvider
 import org.dhis2.mobile.commons.reporting.CrashReportController
 import org.dhis2.simprints.SimprintsCustomIntentResultMapper
 import org.dhis2.simprints.SimprintsEnrollmentViewModel
@@ -240,23 +239,22 @@ class EnrollmentModule(
         d2: D2,
         enrollmentRepository: EnrollmentObjectRepository,
         crashReportController: CrashReportController,
-        networkUtils: NetworkUtils,
         searchTEIRepository: SearchTEIRepository,
         resourceManager: ResourceManager,
-    ): ValueStore {
-        val fieldErrorMessageProvider = FieldErrorMessageProvider()
-        return ValueStoreImpl(
+        networkStatusProvider: NetworkStatusProvider,
+        dispatcherProvider: DispatcherProvider,
+    ): ValueStore =
+        ValueStoreImpl(
             d2,
             enrollmentRepository.blockingGet()?.trackedEntityInstance()!!,
             EntryMode.ATTR,
             DhisEnrollmentUtils(d2),
             crashReportController,
-            networkUtils,
             searchTEIRepository,
-            fieldErrorMessageProvider,
             resourceManager,
+            networkStatusProvider,
+            dispatcherProvider,
         )
-    }
 
     @Provides
     @PerActivity

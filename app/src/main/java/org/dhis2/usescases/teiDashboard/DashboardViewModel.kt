@@ -123,11 +123,24 @@ class DashboardViewModel(
         }
     }
 
-    private fun loadNavigationBarItems() {
-        updateNavigationBarItems(_navigationBarUIState.value.selectedItem)
+    private suspend fun loadNavigationBarItems() {
+        val hasAnalytics = withContext(dispatcher.io()) { repository.programHasAnalytics() }
+        updateNavigationBarItems(_navigationBarUIState.value.selectedItem, hasAnalytics)
     }
 
     private fun updateNavigationBarItems(selectedItem: TEIDashboardItems?) {
+        viewModelScope.launch(dispatcher.io()) {
+            val hasAnalytics = repository.programHasAnalytics()
+            withContext(dispatcher.ui()) {
+                updateNavigationBarItems(selectedItem, hasAnalytics)
+            }
+        }
+    }
+
+    private fun updateNavigationBarItems(
+        selectedItem: TEIDashboardItems?,
+        hasAnalytics: Boolean,
+    ) {
         val enrollmentItems = mutableListOf<NavigationBarItem<TEIDashboardItems>>()
 
         if (displayDetailsNavigationItem || forceDisplayDetailsNavigationItemForSimprintsRampTable) {
@@ -141,7 +154,7 @@ class DashboardViewModel(
             )
         }
 
-        if (pageConfigurator.displayAnalytics()) {
+        if (hasAnalytics && pageConfigurator.displayAnalytics()) {
             enrollmentItems.add(
                 NavigationBarItem(
                     id = TEIDashboardItems.ANALYTICS,
@@ -276,7 +289,7 @@ class DashboardViewModel(
             try {
                 val hasMoreEnrollments = result.await()
                 onSuccess(hasMoreEnrollments)
-            } catch (e: AuthorityException) {
+            } catch (_: AuthorityException) {
                 onAuthorityError()
             } catch (e: Exception) {
                 Timber.e(e)

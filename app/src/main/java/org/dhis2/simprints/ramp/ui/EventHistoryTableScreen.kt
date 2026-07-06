@@ -62,7 +62,7 @@ fun EventHistoryTableScreen(
         is EventHistoryTableUiState.Error ->
             EventHistoryTableMessage(
                 modifier = modifier,
-                message = state.message ?: stringResource(R.string.error_unexpected_error),
+                message = state.message ?: stringResource(R.string.something_wrong),
             )
 
         is EventHistoryTableUiState.Success ->

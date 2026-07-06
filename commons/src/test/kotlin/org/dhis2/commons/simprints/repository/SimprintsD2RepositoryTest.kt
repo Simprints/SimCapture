@@ -42,6 +42,7 @@ class SimprintsD2RepositoryTest {
                 .trackedEntityInstance("tei-uid")
                 .program("program-uid")
                 .organisationUnit("org-unit-uid")
+                .attributeOptionCombo("attribute-option-combo-uid")
                 .build()
 
         val result = repository.getEnrollmentContext("enrollment-uid")
@@ -85,6 +86,7 @@ class SimprintsD2RepositoryTest {
                 .uid("enrollment-uid")
                 .program("program-uid")
                 .organisationUnit("org-unit-uid")
+                .attributeOptionCombo("attribute-option-combo-uid")
                 .build()
 
         val result = repository.getEnrollmentContext("enrollment-uid")

@@ -112,9 +112,9 @@ class EventCaptureContract {
 
         fun deleteEvent(): Observable<Boolean>
 
-        fun updateEventStatus(skipped: EventStatus): Observable<Boolean>
+        fun updateEventStatus(status: EventStatus): Observable<Boolean>
 
-        fun rescheduleEvent(time: Date): Observable<Boolean>
+        fun rescheduleEvent(newDate: Date): Observable<Boolean>
 
         fun programStage(): Observable<String>
 

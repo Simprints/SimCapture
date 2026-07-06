@@ -11,7 +11,9 @@ import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
 import org.dhis2.simprints.SimprintsMapBiometricSearchResultUseCase
 import org.dhis2.simprints.SimprintsSearchViewModel
-import org.dhis2.simprints.di.SimprintsSearchViewModelFactory
+import org.dhis2.tracker.search.domain.FetchOptionSetOptions
+import org.dhis2.tracker.search.domain.FetchSearchParameters
+import org.dhis2.tracker.search.domain.SearchTrackedEntities
 
 class SearchTeiViewModelFactory(
     private val searchRepository: SearchRepository,
@@ -26,8 +28,10 @@ class SearchTeiViewModelFactory(
     private val resourceManager: ResourceManager,
     private val displayNameProvider: DisplayNameProvider,
     private val filterManager: FilterManager,
-    private val searchActivity: SearchTEActivity,
-    private val simprintsSearchViewModelFactory: SimprintsSearchViewModelFactory,
+    private val searchTrackedEntities: SearchTrackedEntities,
+    private val fetchSearchParameters: FetchSearchParameters,
+    private val fetchOptionSetOptions: FetchOptionSetOptions,
+    private val simprintsSearchViewModel: SimprintsSearchViewModel,
     private val loadSimprintsBiometricSearchResultsUseCase: SimprintsLoadBiometricSearchResultsUseCase,
     private val mapSimprintsBiometricSearchResult: SimprintsMapBiometricSearchResultUseCase,
 ) : ViewModelProvider.Factory {
@@ -45,7 +49,10 @@ class SearchTeiViewModelFactory(
             resourceManager,
             displayNameProvider,
             filterManager,
-            ViewModelProvider(searchActivity, simprintsSearchViewModelFactory)[SimprintsSearchViewModel::class.java],
+            searchTrackedEntities,
+            fetchSearchParameters,
+            fetchOptionSetOptions,
+            simprintsSearchViewModel,
             loadSimprintsBiometricSearchResultsUseCase,
             mapSimprintsBiometricSearchResult,
         ) as T

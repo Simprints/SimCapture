@@ -152,6 +152,7 @@ class EventRepository(
             .byProgramStageUid()
             .eq(event?.programStage())
             .withDataElements()
+            .orderBySortOrder(RepositoryScope.OrderByDirection.ASC)
             .blockingGet()
             .associateBy { section -> section.uid() }
     }
@@ -176,6 +177,7 @@ class EventRepository(
             .byProgramStageUid()
             .eq(programStage?.uid())
             .withDataElements()
+            .orderBySortOrder(RepositoryScope.OrderByDirection.ASC)
             .get()
             .flatMap { programStageSection ->
                 if (programStageSection.isEmpty()) {

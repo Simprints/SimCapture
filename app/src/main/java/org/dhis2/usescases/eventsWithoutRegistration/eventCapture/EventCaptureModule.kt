@@ -65,8 +65,8 @@ class EventCaptureModule(
     @PerActivity
     fun provideRepository(d2: D2): EventCaptureRepository =
         EventCaptureRepositoryImpl(
-            eventUid,
             d2,
+            eventUid,
             RampDatastoreRepository(d2),
         )
 

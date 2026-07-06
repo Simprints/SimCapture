@@ -3,6 +3,7 @@ package org.dhis2.usescases.searchTrackEntity;
 import android.content.Context;
 
 import androidx.annotation.NonNull;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.google.gson.Gson;
 
@@ -36,7 +37,6 @@ import org.dhis2.data.dhislogic.DhisEnrollmentUtils;
 import org.dhis2.data.enrollment.EnrollmentUiDataHelper;
 import org.dhis2.data.forms.dataentry.SearchTEIRepository;
 import org.dhis2.data.forms.dataentry.SearchTEIRepositoryImpl;
-import org.dhis2.data.service.SyncStatusController;
 import org.dhis2.data.sorting.SearchSortingValueSetter;
 import org.dhis2.form.data.metadata.FileResourceConfiguration;
 import org.dhis2.form.data.metadata.OptionSetConfiguration;
@@ -67,15 +67,32 @@ import org.dhis2.maps.geometry.polygon.MapPolygonToFeature;
 import org.dhis2.maps.model.MapScope;
 import org.dhis2.maps.usecases.MapStyleConfiguration;
 import org.dhis2.maps.utils.DhisMapUtils;
+import org.dhis2.mobile.commons.coroutine.Dispatcher;
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository;
 import org.dhis2.mobile.commons.customintents.CustomIntentRepositoryImpl;
+import org.dhis2.mobile.commons.error.DomainErrorMapper;
+import org.dhis2.mobile.commons.network.NetworkStatusProvider;
+import org.dhis2.mobile.commons.network.NetworkStatusProviderImpl;
 import org.dhis2.mobile.commons.reporting.CrashReportController;
+import org.dhis2.mobile.commons.resources.D2ErrorMessageProvider;
+import org.dhis2.mobile.commons.resources.D2ErrorMessageProviderImpl;
+import org.dhis2.mobile.sync.domain.SyncStatusController;
 import org.dhis2.simprints.SimprintsCustomIntentResultMapper;
 import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase;
 import org.dhis2.simprints.SimprintsMapBiometricSearchResultUseCase;
 import org.dhis2.simprints.SimprintsResolveSingleBiometricSearchNavigationUseCase;
+import org.dhis2.simprints.SimprintsSearchViewModel;
 import org.dhis2.simprints.di.SimprintsSearchViewModelFactory;
 import org.dhis2.tracker.data.ProfilePictureProvider;
+import org.dhis2.tracker.search.data.OptionSetRepository;
+import org.dhis2.tracker.search.data.OptionSetRepositoryImpl;
+import org.dhis2.tracker.search.data.SearchParametersRepository;
+import org.dhis2.tracker.search.data.SearchParametersRepositoryImpl;
+import org.dhis2.tracker.search.data.SearchTrackedEntityRepository;
+import org.dhis2.tracker.search.data.SearchTrackedEntityRepositoryImpl;
+import org.dhis2.tracker.search.domain.FetchOptionSetOptions;
+import org.dhis2.tracker.search.domain.FetchSearchParameters;
+import org.dhis2.tracker.search.domain.SearchTrackedEntities;
 import org.dhis2.ui.ThemeManager;
 import org.dhis2.usescases.events.EventInfoProvider;
 import org.dhis2.usescases.searchTrackEntity.ui.mapper.TEICardMapper;
@@ -98,23 +115,27 @@ public class SearchTEModule {
     private final String initialProgram;
     private final Context moduleContext;
     private final Map<String, List<String>> initialQuery;
+    private final SyncStatusController syncStatusController;
 
     public SearchTEModule(SearchTEContractsModule.View view,
                           String tEType,
                           String initialProgram,
                           Context context,
-                          Map<String, List<String>> initialQuery) {
+                          Map<String, List<String>> initialQuery,
+                          SyncStatusController syncStatusController
+    ) {
         this.view = view;
         this.teiType = tEType;
         this.initialProgram = initialProgram;
         this.moduleContext = context;
         this.initialQuery = initialQuery;
+        this.syncStatusController = syncStatusController;
     }
 
     @Provides
     @PerActivity
-    SearchTEContractsModule.View provideView(SearchTEActivity searchTEActivity) {
-        return searchTEActivity;
+    SearchTEContractsModule.View provideView() {
+        return view;
     }
 
     @Provides
@@ -126,7 +147,6 @@ public class SearchTEModule {
                                                        PreferenceProvider preferenceProvider,
                                                        FilterRepository filterRepository,
                                                        MatomoAnalyticsController matomoAnalyticsController,
-                                                       SyncStatusController syncStatusController,
                                                        ResourceManager resourceManager,
                                                        ColorUtils colorUtils) {
         return new SearchTEPresenter(view, d2, searchRepository, schedulerProvider,
@@ -168,35 +188,29 @@ public class SearchTEModule {
     SearchRepository searchRepository(@NonNull D2 d2,
                                       FilterPresenter filterPresenter,
                                       ResourceManager resources,
-                                      SearchSortingValueSetter searchSortingValueSetter,
-                                      DhisPeriodUtils periodUtils,
                                       Charts charts,
                                       CrashReportController crashReportController,
-                                      NetworkUtils networkUtils,
+                                      NetworkStatusProvider networkStatusProvider,
                                       SearchTEIRepository searchTEIRepository,
                                       ThemeManager themeManager,
-                                      MetadataIconProvider metadataIconProvider,
                                       DateUtils dateUtils,
                                       CustomIntentRepository customIntentRepository,
-                                      RampDatastoreRepository rampDatastoreRepository) {
-        ProfilePictureProvider profilePictureProvider = new ProfilePictureProvider(d2);
+                                      RampDatastoreRepository rampDatastoreRepository,
+                                      DispatcherProvider dispatcherProvider) {
         return new SearchRepositoryImpl(teiType,
                 initialProgram,
                 d2,
                 filterPresenter,
                 resources,
-                searchSortingValueSetter,
-                periodUtils,
                 charts,
                 crashReportController,
-                networkUtils,
+                networkStatusProvider,
                 searchTEIRepository,
                 themeManager,
-                metadataIconProvider,
-                profilePictureProvider,
                 dateUtils,
                 customIntentRepository,
-                rampDatastoreRepository);
+                rampDatastoreRepository,
+                dispatcherProvider);
     }
 
     @Provides
@@ -205,11 +219,11 @@ public class SearchTEModule {
             SearchRepository searchRepository,
             D2 d2,
             DispatcherProvider dispatcherProvider,
-            FieldViewModelFactory fieldViewModelFactory,
             MetadataIconProvider metadataIconProvider,
             ColorUtils colorUtils,
             DateUtils dateUtils,
-            CustomIntentRepository customIntentRepository
+            CustomIntentRepository customIntentRepository,
+            SearchSortingValueSetter sortingValueSetter
     ) {
         ResourceManager resourceManager = new ResourceManager(moduleContext, colorUtils);
         DateLabelProvider dateLabelProvider = new DateLabelProvider(moduleContext, new ResourceManager(moduleContext, colorUtils));
@@ -219,13 +233,12 @@ public class SearchTEModule {
                 searchRepository,
                 d2,
                 dispatcherProvider,
-                fieldViewModelFactory,
-                metadataIconProvider,
                 new TrackedEntityInstanceInfoProvider(
                         d2,
                         profilePictureProvider,
                         dateLabelProvider,
-                        metadataIconProvider
+                        metadataIconProvider,
+                        sortingValueSetter
                 ),
                 new EventInfoProvider(
                         d2,
@@ -385,9 +398,19 @@ public class SearchTEModule {
 
     @Provides
     @PerActivity
+    SimprintsSearchViewModel provideSimprintsSearchViewModel(
+            SimprintsSearchViewModelFactory simprintsSearchViewModelFactory
+    ) {
+        return new ViewModelProvider((SearchTEActivity) view, simprintsSearchViewModelFactory)
+                .get(SimprintsSearchViewModel.class);
+    }
+
+    @Provides
+    @PerActivity
     SimprintsResolveSingleBiometricSearchNavigationUseCase provideSimprintsResolveSingleBiometricSearchNavigationUseCase(
             SearchRepository searchRepository,
             SearchRepositoryKt searchRepositoryKt,
+            SearchTrackedEntities searchTrackedEntities,
             NetworkUtils networkUtils,
             FilterManager filterManager,
             DispatcherProvider dispatcherProvider
@@ -395,6 +418,7 @@ public class SearchTEModule {
         return new SimprintsResolveSingleBiometricSearchNavigationUseCase(
                 searchRepository,
                 searchRepositoryKt,
+                searchTrackedEntities,
                 networkUtils,
                 filterManager,
                 dispatcherProvider.io()
@@ -404,13 +428,13 @@ public class SearchTEModule {
     @Provides
     @PerActivity
     SimprintsLoadBiometricSearchResultsUseCase provideSimprintsLoadBiometricSearchResultsUseCase(
-            SearchRepository searchRepository,
             SearchRepositoryKt searchRepositoryKt,
+            SearchTrackedEntities searchTrackedEntities,
             SimprintsOrderSearchResultsByIdentifyResponseUseCase orderSearchResultsByIdentifyResponse
     ) {
         return new SimprintsLoadBiometricSearchResultsUseCase(
-                searchRepository,
                 searchRepositoryKt,
+                searchTrackedEntities,
                 orderSearchResultsByIdentifyResponse
         );
     }
@@ -453,7 +477,10 @@ public class SearchTEModule {
             DisplayNameProvider displayNameProvider,
             FilterManager filterManager,
             ProgramConfigurationRepository programConfigurationRepository,
-            SimprintsSearchViewModelFactory simprintsSearchViewModelFactory,
+            SearchTrackedEntities searchTrackedEntities,
+            FetchSearchParameters fetchSearchParameters,
+            FetchOptionSetOptions fetchOptionSetOptions,
+            SimprintsSearchViewModel simprintsSearchViewModel,
             SimprintsLoadBiometricSearchResultsUseCase loadSimprintsBiometricSearchResultsUseCase,
             SimprintsMapBiometricSearchResultUseCase mapSimprintsBiometricSearchResult
     ) {
@@ -475,11 +502,95 @@ public class SearchTEModule {
                 resourceManager,
                 displayNameProvider,
                 filterManager,
-                (SearchTEActivity) moduleContext,
-                simprintsSearchViewModelFactory,
+                searchTrackedEntities,
+                fetchSearchParameters,
+                fetchOptionSetOptions,
+                simprintsSearchViewModel,
                 loadSimprintsBiometricSearchResultsUseCase,
                 mapSimprintsBiometricSearchResult
         );
+    }
+
+    @Provides
+    @PerActivity
+    FetchSearchParameters provideFetchSearchParametersUseCase(
+            SearchParametersRepository searchParametersRepository
+    ) {
+        return new FetchSearchParameters(
+                new Dispatcher(),
+                searchParametersRepository
+        );
+    }
+
+    @Provides
+    @PerActivity
+    FetchOptionSetOptions provideFetchOptionSetOptionsUseCase(
+            OptionSetRepository optionSetRepository
+    ) {
+        return new FetchOptionSetOptions(
+                optionSetRepository
+        );
+    }
+
+    @Provides
+    @PerActivity
+    SearchParametersRepository provideSearchParametersRepository(
+            D2 d2,
+            CustomIntentRepository customIntentRepository,
+            DomainErrorMapper domainErrorMapper
+    ) {
+        return new SearchParametersRepositoryImpl(
+                d2,
+                customIntentRepository,
+                domainErrorMapper
+        );
+    }
+
+    @Provides
+    @PerActivity
+    OptionSetRepository provideOptionSetRepository(
+            D2 d2,
+            DomainErrorMapper domainErrorMapper
+    ) {
+        return new OptionSetRepositoryImpl(
+                d2,
+                domainErrorMapper
+        );
+    }
+
+
+
+    @Provides
+    @PerActivity
+    SearchTrackedEntities provideLoadSearchResultsUseCase(
+            SearchTrackedEntityRepository searchTrackedEntityRepository,
+            CustomIntentRepository customIntentRepository
+    ) {
+        return new SearchTrackedEntities(
+                searchTrackedEntityRepository,
+                customIntentRepository,
+                this.teiType
+        );
+    }
+
+    @Provides
+    @PerActivity
+    SearchTrackedEntityRepository provideLoadSearchResultsRepository(
+            D2 d2,
+            FilterPresenter filterPresenter,
+            ProfilePictureProvider profilePictureProvider
+    ) {
+        return new SearchTrackedEntityRepositoryImpl(
+                d2,
+                filterPresenter,
+                profilePictureProvider
+        );
+    }
+
+    @Provides
+    @PerActivity
+    ProfilePictureProvider provideProfilePictureProvider(D2 d2) {
+        return new ProfilePictureProvider(d2);
     }
 
     @Provides
@@ -549,5 +660,30 @@ public class SearchTEModule {
             FilterRepository filterRepository
     ) {
         return new WorkingListViewModelFactory(initialProgram, filterRepository);
+    }
+
+    @Provides
+    @PerActivity
+    DomainErrorMapper provideDomainErrorMapper(
+            D2ErrorMessageProvider d2ErrorMessageProvider,
+            NetworkStatusProvider networkStatusProvider
+    ) {
+        return new DomainErrorMapper(
+                d2ErrorMessageProvider,
+                networkStatusProvider
+        );
+    }
+
+    @Provides
+    @PerActivity
+    D2ErrorMessageProvider provideD2ErrorMessageProvider() {
+        return new D2ErrorMessageProviderImpl();
+    }
+
+    @Provides
+    @PerActivity
+    NetworkStatusProvider provideNetworkStatusProvider() {
+
+        return new NetworkStatusProviderImpl(moduleContext);
     }
 }

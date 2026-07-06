@@ -441,6 +441,7 @@ class EventHistoryTableRepositoryTest {
                 .displayShortName("Weight")
                 .displayName("Weight (kg)")
                 .valueType(ValueType.NUMBER)
+                .categoryCombo(ObjectWithUid.create(CATEGORY_COMBO_UID))
                 .build()
         whenever(
             d2
@@ -455,6 +456,7 @@ class EventHistoryTableRepositoryTest {
                 .displayShortName("Status")
                 .valueType(ValueType.TEXT)
                 .optionSet(ObjectWithUid.create(OPTION_SET_UID))
+                .categoryCombo(ObjectWithUid.create(CATEGORY_COMBO_UID))
                 .build()
         whenever(
             d2
@@ -468,6 +470,7 @@ class EventHistoryTableRepositoryTest {
                 .uid(BOOLEAN_UID)
                 .displayShortName("Confirmed")
                 .valueType(ValueType.BOOLEAN)
+                .categoryCombo(ObjectWithUid.create(CATEGORY_COMBO_UID))
                 .build()
         whenever(
             d2
@@ -481,6 +484,7 @@ class EventHistoryTableRepositoryTest {
                 .uid(EXCLUDED_UID)
                 .displayShortName("Excluded")
                 .valueType(ValueType.TEXT)
+                .categoryCombo(ObjectWithUid.create(CATEGORY_COMBO_UID))
                 .build()
     }
 
@@ -513,7 +517,7 @@ class EventHistoryTableRepositoryTest {
     ): ProgramStageDataElement =
         mock {
             on { programStage() } doReturn programStage
-            on { dataElement() } doReturn dataElement
+            on { dataElement() } doReturn ObjectWithUid.create(dataElement.uid())
         }
 
     private fun event(
@@ -541,7 +545,12 @@ class EventHistoryTableRepositoryTest {
             .value(value)
             .build()
 
-    private fun dataElement(uid: String): DataElement = DataElement.builder().uid(uid).build()
+    private fun dataElement(uid: String): DataElement =
+        DataElement
+            .builder()
+            .uid(uid)
+            .categoryCombo(ObjectWithUid.create(CATEGORY_COMBO_UID))
+            .build()
 
     private data class TestSectionDefinition(
         val uid: String,
@@ -561,5 +570,6 @@ class EventHistoryTableRepositoryTest {
         const val BOOLEAN_UID = "boolean"
         const val EXCLUDED_UID = "excluded"
         const val OPTION_SET_UID = "option-set"
+        const val CATEGORY_COMBO_UID = "category-combo"
     }
 }
