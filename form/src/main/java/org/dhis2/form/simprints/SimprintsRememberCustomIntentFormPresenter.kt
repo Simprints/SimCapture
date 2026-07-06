@@ -2,7 +2,7 @@ package org.dhis2.form.simprints
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import org.dhis2.commons.resources.ResourceManager
+import androidx.compose.ui.res.stringResource
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.form.R
@@ -12,7 +12,6 @@ import org.dhis2.form.ui.customintent.CustomIntentActivityResultContract
 @Composable
 fun rememberSimprintsCustomIntentFormPresenter(
     fieldUiModel: FieldUiModel,
-    resources: ResourceManager,
     sessionRepository: SimprintsSessionRepository,
 ): SimprintsCustomIntentFormPresenter {
     val customIntent = fieldUiModel.customIntent
@@ -30,9 +29,9 @@ fun rememberSimprintsCustomIntentFormPresenter(
         }
     val placeholderValue =
         if (sessionRepository.hasPendingEnrollmentFromPossibleDuplicates()) {
-            resources.getString(R.string.simprints_using_last_biometrics)
+            stringResource(R.string.simprints_using_last_biometrics)
         } else {
-            resources.getString(R.string.simprints_from_last_biometric_search)
+            stringResource(R.string.simprints_from_last_biometric_search)
         }
 
     return remember(
