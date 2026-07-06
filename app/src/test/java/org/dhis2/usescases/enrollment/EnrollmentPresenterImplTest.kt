@@ -1,10 +1,7 @@
 package org.dhis2.usescases.enrollment
 
-import android.content.Intent
-import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import io.reactivex.Single
 import io.reactivex.processors.PublishProcessor
-import kotlinx.coroutines.test.runTest
 import org.dhis2.commons.matomo.MatomoAnalyticsController
 import org.dhis2.commons.schedulers.SchedulerProvider
 import org.dhis2.data.schedulers.TrampolineSchedulerProvider
@@ -19,7 +16,7 @@ import org.hisp.dhis.android.core.common.Access
 import org.hisp.dhis.android.core.common.DataAccess
 import org.hisp.dhis.android.core.common.FeatureType
 import org.hisp.dhis.android.core.common.Geometry
-import org.hisp.dhis.android.core.enrollment.Enrollment
+import org.hisp.dhis.android.core.common.ObjectWithUid
 import org.hisp.dhis.android.core.enrollment.EnrollmentAccess
 import org.hisp.dhis.android.core.enrollment.EnrollmentObjectRepository
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
@@ -30,11 +27,8 @@ import org.hisp.dhis.android.core.program.Program
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstance
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstanceObjectRepository
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.mockito.Mockito
-import org.mockito.kotlin.any
-import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -42,9 +36,6 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 class EnrollmentPresenterImplTest {
-    @get:Rule
-    val instantTaskExecutorRule = InstantTaskExecutorRule()
-
     private val enrollmentFormRepository: EnrollmentFormRepository = mock()
     private val programRepository: ReadOnlyOneObjectRepositoryFinalImpl<Program> = mock()
     private val teiRepository: TrackedEntityInstanceObjectRepository = mock()
@@ -86,6 +77,8 @@ class EnrollmentPresenterImplTest {
             Program
                 .builder()
                 .uid("")
+                .categoryCombo(ObjectWithUid.create("categoryComboUid"))
+                .enrollmentCategoryCombo(ObjectWithUid.create("categoryComboUid"))
                 .access(
                     Access
                         .builder()
@@ -107,6 +100,8 @@ class EnrollmentPresenterImplTest {
             Program
                 .builder()
                 .uid("")
+                .categoryCombo(ObjectWithUid.create("categoryComboUid"))
+                .enrollmentCategoryCombo(ObjectWithUid.create("categoryComboUid"))
                 .access(
                     Access
                         .builder()
@@ -174,7 +169,13 @@ class EnrollmentPresenterImplTest {
                 .geometry(geometry)
                 .uid("random")
                 .build()
-        val program = Program.builder().uid("tUID").build()
+        val program =
+            Program
+                .builder()
+                .uid("tUID")
+                .categoryCombo(ObjectWithUid.create("categoryComboUid"))
+                .enrollmentCategoryCombo(ObjectWithUid.create("categoryComboUid"))
+                .build()
 
         whenever(teiRepository.blockingGet()) doReturn tei
         whenever(programRepository.blockingGet()) doReturn program
@@ -206,7 +207,13 @@ class EnrollmentPresenterImplTest {
                 .geometry(geometry)
                 .uid("random")
                 .build()
-        val program = Program.builder().uid("tUID").build()
+        val program =
+            Program
+                .builder()
+                .uid("tUID")
+                .categoryCombo(ObjectWithUid.create("categoryComboUid"))
+                .enrollmentCategoryCombo(ObjectWithUid.create("categoryComboUid"))
+                .build()
 
         whenever(teiRepository.blockingGet()) doReturn tei
         whenever(programRepository.blockingGet()) doReturn program
@@ -264,62 +271,6 @@ class EnrollmentPresenterImplTest {
         whenever(eventCollectionRepository.uid("uid")) doReturn mock()
         whenever(eventCollectionRepository.uid("uid").blockingGet()) doReturn event
         assert(!presenter.isEventScheduleOrSkipped("uid"))
-    }
-
-    @Test
-    fun `Should delegate finish request to Simprints enrollment view model`() =
-        runTest {
-            val intent: Intent = mock()
-            whenever(
-                simprintsEnrollmentViewModel.onFinishRequested(
-                    enrollmentUid = "enrollmentUid",
-                ),
-            ) doReturn intent
-
-            val result = presenter.onFinishRequested("enrollmentUid")
-
-            assert(result == intent)
-        }
-
-    @Test
-    fun `Should delegate register last result using current enrollment tei to Simprints enrollment view model`() =
-        runTest {
-            val enrollment: Enrollment =
-                mock {
-                    on { trackedEntityInstance() } doReturn "teiUid"
-                    on { uid() } doReturn "enrollmentUid"
-                }
-            whenever(enrollmentRepository.blockingGet()) doReturn enrollment
-            whenever(
-                simprintsEnrollmentViewModel.onRegisterLastResult(
-                    resultCode = any(),
-                    data = anyOrNull(),
-                    teiUid = anyOrNull(),
-                    enrollmentUid = anyOrNull(),
-                ),
-            ) doReturn SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH
-
-            val result =
-                presenter.onRegisterLastResult(
-                    resultCode = 1,
-                    data = null,
-                    enrollmentUid = "enrollmentUidExtra",
-                )
-
-            verify(simprintsEnrollmentViewModel).onRegisterLastResult(
-                resultCode = 1,
-                data = null,
-                teiUid = "teiUid",
-                enrollmentUid = "enrollmentUidExtra",
-            )
-            assert(result == SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH)
-        }
-
-    @Test
-    fun `Should notify Simprints enrollment view model when register last launch fails`() {
-        presenter.onRegisterLastLaunchFailed()
-
-        verify(simprintsEnrollmentViewModel).onRegisterLastLaunchFailed()
     }
 
     @Test

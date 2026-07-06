@@ -55,7 +55,6 @@ import org.dhis2.commons.sync.SyncContext
 import org.dhis2.commons.sync.SyncContext.TrackerProgramTei
 import org.dhis2.data.forms.dataentry.ProgramAdapter
 import org.dhis2.databinding.ActivitySearchBinding
-import org.dhis2.form.ui.intent.FormIntent.OnSave
 import org.dhis2.mobile.commons.orgunit.OrgUnitSelectorScope
 import org.dhis2.tracker.NavigationBarUIState
 import org.dhis2.ui.ThemeManager
@@ -67,7 +66,7 @@ import org.dhis2.usescases.searchTrackEntity.LegacyInteraction.OnSyncIconClick
 import org.dhis2.usescases.searchTrackEntity.LegacyInteraction.OnTeiClick
 import org.dhis2.usescases.searchTrackEntity.listView.SearchTEList.Companion.get
 import org.dhis2.usescases.searchTrackEntity.mapView.SearchTEMap.Companion.get
-import org.dhis2.usescases.searchTrackEntity.searchparameters.initSearchScreen
+import org.dhis2.usescases.searchTrackEntity.searchparameters.provideSearchScreen
 import org.dhis2.usescases.searchTrackEntity.ui.SearchScreenConfigurator
 import org.dhis2.utils.customviews.BreakTheGlassBottomDialog
 import org.dhis2.utils.customviews.navigationbar.NavigationPage
@@ -76,7 +75,6 @@ import org.dhis2.utils.granularsync.shouldLaunchSyncDialog
 import org.dhis2.utils.isLandscape
 import org.dhis2.utils.isPortrait
 import org.hisp.dhis.android.core.arch.call.D2Progress
-import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit
 import org.hisp.dhis.mobile.ui.designsystem.component.navigationBar.NavigationBar
 import org.hisp.dhis.mobile.ui.designsystem.theme.DHIS2Theme
@@ -245,6 +243,7 @@ class SearchTEActivity :
                     initialProgram,
                     context,
                     initialQuery,
+                    syncStatusController,
                 ),
             )
         searchComponent?.inject(this)
@@ -322,7 +321,7 @@ class SearchTEActivity :
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putString(Constants.QUERY_DATA, JSONObject(viewModel.queryData).toString())
+        outState.putString(Constants.QUERY_DATA, JSONObject(viewModel.queryDataAsMap()).toString())
         outState.putString(CURRENT_SCREEN, currentContent?.name)
     }
 
@@ -357,7 +356,7 @@ class SearchTEActivity :
     }
 
     private fun initSearchParameters() {
-        initSearchScreen(
+        provideSearchScreen(
             binding.searchContainer,
             viewModel,
             initialProgram,
@@ -373,14 +372,9 @@ class SearchTEActivity :
                         if (selectedOrgUnits.isNotEmpty()) {
                             selectedOrgUnit = selectedOrgUnits[0].uid()
                         }
-                        viewModel.onParameterIntent(
-                            OnSave(
-                                uid,
-                                selectedOrgUnit,
-                                ValueType.ORGANISATION_UNIT,
-                                null,
-                                true,
-                            ),
+                        viewModel.onValueChange(
+                            fieldUid = uid,
+                            value = selectedOrgUnit,
                         )
                     }.orgUnitScope(orgUnitScope)
                     .build()
