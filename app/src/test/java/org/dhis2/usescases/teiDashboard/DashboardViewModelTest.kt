@@ -1,23 +1,26 @@
 package org.dhis2.usescases.teiDashboard
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import app.cash.turbine.test
 import io.reactivex.Observable
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.commons.viewmodel.DispatcherProvider
+import org.dhis2.tracker.TEIDashboardItems
 import org.dhis2.utils.analytics.ACTIVE_FOLLOW_UP
 import org.dhis2.utils.analytics.AnalyticsHelper
 import org.dhis2.utils.analytics.FOLLOW_UP
 import org.dhis2.utils.customviews.navigationbar.NavigationPageConfigurator
-import org.dhis2.tracker.TEIDashboardItems
 import org.hisp.dhis.android.core.common.State
 import org.hisp.dhis.android.core.enrollment.Enrollment
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
-import org.junit.Assert.assertEquals
+import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -38,57 +41,69 @@ class DashboardViewModelTest {
     private val pageConfigurator: NavigationPageConfigurator = mock()
     private val resoourcesManager: ResourceManager = mock()
 
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setUp() {
         Dispatchers.setMain(testingDispatcher)
-        whenever(resoourcesManager.getString(any<Int>())) doReturn ""
+        whenever(repository.isProgramSelected()) doReturn true
     }
 
     @Test
-    fun shouldFetchEnrollmentModel() {
+    fun shouldFetchEnrollmentModel() = runTest {
         mockEnrollmentModel()
         mockGrouping(true)
 
         val dashboardViewModel = getViewModel()
 
-        with(dashboardViewModel) {
-            assertTrue(dashboardModel.value == mockedEnrollmentModel)
-            assertTrue(showFollowUpBar.value)
-            assertTrue(!syncNeeded.value)
-            assertTrue(showStatusBar.value == EnrollmentStatus.ACTIVE)
-            assertTrue(state.value == State.SYNCED)
+        dashboardViewModel.dashboardModel.test {
+            awaitItem()
+            with(awaitItem()) {
+                assertTrue(this == mockedEnrollmentModel)
+                assertTrue(dashboardViewModel.showFollowUpBar.value)
+                assertTrue(!dashboardViewModel.syncNeeded.value)
+                assertTrue(dashboardViewModel.showStatusBar.value == EnrollmentStatus.ACTIVE)
+                assertTrue(dashboardViewModel.state.value == State.SYNCED)
+            }
         }
     }
 
     @Test
-    fun shouldFetchTeiModel() {
+    fun shouldFetchTeiModel() = runTest {
         mockTeiModel()
         mockGrouping(false)
 
         val dashboardViewModel = getViewModel()
 
-        with(dashboardViewModel) {
-            assertTrue(dashboardModel.value == mockedTeiModel)
-            assertTrue(!showFollowUpBar.value)
-            assertTrue(!syncNeeded.value)
-            assertTrue(showStatusBar.value == null)
-            assertTrue(state.value == null)
+        dashboardViewModel.dashboardModel.test {
+            awaitItem()
+            with(awaitItem()) {
+                assertTrue(this == mockedTeiModel)
+                assertTrue(!dashboardViewModel.showFollowUpBar.value)
+                assertTrue(!dashboardViewModel.syncNeeded.value)
+                assertTrue(dashboardViewModel.showStatusBar.value == null)
+                assertTrue(dashboardViewModel.state.value == null)
+            }
         }
     }
 
     @Test
-    fun shouldSetGrouping() {
+    fun shouldSetGrouping() = runTest {
         mockEnrollmentModel()
         mockGrouping(false)
 
         val dashboardViewModel = getViewModel()
 
-        with(dashboardViewModel) {
-            assertTrue(groupByStage.value == false)
-            setGrouping(true)
+        dashboardViewModel.groupByStage.test {
+            assertTrue(!awaitItem())
+            dashboardViewModel.setGrouping(true)
             verify(repository).setGrouping(true)
-            assertTrue(groupByStage.value == true)
+            assertTrue(awaitItem())
+            cancelAndIgnoreRemainingEvents()
         }
     }
 
@@ -105,117 +120,98 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun shouldDisplayOnlyHistoryUntilLandscapeHistoryFullscreenIsForced() {
-        mockEnrollmentModel()
-        mockGrouping(false)
-        whenever(pageConfigurator.displayDetails()) doReturn false
-        whenever(pageConfigurator.displayAnalytics()) doReturn false
-        whenever(pageConfigurator.displayTableView()) doReturn true
-
-        val dashboardViewModel = getViewModel()
-
-        assertEquals(
-            listOf(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE),
-            dashboardViewModel.navigationItemIds(),
-        )
-        assertEquals(
-            TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
-            dashboardViewModel.navigationBarUIState.value.selectedItem,
-        )
-
-        dashboardViewModel.onNavigationItemSelected(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
-
-        assertEquals(
-            listOf(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE),
-            dashboardViewModel.navigationItemIds(),
-        )
-
-        dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(true)
-
-        assertEquals(
-            listOf(
-                TEIDashboardItems.DETAILS,
-                TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
-            ),
-            dashboardViewModel.navigationItemIds(),
-        )
-        assertEquals(
-            TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
-            dashboardViewModel.navigationBarUIState.value.selectedItem,
-        )
-
-        dashboardViewModel.setForceDisplayDetailsNavigationItemForSimprintsRampTable(false)
-
-        assertEquals(
-            listOf(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE),
-            dashboardViewModel.navigationItemIds(),
-        )
-        assertEquals(
-            TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE,
-            dashboardViewModel.navigationBarUIState.value.selectedItem,
-        )
-    }
-
-    @Test
-    fun shouldKeepDetailsVisibleInPortrait() {
+    fun shouldSelectDetailsWhenDetailsNavigationReturnsFromLandscapeChart() = runTest {
         mockEnrollmentModel()
         mockGrouping(false)
         whenever(pageConfigurator.displayDetails()) doReturn true
         whenever(pageConfigurator.displayTableView()) doReturn true
+        whenever(repository.programHasAnalytics()) doReturn false
+        whenever(resoourcesManager.getString(any())) doReturn ""
 
-        val dashboardViewModel = getViewModel()
+        val viewModel = getViewModel()
 
-        assertTrue(dashboardViewModel.navigationItemIds().contains(TEIDashboardItems.DETAILS))
-        dashboardViewModel.onNavigationItemSelected(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
-        assertTrue(dashboardViewModel.navigationItemIds().contains(TEIDashboardItems.DETAILS))
-    }
+        viewModel.navigationBarUIState.test {
+            awaitItem()
+            testingDispatcher.scheduler.advanceUntilIdle()
+            assertTrue(awaitItem().selectedItem == TEIDashboardItems.DETAILS)
 
-    @Test
-    fun shouldSetFollowUpOnEnrollment() {
-        mockEnrollmentModel()
-        mockGrouping(false)
+            viewModel.onNavigationItemSelected(TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
+            testingDispatcher.scheduler.advanceUntilIdle()
+            assertTrue(awaitItem().selectedItem == TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
 
-        with(getViewModel()) {
-            onFollowUp()
-            verify(repository).setFollowUp("enrollmentUid")
-            assertTrue(state.value == State.TO_UPDATE)
-            verify(analyticsHelper).setEvent(ACTIVE_FOLLOW_UP, "false", FOLLOW_UP)
+            viewModel.setDetailsNavigationItemVisible(false)
+            testingDispatcher.scheduler.advanceUntilIdle()
+            assertTrue(awaitItem().selectedItem == TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE)
+
+            viewModel.setDetailsNavigationItemVisible(true)
+            testingDispatcher.scheduler.advanceUntilIdle()
+            assertTrue(awaitItem().selectedItem == TEIDashboardItems.DETAILS)
         }
     }
 
     @Test
-    fun shouldUpdateEnrollmentStatus() {
+    fun shouldSetFollowUpOnEnrollment() = runTest {
         mockEnrollmentModel()
         mockGrouping(false)
 
-        with(getViewModel()) {
-            whenever(repository.updateEnrollmentStatus(any(), any())) doReturn
-                Observable.just(
-                    StatusChangeResultCode.CHANGED,
-                )
-            whenever(mockedEnrollmentModel.currentEnrollment) doReturn mockedCompletedEnrollment
-            updateEnrollmentStatus(EnrollmentStatus.COMPLETED)
-            testingDispatcher.scheduler.advanceUntilIdle()
-            verify(repository).updateEnrollmentStatus("enrollmentUid", EnrollmentStatus.COMPLETED)
-            assertTrue(showStatusBar.value == EnrollmentStatus.COMPLETED)
-            assertTrue(syncNeeded.value)
-            assertTrue(state.value == State.TO_UPDATE)
+        val viewModel = getViewModel()
+        viewModel.dashboardModel.test {
+            awaitItem()
+            awaitItem()
+            with(viewModel) {
+                onFollowUp()
+                verify(repository).setFollowUp("enrollmentUid")
+                assertTrue(state.value == State.TO_UPDATE)
+                verify(analyticsHelper).setEvent(ACTIVE_FOLLOW_UP, "false", FOLLOW_UP)
+            }
         }
     }
 
     @Test
-    fun shouldShowMessageIfErrorWhileUpdatingEnrollmentStatus() {
+    fun shouldUpdateEnrollmentStatus() = runTest {
         mockEnrollmentModel()
         mockGrouping(false)
-
-        with(getViewModel()) {
-            whenever(repository.updateEnrollmentStatus(any(), any())) doReturn
-                Observable.just(
-                    StatusChangeResultCode.FAILED,
+        val viewModel = getViewModel()
+        viewModel.dashboardModel.test {
+            awaitItem()
+            awaitItem()
+            with(viewModel) {
+                whenever(repository.updateEnrollmentStatus(any(), any())) doReturn
+                        Observable.just(
+                            StatusChangeResultCode.CHANGED,
+                        )
+                whenever(mockedEnrollmentModel.currentEnrollment) doReturn mockedCompletedEnrollment
+                updateEnrollmentStatus(EnrollmentStatus.COMPLETED)
+                testingDispatcher.scheduler.advanceUntilIdle()
+                verify(repository).updateEnrollmentStatus(
+                    "enrollmentUid",
+                    EnrollmentStatus.COMPLETED
                 )
-            updateEnrollmentStatus(EnrollmentStatus.COMPLETED)
-            testingDispatcher.scheduler.advanceUntilIdle()
-            assertTrue(showStatusErrorMessages.value == StatusChangeResultCode.FAILED)
+                assertTrue(showStatusBar.value == EnrollmentStatus.COMPLETED)
+                assertTrue(syncNeeded.value)
+                assertTrue(state.value == State.TO_UPDATE)
+            }
+        }
+    }
+
+    @Test
+    fun shouldShowMessageIfErrorWhileUpdatingEnrollmentStatus() = runTest {
+        mockEnrollmentModel()
+        mockGrouping(false)
+        val viewModel = getViewModel()
+
+        viewModel.dashboardModel.test {
+            awaitItem()
+            awaitItem()
+            with(viewModel) {
+                whenever(repository.updateEnrollmentStatus(any(), any())) doReturn
+                        Observable.just(
+                            StatusChangeResultCode.FAILED,
+                        )
+                updateEnrollmentStatus(EnrollmentStatus.COMPLETED)
+                testingDispatcher.scheduler.advanceUntilIdle()
+                assertTrue(showStatusErrorMessages.value == StatusChangeResultCode.FAILED)
+            }
         }
     }
 
@@ -236,9 +232,6 @@ class DashboardViewModelTest {
         ).also {
             testingDispatcher.scheduler.advanceUntilIdle()
         }
-
-    private fun DashboardViewModel.navigationItemIds(): List<TEIDashboardItems> =
-        navigationBarUIState.value.items.map { it.id }
 
     private fun mockEnrollmentModel() {
         whenever(repository.getDashboardModel()) doReturn mockedEnrollmentModel

@@ -1,12 +1,15 @@
 package org.dhis2.usescases.datasets.datasetDetail
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import androidx.lifecycle.ViewModelStore
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.dhis2.commons.viewmodel.DispatcherProvider
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -19,18 +22,27 @@ class DataSetDetailViewModelTest {
     @get:Rule
     val executorRule = InstantTaskExecutorRule()
 
+    private val testingDispatcher = UnconfinedTestDispatcher()
+    private val viewModelStore = ViewModelStore()
     private val dispatcher: DispatcherProvider =
         mock {
-            on { io() } doReturn Dispatchers.IO
+            on { io() } doReturn testingDispatcher
         }
     private val dataSetPageConfigurator: DataSetPageConfigurator = mock()
     private val initializedConfigurator: DataSetPageConfigurator = mock()
 
     private lateinit var viewModel: DataSetDetailViewModel
 
+    @After
+    fun tearDown() {
+        viewModelStore.clear()
+        testingDispatcher.scheduler.advanceUntilIdle()
+        Dispatchers.resetMain()
+    }
+
     @Before
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        Dispatchers.setMain(testingDispatcher)
     }
 
     @Test
@@ -41,7 +53,7 @@ class DataSetDetailViewModelTest {
             DataSetDetailViewModel(
                 dispatcher,
                 dataSetPageConfigurator,
-            )
+            ).also { viewModelStore.put("DataSetDetailViewModel", it) }
         viewModel.pageConfiguration.observeForever { result ->
             assertEquals(result, initializedConfigurator)
         }

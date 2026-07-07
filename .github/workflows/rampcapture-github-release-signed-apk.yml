@@ -115,7 +115,7 @@ jobs:
 
           release_notes=$(cat <<EOF
           RAMPcapture signed APK release.
-          
+
           Fork version: ${{ steps.release-info.outputs.forkNumber }}.
           Based on upstream DHIS2 version: v${{ steps.read-version.outputs.vName }}.
 

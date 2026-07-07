@@ -27,8 +27,6 @@ import org.hisp.dhis.android.core.common.ValueType.LONG_TEXT
 import org.hisp.dhis.android.core.event.EventStatus
 import org.hisp.dhis.rules.models.RuleEffect
 
-private const val LOOP_THRESHOLD = 5
-
 class FormRepositoryImpl(
     private val formValueStore: FormValueStore,
     private val fieldErrorMessageProvider: FieldErrorMessageProvider,
@@ -49,7 +47,6 @@ class FormRepositoryImpl(
     private var ruleEffects: List<RuleEffect> = emptyList()
     private var ruleEffectsResult: RuleUtilsProviderResult? = null
     private var runDataIntegrity: Boolean = false
-    private var calculationLoop: Int = 0
     private var backupList: List<FieldUiModel> = emptyList()
     private val fieldsWithOptionEffects = mutableListOf<FieldUiModel>()
 
@@ -86,7 +83,6 @@ class FormRepositoryImpl(
         }
 
     override suspend fun composeList(skipProgramRules: Boolean): List<FieldUiModel> {
-        calculationLoop = 0
         return itemList
             .applyRuleEffects(skipProgramRules)
             .mergeListWithErrorFields(itemsWithError)
@@ -461,9 +457,6 @@ class FormRepositoryImpl(
         )
 
     override fun completedFieldsPercentage(value: List<FieldUiModel>): Float = completionPercentage
-
-    override fun calculationLoopOverLimit(): Boolean = calculationLoop == LOOP_THRESHOLD
-
     override fun backupOfChangedItems() = backupList.minus(itemList.applyRuleEffects())
 
     private suspend fun getFieldsWithError() =
@@ -540,14 +533,7 @@ class FormRepositoryImpl(
             }
         }
 
-        return if (ruleEffectsResult?.fieldsToUpdate?.isNotEmpty() == true &&
-            calculationLoop < LOOP_THRESHOLD
-        ) {
-            calculationLoop += 1
-            ArrayList(fieldMap.values).applyRuleEffects(skipProgramRules)
-        } else {
-            ArrayList(fieldMap.values)
-        }
+        return ArrayList(fieldMap.values)
     }
 
     private fun List<FieldUiModel>.setFocusedItem(): List<FieldUiModel> =

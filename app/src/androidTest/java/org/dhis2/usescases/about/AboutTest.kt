@@ -1,14 +1,16 @@
 package org.dhis2.usescases.about
 
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.ActivityTestRule
-import org.dhis2.bindings.buildInfo
-import org.dhis2.bindings.rampCaptureBuildInfo
 import org.dhis2.BuildConfig
 import org.dhis2.R
+import org.dhis2.bindings.buildInfo
+import org.dhis2.bindings.rampCaptureBuildInfo
 import org.dhis2.usescases.BaseTest
 import org.dhis2.usescases.main.MainActivity
-import org.dhis2.usescases.main.homeRobot
+import org.dhis2.usescases.main.MainScreenType
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,6 +21,9 @@ class AboutTest : BaseTest() {
     @get:Rule
     val rule = ActivityTestRule(MainActivity::class.java, false, false)
 
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
     @Test
     fun shouldCheckVersionsWhenOpenAboutScreen() {
         startActivity()
@@ -26,18 +31,18 @@ class AboutTest : BaseTest() {
         val appVersion = getAppVersionName()
         val sdkVersion = getSDKVersionName()
 
-        homeRobot {
-            clickOnNavigationDrawerMenu()
-            clickAbout()
-        }
-
         aboutRobot {
             checkVersionNames(rampCaptureVersion, appVersion, sdkVersion)
         }
     }
 
     private fun startActivity() {
-        rule.launchActivity(null)
+        rule.launchActivity(
+            MainActivity.intent(
+                ApplicationProvider.getApplicationContext(),
+                MainScreenType.About,
+            )
+        )
     }
 
     private fun getRampCaptureVersionName() =

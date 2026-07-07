@@ -8,9 +8,11 @@ import org.dhis2.commons.bindings.isStockProgram
 import org.dhis2.commons.bindings.programs
 import org.dhis2.commons.prefs.Preference
 import org.dhis2.commons.prefs.Preference.Companion.PIN
+import org.dhis2.data.service.workManager.WorkManagerController
 import org.dhis2.mobile.commons.coroutine.Dispatcher
 import org.dhis2.mobile.commons.error.DomainErrorMapper
 import org.dhis2.mobile.commons.providers.PreferenceProvider
+import org.dhis2.mobile.sync.domain.SyncStatusController
 import org.dhis2.usescases.main.HomeItemData
 import org.dhis2.usescases.settings.deleteCache
 import org.dhis2.usescases.sync.WAS_INITIAL_SYNC_DONE
@@ -26,6 +28,8 @@ class HomeRepositoryImpl(
     private val d2: D2,
     private val charts: Charts?,
     private val preferences: PreferenceProvider,
+    private val workManagerController: WorkManagerController,
+    private val syncStatusController: SyncStatusController,
     private val domainErrorMapper: DomainErrorMapper,
     private val dispatcher: Dispatcher,
 ) : HomeRepository {
@@ -89,6 +93,7 @@ class HomeRepositoryImpl(
     override suspend fun logOut() =
         execute {
             d2.userModule().blockingLogOut()
+            Result.success(Unit)
         }
 
     override suspend fun clearPin() =
@@ -99,6 +104,7 @@ class HomeRepositoryImpl(
                 .localDataStore()
                 .value(PIN)
                 .blockingDeleteIfExist()
+            Result.success(Unit)
         }
 
     override suspend fun hasHomeAnalytics(): Boolean =
@@ -187,4 +193,13 @@ class HomeRepositoryImpl(
                 .accountManager()
                 .deleteCurrentAccount()
         }
+
+    override suspend fun stopBackgroundSync() {
+        workManagerController.cancelAllWorkAndWait()
+        workManagerController.pruneWork()
+    }
+
+    override suspend fun restoreSyncStatus() {
+        syncStatusController.restore()
+    }
 }

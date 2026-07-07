@@ -28,6 +28,7 @@ class EventCapturePagerAdapter(
 ) : FragmentStateAdapter(fragmentActivity) {
     private val landscapePages: MutableList<EventPageType> = ArrayList()
     private val portraitPages: MutableList<EventPageType> = ArrayList()
+    private val itemIds: MutableList<Long> = ArrayList()
 
     fun isFormScreenShown(currentItem: Int?): Boolean =
         currentItem != null &&
@@ -69,6 +70,12 @@ class EventCapturePagerAdapter(
         if (displaySimprintsRampHistoryTableScreen) {
             portraitPages.add(EventPageType.SIMPRINTS_RAMP_HISTORY_TABLE)
             landscapePages.add(EventPageType.SIMPRINTS_RAMP_HISTORY_TABLE)
+        }
+
+        if (isPortrait) {
+            portraitPages.forEach { itemIds.add(it.ordinal * 1000L) }
+        } else {
+            landscapePages.forEach { itemIds.add(it.ordinal * 1000L) }
         }
     }
 
@@ -173,5 +180,15 @@ class EventCapturePagerAdapter(
 
     companion object {
         const val NO_POSITION: Int = -1
+    }
+
+    fun refreshDataEntry() {
+        val index = portraitPages.indexOf(EventPageType.DATA_ENTRY)
+        itemIds[index] = itemIds[index] + 1
+        notifyItemChanged(index)
+    }
+
+    override fun getItemId(position: Int): Long {
+        return itemIds[position]
     }
 }

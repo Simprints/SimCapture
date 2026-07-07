@@ -224,7 +224,7 @@ private fun FormHistoryChart.toAnalyticsGraph(): Graph =
                                 GraphPoint(
                                     eventDate = Date(index.toLong()),
                                     position = index.toFloat(),
-                                    fieldValue = GraphFieldValue.Numeric(value),
+                                    fieldValue = GraphFieldValue.Decimal(value),
                                 )
                             }
                         },

@@ -19,11 +19,39 @@ class SimprintsOrderSearchResultsByIdentifyResponseUseCase(
         searchFields: Iterable<SimprintsSearchUtils.SearchField>,
         queryData: Map<String, List<String>?>?,
         searchTrackedEntities: suspend () -> List<TrackedEntitySearchItem>,
-    ): List<TrackedEntitySearchItem>? {
+    ): List<TrackedEntitySearchItem>? =
+        invoke(
+            searchFields = searchFields,
+            queryData = queryData,
+            searchTrackedEntities = searchTrackedEntities,
+            getUid = { trackedEntity ->
+                trackedEntity.uid()
+            },
+            getAttributeValue = { trackedEntity, fieldUid ->
+                trackedEntity.attributeValues
+                    ?.firstOrNull { attribute ->
+                        attribute.attribute == fieldUid
+                    }?.value
+            },
+        )
+
+    suspend operator fun <T> invoke(
+        searchFields: Iterable<SimprintsSearchUtils.SearchField>,
+        queryData: Map<String, List<String>?>?,
+        searchTrackedEntities: suspend () -> List<T>,
+        getUid: (T) -> String,
+        getAttributeValue: (T, String) -> String?,
+    ): List<T>? {
         val order = getIdentifyResponseOrder(searchFields, queryData) ?: return null
         return searchTrackedEntities()
             .map { trackedEntity ->
-                trackedEntity to getMatchedGuid(trackedEntity, order)
+                trackedEntity to
+                    getMatchedGuid(
+                        searchItem = trackedEntity,
+                        order = order,
+                        getUid = getUid,
+                        getAttributeValue = getAttributeValue,
+                    )
             }.sortedBy { (_, guid) ->
                 guid?.let(order.orderByGuid::get) ?: Int.MAX_VALUE
             }.map { (trackedEntity, _) ->
@@ -46,17 +74,18 @@ class SimprintsOrderSearchResultsByIdentifyResponseUseCase(
                 }
         }
 
-    private suspend fun getMatchedGuid(
-        searchItem: TrackedEntitySearchItem,
+    private suspend fun <T> getMatchedGuid(
+        searchItem: T,
         order: IdentifyResponseOrder,
+        getUid: (T) -> String,
+        getAttributeValue: (T, String) -> String?,
     ): String? {
-        searchItem.attributeValues
-            ?.firstOrNull { attribute ->
-                attribute.attribute == order.fieldUid && attribute.value in order.orderByGuid
-            }?.run { return value }
+        getAttributeValue(searchItem, order.fieldUid)
+            ?.takeIf { it in order.orderByGuid }
+            ?.let { return it }
 
         return simprintsD2Repository
-            .getTrackedEntityAttributeValue(searchItem.uid(), order.fieldUid)
+            .getTrackedEntityAttributeValue(getUid(searchItem), order.fieldUid)
             ?.takeIf { it in order.orderByGuid }
     }
 }

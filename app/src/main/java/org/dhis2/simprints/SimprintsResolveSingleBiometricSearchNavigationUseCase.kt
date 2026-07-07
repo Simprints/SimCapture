@@ -4,13 +4,16 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.network.NetworkUtils
-import org.dhis2.data.search.SearchParametersModel
 import org.dhis2.usescases.searchTrackEntity.SearchRepository
 import org.dhis2.usescases.searchTrackEntity.SearchRepositoryKt
+import org.dhis2.tracker.search.domain.SearchTrackedEntities
+import org.dhis2.tracker.search.model.QueryData
+import org.dhis2.tracker.search.model.SearchTrackedEntitiesInput
 
 class SimprintsResolveSingleBiometricSearchNavigationUseCase(
     private val searchRepository: SearchRepository,
     private val searchRepositoryKt: SearchRepositoryKt,
+    private val searchTrackedEntities: SearchTrackedEntities,
     private val networkUtils: NetworkUtils,
     private val filterManager: FilterManager,
     private val ioDispatcher: CoroutineDispatcher,
@@ -39,32 +42,40 @@ class SimprintsResolveSingleBiometricSearchNavigationUseCase(
                 return@withContext null
             }
 
-            val searchParametersModel =
-                SearchParametersModel(
-                    selectedProgram = searchRepository.getProgram(initialProgramUid),
-                    queryData = queryData.toMutableMap(),
-                )
             val isOnline = queryData.isNotEmpty() && networkUtils.isOnline()
+            val selectedProgram = searchRepository.getProgram(initialProgramUid)
             val trackedEntity =
-                searchRepositoryKt
-                    .searchTrackedEntitiesImmediate(
-                        searchParametersModel = searchParametersModel,
-                        isOnline = isOnline,
-                    ).singleOrNull() ?: return@withContext null
+                searchTrackedEntities
+                    .invokeImmediate(
+                        SearchTrackedEntitiesInput(
+                            selectedProgram = selectedProgram?.uid(),
+                            allowCache = false,
+                            excludeValues = searchRepositoryKt.getExcludeValues(),
+                            hasStateFilters = filterManager.stateFilters.isNotEmpty(),
+                            isOnline = isOnline,
+                            queryDataList =
+                                queryData.map { (attributeId, values) ->
+                                    QueryData(
+                                        attributeId = attributeId,
+                                        values = values,
+                                        searchOperator = null,
+                                    )
+                                },
+                        ),
+                    ).getOrThrow()
+                    .singleOrNull() ?: return@withContext null
 
             val searchTeiModel =
-                searchRepository.transform(
+                searchRepositoryKt.mapTrackedEntitySearchItemResultToSearchTeiModel(
                     trackedEntity,
-                    searchParametersModel.selectedProgram,
-                    !(isOnline && filterManager.stateFilters.isEmpty()),
                     filterManager.sortingItem,
                 )
 
             NavigationTarget(
-                teiUid = searchTeiModel.uid(),
-                programUid = searchTeiModel.selectedEnrollment?.program() ?: initialProgramUid,
-                enrollmentUid = searchTeiModel.selectedEnrollment?.uid(),
-                isOnline = searchTeiModel.isOnline,
+                teiUid = searchTeiModel.tei.uid,
+                programUid = searchTeiModel.selectedEnrollment?.program ?: initialProgramUid,
+                enrollmentUid = searchTeiModel.selectedEnrollment?.uid,
+                isOnline = searchTeiModel.tei.isOnline,
             )
         }
 }
