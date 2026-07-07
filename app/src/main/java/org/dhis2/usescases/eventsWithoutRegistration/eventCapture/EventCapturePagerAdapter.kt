@@ -191,4 +191,6 @@ class EventCapturePagerAdapter(
     override fun getItemId(position: Int): Long {
         return itemIds[position]
     }
+
+    override fun containsItem(itemId: Long): Boolean = itemIds.contains(itemId)
 }
