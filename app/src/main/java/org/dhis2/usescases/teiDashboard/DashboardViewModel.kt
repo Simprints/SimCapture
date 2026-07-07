@@ -17,7 +17,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.dhis2.R
@@ -68,71 +72,95 @@ class DashboardViewModel(
     private val _isLoading = MutableLiveData(false)
     val isLoading: LiveData<Boolean> = _isLoading
 
-    private val _dashboardModel = MutableLiveData<DashboardModel?>()
-    var dashboardModel: LiveData<DashboardModel?> = _dashboardModel
+    private val _dashboardModel = MutableStateFlow<DashboardModel?>(null)
+    var dashboardModel: StateFlow<DashboardModel?> =
+        _dashboardModel
+            .onStart {
+                if (repository.isProgramSelected()) fetchDashboardModel()
+            }.stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000L),
+                null,
+            )
 
-    private val _groupByStage = MutableLiveData<Boolean>()
-    val groupByStage: LiveData<Boolean> = _groupByStage
+    private val _groupByStage = MutableStateFlow(false)
+    val groupByStage: StateFlow<Boolean> =
+        _groupByStage
+            .onStart {
+                fetchGrouping()
+            }.stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000L),
+                false,
+            )
 
     private val _noEnrollmentSelected = MutableLiveData(false)
     val noEnrollmentSelected: LiveData<Boolean> = _noEnrollmentSelected
 
     private val _navigationBarUIState =
         MutableStateFlow<NavigationBarUIState<TEIDashboardItems>>(NavigationBarUIState())
-    val navigationBarUIState = _navigationBarUIState.asStateFlow()
+    val navigationBarUIState =
+        _navigationBarUIState
+            .onStart {
+                loadNavigationBarItems()
+            }.stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000L),
+                NavigationBarUIState(),
+            )
 
     private val _relationshipTopBarIconState =
         MutableStateFlow<RelationshipTopBarIconState>(RelationshipTopBarIconState.List())
     val relationshipTopBarIconState = _relationshipTopBarIconState.asStateFlow()
 
-    init {
-        fetchDashboardModel()
-        fetchGrouping()
-    }
-
     private fun fetchDashboardModel() {
         viewModelScope.launch(dispatcher.io()) {
-            CoroutineTracker.increment()
-            val result =
-                async {
-                    repository.getDashboardModel()
+            CoroutineTracker.unconditionalIncrement()
+            try {
+                val model = repository.getDashboardModel()
+                _dashboardModel.emit(model)
+                if (model is DashboardEnrollmentModel) {
+                    _showFollowUpBar.value =
+                        model.currentEnrollment.followUp() ?: false
+                    _syncNeeded.value =
+                        model.currentEnrollment.aggregatedSyncState() != SYNCED
+                    _showStatusBar.value = model.currentEnrollment.status()
+                    _state.value =
+                        model.currentEnrollment.aggregatedSyncState()
+                    _noEnrollmentSelected.postValue(false)
+                } else {
+                    _noEnrollmentSelected.postValue(true)
                 }
-            withContext(dispatcher.ui()) {
-                try {
-                    val model = result.await()
-                    _dashboardModel.postValue(model)
-                    if (model is DashboardEnrollmentModel) {
-                        _showFollowUpBar.value =
-                            model.currentEnrollment.followUp() ?: false
-                        _syncNeeded.value =
-                            model.currentEnrollment.aggregatedSyncState() != SYNCED
-                        _showStatusBar.value = model.currentEnrollment.status()
-                        _state.value =
-                            model.currentEnrollment.aggregatedSyncState()
-                        _noEnrollmentSelected.value = false
-                        loadNavigationBarItems()
-                    } else {
-                        _noEnrollmentSelected.value = true
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e)
-                } finally {
-                    CoroutineTracker.decrement()
-                }
+            } catch (e: Exception) {
+                Timber.e(e)
+            } finally {
+                CoroutineTracker.unconditionalDecrement()
             }
         }
     }
 
     private suspend fun loadNavigationBarItems() {
-        val hasAnalytics = withContext(dispatcher.io()) { repository.programHasAnalytics() }
-        updateNavigationBarItems(_navigationBarUIState.value.selectedItem, hasAnalytics)
+        withContext(dispatcher.io()) {
+            CoroutineTracker.unconditionalIncrement()
+            try {
+                val hasAnalytics = repository.programHasAnalytics()
+                updateNavigationBarItems(_navigationBarUIState.value.selectedItem, hasAnalytics)
+            } finally {
+                CoroutineTracker.unconditionalDecrement()
+            }
+        }
     }
 
     private fun updateNavigationBarItems(selectedItem: TEIDashboardItems?) {
         viewModelScope.launch(dispatcher.io()) {
-            val hasAnalytics = repository.programHasAnalytics()
-            withContext(dispatcher.ui()) {
+            CoroutineTracker.unconditionalIncrement()
+            try {
+                val hasAnalytics = repository.programHasAnalytics()
                 updateNavigationBarItems(selectedItem, hasAnalytics)
+            } catch (e: Exception) {
+                Timber.e(e)
+            } finally {
+                CoroutineTracker.unconditionalDecrement()
             }
         }
     }
@@ -212,14 +240,13 @@ class DashboardViewModel(
 
     private fun fetchGrouping() {
         viewModelScope.launch(dispatcher.io()) {
-            val result =
-                async {
-                    repository.getGrouping()
-                }
+            CoroutineTracker.unconditionalIncrement()
             try {
-                _groupByStage.postValue(result.await())
+                _groupByStage.emit(repository.getGrouping())
             } catch (e: Exception) {
                 Timber.e(e)
+            } finally {
+                CoroutineTracker.unconditionalDecrement()
             }
         }
     }
@@ -323,17 +350,30 @@ class DashboardViewModel(
         updateNavigationBarItems(itemId)
     }
 
-    fun setDetailsNavigationItemVisible(visible: Boolean) {
-        if (displayDetailsNavigationItem != visible) {
-            displayDetailsNavigationItem = visible
-            updateNavigationBarItems(_navigationBarUIState.value.selectedItem)
-        }
-    }
+    fun setDetailsNavigationItemVisible(
+        visible: Boolean,
+        forceDisplayForSimprintsRampTable: Boolean = forceDisplayDetailsNavigationItemForSimprintsRampTable,
+    ) {
+        val previousSelectedItem = _navigationBarUIState.value.selectedItem
+        val selectedItem =
+            if (
+                visible &&
+                !displayDetailsNavigationItem &&
+                previousSelectedItem == TEIDashboardItems.SIMPRINTS_RAMP_HISTORY_TABLE
+            ) {
+                TEIDashboardItems.DETAILS
+            } else {
+                previousSelectedItem
+            }
 
-    fun setForceDisplayDetailsNavigationItemForSimprintsRampTable(forceDisplay: Boolean) {
-        if (forceDisplayDetailsNavigationItemForSimprintsRampTable != forceDisplay) {
-            forceDisplayDetailsNavigationItemForSimprintsRampTable = forceDisplay
-            updateNavigationBarItems(_navigationBarUIState.value.selectedItem)
+        if (
+            displayDetailsNavigationItem != visible ||
+            forceDisplayDetailsNavigationItemForSimprintsRampTable != forceDisplayForSimprintsRampTable ||
+            selectedItem != previousSelectedItem
+        ) {
+            displayDetailsNavigationItem = visible
+            forceDisplayDetailsNavigationItemForSimprintsRampTable = forceDisplayForSimprintsRampTable
+            updateNavigationBarItems(selectedItem)
         }
     }
 

@@ -114,4 +114,6 @@ interface DashboardRepository {
     fun teiCanBeTransferred(): Boolean
 
     fun enrollmentHasWriteAccess(): Boolean
+
+    fun isProgramSelected(): Boolean
 }

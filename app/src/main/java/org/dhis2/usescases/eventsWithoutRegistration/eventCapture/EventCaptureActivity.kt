@@ -58,6 +58,9 @@ import org.dhis2.usescases.eventsWithoutRegistration.eventInitial.EventInitialAc
 import org.dhis2.usescases.general.ActivityGlobalAbstract
 import org.dhis2.usescases.qrCodes.eventsworegistration.QrEventsWORegistrationActivity
 import org.dhis2.usescases.teiDashboard.DashboardViewModel
+import org.dhis2.usescases.teiDashboard.StatusChangeResultCode
+import org.dhis2.usescases.teiDashboard.TeiDashboardContracts
+import org.dhis2.usescases.teiDashboard.TeiDashboardModule
 import org.dhis2.usescases.teiDashboard.dashboardfragments.relationships.MapButtonObservable
 import org.dhis2.usescases.teiDashboard.dashboardfragments.teidata.TEIDataActivityContract
 import org.dhis2.usescases.teiDashboard.dashboardfragments.teidata.TEIDataFragment.Companion.newInstance
@@ -85,7 +88,8 @@ class EventCaptureActivity :
     EventCaptureContract.View,
     MapButtonObservable,
     EventDetailsComponentProvider,
-    TEIDataActivityContract {
+    TEIDataActivityContract,
+    TeiDashboardContracts.View {
     private lateinit var binding: ActivityEventCaptureBinding
 
     @Inject
@@ -114,6 +118,7 @@ class EventCaptureActivity :
     private var adapter: EventCapturePagerAdapter? = null
     private var eventViewPager: ViewPager2? = null
     private var dashboardViewModel: DashboardViewModel? = null
+    private var createdDashboardComponentForTeiPanel = false
     private var isSimprintsRampHistoryTableLandscapeFullscreen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -138,14 +143,25 @@ class EventCaptureActivity :
 
         setUpEventCaptureFormLandscape(eventUid ?: "")
         if (this.isLandscape() && areTeiUidAndEnrollmentUidNotNull()) {
-            val viewModelFactory = this.app().dashboardComponent()?.dashboardViewModelFactory()
+            val viewModelFactory =
+                dashboardComponentForTeiPanel()
+                    ?.dashboardViewModelFactory()
 
             viewModelFactory?.let {
                 dashboardViewModel =
                     ViewModelProvider(this, viewModelFactory)[DashboardViewModel::class.java]
                 supportFragmentManager
                     .beginTransaction()
-                    .replace(R.id.tei_column, newInstance(programUid, teiUid, enrollmentUid))
+                    .replace(
+                        R.id.tei_column,
+                        newInstance(
+                            programUid = programUid,
+                            teiUid = teiUid,
+                            enrollmentUid = enrollmentUid,
+                            fragmentFromEventCaptureActivity = true,
+                            landscapeSidePanel = true,
+                        ),
+                    )
                     .commit()
                 dashboardViewModel?.updateSelectedEventUid(eventUid)
             }
@@ -159,6 +175,24 @@ class EventCaptureActivity :
             showSyncDialog(EVENT_SYNC)
         }
     }
+
+    private fun dashboardComponentForTeiPanel() =
+        this.app().dashboardComponent()
+            ?: teiUid?.let { teiUid ->
+                this
+                    .app()
+                    .createDashboardComponent(
+                        TeiDashboardModule(
+                            this,
+                            teiUid,
+                            programUid,
+                            enrollmentUid,
+                            this.isPortrait(),
+                        ),
+                    ).also {
+                        createdDashboardComponentForTeiPanel = true
+                    }
+            }
 
     private fun setUpViewPagerAdapter() {
         eventViewPager?.isUserInputEnabled = false
@@ -364,6 +398,9 @@ class EventCaptureActivity :
 
     override fun onDestroy() {
         presenter.onDettach()
+        if (createdDashboardComponentForTeiPanel) {
+            app().releaseDashboardComponent()
+        }
         super.onDestroy()
     }
 
@@ -586,6 +623,38 @@ class EventCaptureActivity :
         presenter.updateNotesBadge(numberOfNotes)
     }
 
+    override fun goToEnrollmentList() {
+        // The event landscape side panel does not expose enrollment switching.
+    }
+
+    override fun restoreAdapter(programUid: String?) {
+        // Adapter restoration is handled by the event screen itself
+    }
+
+    override fun handleTeiDeletion() {
+        finish()
+    }
+
+    override fun authorityErrorMessage() {
+        displayMessage(getString(R.string.delete_authority_error))
+    }
+
+    override fun hideTabsAndDisableSwipe() {
+        hideNavigationBar()
+    }
+
+    override fun showTabsAndEnableSwipe() {
+        showNavigationBar()
+    }
+
+    override fun displayStatusError(statusCode: StatusChangeResultCode) {
+        // Enrollment status actions are not available from the event side panel.
+    }
+
+    override fun showOrgUnitSelector(programUid: String) {
+        // Transfers are not available from the event side panel
+    }
+
     override fun showProgress() {
         runOnUiThread { binding.toolbarProgress.show() }
     }
@@ -731,6 +800,8 @@ class EventCaptureActivity :
                 putExtra(Constants.EVENT_UID, eventUid)
                 putExtra(Constants.PROGRAM_UID, programUid)
                 putExtra(Constants.EVENT_MODE, eventMode)
+                putExtra("FRAGMENT_FROM_EVENT_CAPTURE_ACTIVITY", true)
+
             }
     }
 }

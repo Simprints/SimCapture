@@ -3,7 +3,7 @@ package org.dhis2.usescases.teiDashboard.dashboardfragments.teidata
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -14,10 +14,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.setFragmentResultListener
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.map
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.DividerItemDecoration
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CircleCrop
@@ -26,6 +30,7 @@ import com.google.android.material.snackbar.Snackbar
 import io.reactivex.Flowable
 import io.reactivex.Single
 import io.reactivex.functions.Consumer
+import kotlinx.coroutines.launch
 import org.dhis2.R
 import org.dhis2.bindings.app
 import org.dhis2.commons.Constants
@@ -118,17 +123,26 @@ class TEIDataFragment :
     private var eventCatComboOptionSelector: EventCatComboOptionSelector? = null
     private val dashboardViewModel: DashboardViewModel by activityViewModels()
     private val dashboardActivity: TEIDataActivityContract by lazy { context as TEIDataActivityContract }
+    private var skipOrientationMismatchedRestoredFragment = false
 
     private var programUid: String? = null
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
         with(requireArguments()) {
+            val landscapeSidePanel = getBoolean(ARG_LANDSCAPE_SIDE_PANEL, false)
+            val orientation = context.resources.configuration.orientation
+            skipOrientationMismatchedRestoredFragment =
+                (landscapeSidePanel && orientation == Configuration.ORIENTATION_PORTRAIT) ||
+                (!landscapeSidePanel && orientation == Configuration.ORIENTATION_LANDSCAPE)
+            if (skipOrientationMismatchedRestoredFragment) return
+
             programUid = getString("PROGRAM_UID")
             val teiUid =
                 getString("TEI_UID")
                     ?: throw NullPointerException("A TEI uid is required to launch fragment")
             val enrollmentUid = getString("ENROLLMENT_UID") ?: ""
+            val fragmentFromEventCaptureActivity = getBoolean("FRAGMENT_FROM_EVENT_CAPTURE_ACTIVITY", false)
             app()
                 .dashboardComponent()
                 ?.plus(
@@ -137,6 +151,7 @@ class TEIDataFragment :
                         programUid,
                         teiUid,
                         enrollmentUid,
+                        fragmentFromEventCaptureActivity,
                         requireActivity().activityResultRegistry,
                     ),
                 )?.inject(this@TEIDataFragment)
@@ -147,15 +162,13 @@ class TEIDataFragment :
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?,
-    ): View =
-        FragmentTeiDataBinding
+    ): View {
+        if (skipOrientationMismatchedRestoredFragment) return View(requireContext())
+
+        return FragmentTeiDataBinding
             .inflate(inflater, container, false)
             .also { binding ->
                 this.binding = binding
-                dashboardViewModel.groupByStage.observe(viewLifecycleOwner) { group ->
-                    showLoadingProgress(true)
-                    presenter.onGroupingChanged(group)
-                }
 
                 with(dashboardViewModel) {
                     eventUid().observe(viewLifecycleOwner, ::displayGenerateEvent)
@@ -166,8 +179,21 @@ class TEIDataFragment :
                             showDetailCard()
                         }
                     }
-                    dashboardModel.observe(viewLifecycleOwner) {
-                        presenter.checkIfHasToDisplayGenerateEvent()
+                    lifecycleScope.launch {
+                        repeatOnLifecycle(Lifecycle.State.STARTED) {
+                            dashboardModel.collect {
+                                presenter.checkIfHasToDisplayGenerateEvent()
+                            }
+
+                        }
+                    }
+                    lifecycleScope.launch {
+                        repeatOnLifecycle(Lifecycle.State.STARTED) {
+                            dashboardViewModel.groupByStage.collect { group ->
+                                showLoadingProgress(true)
+                                presenter.onGroupingChanged(group)
+                            }
+                        }
                     }
                 }
 
@@ -231,22 +257,23 @@ class TEIDataFragment :
                     presenter.fetchEvents()
                 }
             }.root
+    }
 
     private fun showDetailCard() {
         binding.detailCard.setContent {
             if (isUserLoggedIn()) {
-                val dashboardModel by dashboardViewModel.dashboardModel.observeAsState()
+                val dashboardModel by dashboardViewModel.dashboardModel.collectAsState()
                 val followUp by dashboardViewModel.showFollowUpBar.collectAsState()
                 val syncNeeded by dashboardViewModel.syncNeeded.collectAsState()
                 val enrollmentStatus by dashboardViewModel.showStatusBar.collectAsState()
-                val groupingEvents by dashboardViewModel.groupByStage.observeAsState()
+                val groupingEvents by dashboardViewModel.groupByStage.collectAsState()
                 val displayEventCreationButton by presenter.shouldDisplayEventCreationButton.observeAsState(
                     false,
                 )
                 val eventCount by presenter.events.map { it.count() }.observeAsState(0)
 
                 val syncInfoBar =
-                    dashboardModel.takeIf { it is DashboardEnrollmentModel }?.let {
+                    dashboardModel.takeIf { it is DashboardEnrollmentModel && !presenter.fragmentIsFromEventCaptureActivity() }?.let {
                         infoBarMapper.map(
                             infoBarType = InfoBarType.SYNC,
                             item = dashboardModel as DashboardEnrollmentModel,
@@ -312,7 +339,7 @@ class TEIDataFragment :
                 TeiDetailDashboard(
                     infoBarModels = listOfNotNull(syncInfoBar, followUpInfoBar, enrollmentInfoBar),
                     card = card,
-                    isGrouped = groupingEvents ?: true,
+                    isGrouped = groupingEvents,
                     timelineEventHeaderModel =
                         TimelineEventsHeaderModel(
                             displayEventCreationButton,
@@ -374,7 +401,7 @@ class TEIDataFragment :
             binding.cardFront.teiImage.visibility = View.VISIBLE
             Glide
                 .with(this)
-                .load(dashboardModel?.avatarPath)
+                .load(dashboardModel.avatarPath)
                 .fallback(R.drawable.photo_temp_gray)
                 .transition(DrawableTransitionOptions.withCrossFade())
                 .transform(CircleCrop())
@@ -383,7 +410,7 @@ class TEIDataFragment :
         binding.header =
             when {
                 !dashboardModel?.teiHeader.isNullOrEmpty() -> {
-                    dashboardModel?.teiHeader
+                    dashboardModel.teiHeader
                 }
 
                 else -> {
@@ -411,11 +438,15 @@ class TEIDataFragment :
 
     override fun onResume() {
         super.onResume()
-        presenter.init()
+        if (::presenter.isInitialized) {
+            presenter.init()
+        }
     }
 
     override fun onPause() {
-        presenter.onDettach()
+        if (::presenter.isInitialized) {
+            presenter.onDettach()
+        }
         super.onPause()
     }
 
@@ -427,11 +458,11 @@ class TEIDataFragment :
             Intent(action).apply {
                 when (action) {
                     Intent.ACTION_DIAL -> {
-                        data = Uri.parse("tel:$value")
+                        data = "tel:$value".toUri()
                     }
 
                     Intent.ACTION_SENDTO -> {
-                        data = Uri.parse("mailto:$value")
+                        data = "mailto:$value".toUri()
                     }
                 }
             }
@@ -440,7 +471,7 @@ class TEIDataFragment :
 
         try {
             startActivity(chooser)
-        } catch (e: ActivityNotFoundException) {
+        } catch (_: ActivityNotFoundException) {
             Timber.e("No activity found that can handle this action")
         }
     }
@@ -752,18 +783,25 @@ class TEIDataFragment :
     companion object {
         const val RC_EVENTS_COMPLETED = 1601
         const val PREF_COMPLETED_EVENT = "COMPLETED_EVENT"
+        private const val ARG_LANDSCAPE_SIDE_PANEL = "LANDSCAPE_SIDE_PANEL"
 
         @JvmStatic
         fun newInstance(
             programUid: String?,
             teiUid: String?,
             enrollmentUid: String?,
+            fragmentFromEventCaptureActivity: Boolean? = null,
+            landscapeSidePanel: Boolean = false,
         ): TEIDataFragment {
             val fragment = TEIDataFragment()
             val args = Bundle()
             args.putString("PROGRAM_UID", programUid)
             args.putString("TEI_UID", teiUid)
             args.putString("ENROLLMENT_UID", enrollmentUid)
+            args.putBoolean(ARG_LANDSCAPE_SIDE_PANEL, landscapeSidePanel)
+            fragmentFromEventCaptureActivity?.let {
+                args.putBoolean("FRAGMENT_FROM_EVENT_CAPTURE_ACTIVITY", fragmentFromEventCaptureActivity)
+            }
             fragment.arguments = args
             return fragment
         }
