@@ -1,6 +1,7 @@
 package org.dhis2.usescases.teiDashboard
 
 import org.dhis2.utils.customviews.navigationbar.NavigationPageConfigurator
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.doReturn
@@ -16,6 +17,11 @@ class TeiDashboardPageConfiguratorTest {
     @Test
     fun `Should display the details screen`() {
         assertTrue(pageConfigurator.displayDetails())
+    }
+
+    @Test
+    fun `Should not display the analytics screen`() {
+        assertFalse(pageConfigurator.displayAnalytics())
     }
 
     @Test

@@ -8,7 +8,7 @@ class TeiDashboardPageConfigurator(
 ) : NavigationPageConfigurator {
     override fun displayDetails(): Boolean = isPortrait
 
-    override fun displayAnalytics(): Boolean = !displayTableView()
+    override fun displayAnalytics(): Boolean = false
 
     override fun displayRelationships(): Boolean = dashboardRepository.programHasRelationships()
 
