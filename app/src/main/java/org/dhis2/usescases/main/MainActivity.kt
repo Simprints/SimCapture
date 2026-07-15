@@ -315,6 +315,8 @@ class MainActivity : ActivityGlobalAbstract() {
     }
 
     private fun showPeriodRequest(periodRequest: FilterManager.PeriodRequest) {
+        if (supportFragmentManager.isStateSaved) return
+
         if (periodRequest == FilterManager.PeriodRequest.FROM_TO) {
             FilterPeriodsDialog
                 .newPeriodsFilter(filterType = Filters.PERIOD, isFromToFilter = true)
@@ -327,6 +329,8 @@ class MainActivity : ActivityGlobalAbstract() {
     }
 
     private fun openOrgUnitTreeSelector() {
+        if (supportFragmentManager.isStateSaved) return
+
         OUTreeFragment
             .Builder()
             .withPreselectedOrgUnits(
