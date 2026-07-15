@@ -62,6 +62,15 @@ constructor(
             .byOrganisationUnitScope(OrganisationUnit.Scope.SCOPE_TEI_SEARCH)
             .blockingCount()
 
+    private fun singleCaptureOrgUnit(programUid: String): OrganisationUnit? =
+        d2
+            .organisationUnitModule()
+            .organisationUnits()
+            .byOrganisationUnitScope(OrganisationUnit.Scope.SCOPE_DATA_CAPTURE)
+            .byProgramUids(listOf(programUid))
+            .blockingGet()
+            .singleOrNull()
+
     fun trackedEntityInstanceQueryByProgram(programUid: String): TrackedEntitySearchCollectionRepository =
         d2
             .trackedEntityModule()
@@ -567,6 +576,8 @@ constructor(
                 observableSortingInject,
                 observableOpenFilter,
                 resources.filterOrgUnitLabel(),
+                userOrgUnit = singleCaptureOrgUnit(program.uid()),
+                showUserOrgUnitAction = true,
             )
         defaultTrackerFilters[ProgramFilter.SYNC_STATUS] =
             SyncStateFilter(

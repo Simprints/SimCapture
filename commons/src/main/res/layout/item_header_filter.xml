@@ -29,7 +29,7 @@
             android:onClick="@{()->filterItem.onClick()}"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
-            app:layout_constraintEnd_toStartOf="@id/sortingIcon"
+            app:layout_constraintEnd_toStartOf="@id/userOrgUnitIcon"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
@@ -110,6 +110,22 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <ImageView
+            android:id="@+id/userOrgUnitIcon"
+            style="@style/ActionIconUnwrap"
+            android:layout_width="32dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="4dp"
+            android:contentDescription="@string/select_my_org_unit"
+            android:onClick="@{()->filterItem.onUserOrgUnitClick()}"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:visibility="@{filterItem.showUserOrgUnitAction()?View.VISIBLE:View.GONE}"
+            app:layout_constraintEnd_toStartOf="@id/sortingIcon"
+            app:layout_constraintStart_toEndOf="@id/filterTextLayout"
+            app:srcCompat="@drawable/ic_i_user"
+            app:tint="?onToolbarColor" />
+
+        <ImageView
             android:id="@+id/sortingIcon"
             style="@style/ActionIconUnwrap"
             android:layout_width="wrap_content"
@@ -119,7 +135,7 @@
             android:visibility="@{filterItem.showSorting()?View.VISIBLE:View.GONE}"
             app:filterType="@{filterItem.type}"
             app:layout_constraintEnd_toStartOf="@id/filterArrow"
-            app:layout_constraintStart_toEndOf="@id/filterTextLayout"
+            app:layout_constraintStart_toEndOf="@id/userOrgUnitIcon"
             app:sortingItem="@{filterItem.sortingItem}"
             app:srcCompat="@drawable/ic_sort_deactivated"
             app:tint="?onToolbarColor" />

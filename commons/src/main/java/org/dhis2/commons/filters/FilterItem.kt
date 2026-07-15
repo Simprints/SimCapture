@@ -31,6 +31,18 @@ sealed class FilterItem(
 
     fun showSorting(): Boolean = Sorting.getSortingOptions(programType).any { it == type }
 
+    fun showUserOrgUnitAction(): Boolean =
+        (this as? OrgUnitFilter)?.showUserOrgUnitAction == true
+
+    fun onUserOrgUnitClick() {
+        val filterManager = FilterManager.getInstance()
+        if (!filterManager.isFilterActiveForWorkingList(type)) {
+            (this as? OrgUnitFilter)?.userOrgUnit?.let {
+                filterManager.addOrgUnits(listOf(it))
+            }
+        }
+    }
+
     fun observeCount(): ObservableField<Int> = FilterManager.getInstance().observeField(type)
 
     fun getFilterValue(defaultValue: String): String = FilterManager.getInstance().getFilterStringValue(type, defaultValue)
@@ -158,6 +170,8 @@ data class OrgUnitFilter(
     override val sortingItem: ObservableField<SortingItem>,
     override val openFilter: ObservableField<Filters>,
     override val filterLabel: String,
+    val userOrgUnit: OrganisationUnit? = null,
+    val showUserOrgUnitAction: Boolean = userOrgUnit != null,
 ) : FilterItem(Filters.ORG_UNIT, programType, sortingItem, openFilter, filterLabel) {
     override fun icon(): Int = R.drawable.ic_filter_ou
 }
