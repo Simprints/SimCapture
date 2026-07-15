@@ -15,6 +15,7 @@ import org.dhis2.commons.filters.OrgUnitFilter
 import org.dhis2.commons.filters.PeriodFilter
 import org.dhis2.commons.filters.ProgramType
 import org.dhis2.commons.filters.SyncStateFilter
+import org.dhis2.commons.filters.TransferredFilter
 import org.dhis2.commons.filters.WorkingListFilter
 import org.dhis2.commons.filters.sorting.SortingItem
 import org.dhis2.commons.filters.workingLists.EventFilterToWorkingListItemMapper
@@ -42,6 +43,8 @@ import org.hisp.dhis.android.core.settings.HomeFilter
 import org.hisp.dhis.android.core.settings.ProgramFilter
 import org.hisp.dhis.android.core.trackedentity.search.TrackedEntitySearchCollectionRepository
 import javax.inject.Inject
+
+private const val NO_MATCHING_TRACKED_ENTITY_UID = ""
 
 class FilterRepository
 @Inject
@@ -147,6 +150,33 @@ constructor(
 
     fun applyFollowUp(repository: TrackedEntitySearchCollectionRepository): TrackedEntitySearchCollectionRepository =
         repository.byFollowUp().isTrue
+
+    fun applyTransferredPatientFilter(
+        repository: TrackedEntitySearchCollectionRepository,
+        programUid: String,
+    ): TrackedEntitySearchCollectionRepository {
+        val enrollments =
+            d2
+                .enrollmentModule()
+                .enrollments()
+                .byProgram()
+                .eq(programUid)
+                .orderByEnrollmentDate(RepositoryScope.OrderByDirection.DESC)
+                .blockingGet()
+        val trackedEntities =
+            d2
+                .trackedEntityModule()
+                .trackedEntityInstances()
+                .byProgramUids(listOf(programUid))
+                .withProgramOwners()
+                .blockingGet()
+        val transferredUids = transferredTrackedEntityUids(programUid, enrollments, trackedEntities)
+
+        // SDK treats an empty UID list as no filter
+        return repository
+            .byTrackedEntities()
+            .`in`(transferredUids.ifEmpty { listOf(NO_MATCHING_TRACKED_ENTITY_UID) })
+    }
 
     fun sortByPeriod(
         repository: TrackedEntitySearchCollectionRepository,
@@ -541,12 +571,21 @@ constructor(
                 observableOpenFilter,
                 resources.filterFollowUpLabel(teTypeName),
             )
+        val transferredFilter =
+            TransferredFilter(
+                ProgramType.TRACKER,
+                observableSortingInject,
+                observableOpenFilter,
+                resources.filterTransferredPatientLabel(),
+            )
 
         if (filtersToShow.any { it.type == Filters.ASSIGNED_TO_ME }) {
             val index = filtersToShow.indexOfFirst { it.type == Filters.ASSIGNED_TO_ME }
             filtersToShow.add(index, followUpFilter)
+            filtersToShow.add(index + 1, transferredFilter)
         } else {
             filtersToShow.add(followUpFilter)
+            filtersToShow.add(transferredFilter)
         }
         return filtersToShow.toList()
     }

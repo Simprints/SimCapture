@@ -547,6 +547,7 @@
     <string name="downloading_image_resources">Downloading images...</string>
     <string name="enrolledIn">Enrolled in</string>
     <string name="ownedBy">Owned by</string>
+    <string name="transferredTo">Transferred to</string>
     <string name="sync_dialog_title_not_synced">Sync needed</string>
     <string name="sync_dialog_title_error">Sync error</string>
     <string name="sync_dialog_title_synced">Synced</string>

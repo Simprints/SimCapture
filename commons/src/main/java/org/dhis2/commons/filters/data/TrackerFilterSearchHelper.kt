@@ -18,7 +18,13 @@ class TrackerFilterSearchHelper
         fun getFilteredProgramRepository(programUid: String): TrackedEntitySearchCollectionRepository =
             applyFiltersTo(
                 filterRepository.trackedEntityInstanceQueryByProgram(programUid),
-            )
+            ).withFilter {
+                if (filterManager.transferredFilter) {
+                    filterRepository.applyTransferredPatientFilter(it, programUid)
+                } else {
+                    it
+                }
+            }
 
         fun getFilteredTrackedEntityTypeRepository(trackedEntityTypeUid: String): TrackedEntitySearchCollectionRepository =
             applyFiltersTo(

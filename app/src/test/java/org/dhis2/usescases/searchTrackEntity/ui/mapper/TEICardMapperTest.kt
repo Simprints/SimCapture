@@ -21,6 +21,8 @@ import org.dhis2.tracker.search.model.TrackedEntityTypeAttributeDomain
 import org.dhis2.tracker.search.model.TrackedEntityTypeDomain
 import org.dhis2.usescases.searchTrackEntity.SearchTeiModel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -62,6 +64,8 @@ class TEICardMapperTest {
         whenever(resourceManager.getString(R.string.show_more)) doReturn "Show more"
         whenever(resourceManager.getString(R.string.show_less)) doReturn "Show less"
         whenever(resourceManager.getString(R.string.completed)) doReturn "Completed"
+        whenever(resourceManager.getString(R.string.enrolledIn)) doReturn "Enrolled in"
+        whenever(resourceManager.getString(R.string.transferredTo)) doReturn "Transferred to"
         whenever(
             resourceManager.formatWithEnrollmentLabel(any(), any(), any(), any()),
         ) doReturn "Enrollment Completed"
@@ -88,7 +92,11 @@ class TEICardMapperTest {
         assertEquals(result.title, model.header)
         assertEquals(result.lastUpdated, model.tei.lastUpdated?.toJavaDate().toDateSpan(context))
         assertEquals(result.additionalInfo[0].value, model.attributeValues["Name"]?.value)
+        assertEquals(result.emphasizedAdditionalInfoKey, "Transferred to")
+        assertEquals(result.additionalInfo[1].key, "Transferred to")
+        assertNotNull(result.additionalInfo[1].icon)
         assertEquals(result.additionalInfo[1].value, model.tei.ownerOrgUnit)
+        assertEquals(result.additionalInfo[2].key, "Enrolled in")
         assertEquals(result.additionalInfo[2].value, model.tei.enrollmentOrgUnit)
         assertEquals(
             result.additionalInfo[3].value,
@@ -107,6 +115,23 @@ class TEICardMapperTest {
             result.additionalInfo[6].value,
             resourceManager.getString(R.string.marked_follow_up),
         )
+    }
+
+    @Test
+    fun shouldOnlyShowEnrollmentOrgUnitWhenNotTransferred() {
+        val model = createFakeModel(ownerOrgUnit = null)
+
+        val result =
+            mapper.map(
+                searchTEIModel = model,
+                onSyncIconClick = {},
+                onCardClick = {},
+                onImageClick = {},
+            )
+
+        assertNull(result.emphasizedAdditionalInfoKey)
+        assertEquals(result.additionalInfo[1].key, "Enrolled in")
+        assertEquals(result.additionalInfo[1].value, model.tei.enrollmentOrgUnit)
     }
 
     @Test
@@ -133,6 +158,7 @@ class TEICardMapperTest {
 
     private fun createFakeModel(
         currentDate: Date = Date(),
+        ownerOrgUnit: String? = "ownerOrgUnit",
     ): SearchTeiModel {
         val attributeValues = LinkedHashMap<String, TrackedEntitySearchItemAttributeDomain>()
         val attribute =   TrackedEntitySearchItemAttributeDomain(
@@ -152,7 +178,7 @@ class TEICardMapperTest {
             lastUpdated = Instant.parse("2020-01-01T00:00:00.00Z"),
             createdAtClient = Instant.parse("2020-01-01T00:00:00.00Z"),
             lastUpdatedAtClient = Instant.parse("2020-01-01T00:00:00.00Z"),
-            ownerOrgUnit = "ownerOrgUnit",
+            ownerOrgUnit = ownerOrgUnit,
             enrollmentOrgUnit = "enrollmentOrgUnit",
             shouldDisplayOrgUnit = true,
             geometry = null,

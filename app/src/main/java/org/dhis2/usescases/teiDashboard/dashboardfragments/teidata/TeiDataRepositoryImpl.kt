@@ -554,7 +554,8 @@ class TeiDataRepositoryImpl(
                 .blockingGet()
                 ?.programOwners()
                 ?.firstOrNull {
-                    it.trackedEntityInstance() == teiUid
+                    it.trackedEntityInstance() == teiUid &&
+                        (programUid.isNullOrEmpty() || it.program() == programUid)
                 }?.ownerOrgUnit()
     }
 

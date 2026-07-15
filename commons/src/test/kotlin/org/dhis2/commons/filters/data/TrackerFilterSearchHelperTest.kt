@@ -38,6 +38,17 @@ class TrackerFilterSearchHelperTest {
         ).applyOrgUnitFilter(repository, OrganisationUnitMode.SELECTED, selectedOrgUnits)
     }
 
+    @Test
+    fun `should apply transferred patient filter to program search`() {
+        defaultSetup()
+        whenever(filterManager.transferredFilter) doReturn true
+        whenever(filterRepository.applyTransferredPatientFilter(any(), any())) doReturn mock()
+
+        trackerFilterSearchHelper.getFilteredProgramRepository("programUid")
+
+        verify(filterRepository).applyTransferredPatientFilter(any(), org.mockito.kotlin.eq("programUid"))
+    }
+
     private fun defaultSetup(orgUnitFilterList: List<String> = emptyList()) {
         whenever(filterRepository.trackedEntityInstanceQueryByProgram(any())) doReturn mock()
         whenever(filterRepository.trackedEntityInstanceQueryByType(any())) doReturn mock()

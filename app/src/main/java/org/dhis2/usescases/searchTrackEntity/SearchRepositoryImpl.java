@@ -336,6 +336,7 @@ public class SearchRepositoryImpl implements SearchRepository {
 
     @Override
     public boolean filtersApplyOnGlobalSearch() {
+        if (FilterManager.getInstance().getTransferredFilter()) return false;
         return FilterManager.getInstance().getTotalFilters() == 0 ||
                 !FilterManager.getInstance().getOrgUnitFilters().isEmpty() ||
                 !FilterManager.getInstance().getStateFilters().isEmpty();

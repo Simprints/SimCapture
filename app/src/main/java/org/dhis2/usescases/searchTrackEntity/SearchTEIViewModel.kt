@@ -815,7 +815,7 @@ class SearchTEIViewModel(
 
     fun fetchGlobalResults(): Flow<PagingData<SearchTeiModel>>? {
         // get uids to exclude for possible duplicates
-        return if (searching) {
+        return if (searching && !filterManager.transferredFilter) {
             flow {
                 val excludeValues = searchRepositoryKt.getExcludeValues()
 

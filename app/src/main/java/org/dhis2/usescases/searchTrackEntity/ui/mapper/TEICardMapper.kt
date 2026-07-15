@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.res.painterResource
 import org.dhis2.R
 import org.dhis2.commons.bindings.isFilePathValid
 import org.dhis2.commons.date.toDateSpan
@@ -56,6 +57,11 @@ class TEICardMapper(
             title = getTitle(searchTEIModel),
             lastUpdated = searchTEIModel.tei.lastUpdated?.toJavaDate().toDateSpan(context),
             additionalInfo = getAdditionalInfoList(searchTEIModel),
+            emphasizedAdditionalInfoKey =
+                resourceManager.getString(R.string.transferredTo).takeIf {
+                    searchTEIModel.tei.ownerOrgUnit != null &&
+                        searchTEIModel.tei.ownerOrgUnit != searchTEIModel.tei.enrollmentOrgUnit
+                },
             actionButton = { ProvideSyncButton(searchTEIModel, onSyncIconClick) },
             expandLabelText = resourceManager.getString(R.string.show_more),
             shrinkLabelText = resourceManager.getString(R.string.show_less),
@@ -142,7 +148,7 @@ class TEICardMapper(
         return attributeList.also { list ->
             searchTEIModel.tei.ownerOrgUnit?.let {
                 if (it != searchTEIModel.tei.enrollmentOrgUnit) {
-                    addOwnedBy(
+                    addTransferredTo(
                         list = list,
                         ownerOrgUnit = it,
                     )
@@ -302,13 +308,20 @@ class TEICardMapper(
 
     }
 
-    private fun addOwnedBy(
+    private fun addTransferredTo(
         list: MutableList<AdditionalInfoItem>,
         ownerOrgUnit: String,
     ) {
         list.add(
             AdditionalInfoItem(
-                key = resourceManager.getString(R.string.ownedBy),
+                icon = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_transfer),
+                        contentDescription = resourceManager.getString(R.string.transferredTo),
+                        tint = AdditionalInfoItemColor.DISABLED.color,
+                    )
+                },
+                key = resourceManager.getString(R.string.transferredTo),
                 value = ownerOrgUnit,
                 isConstantItem = true,
             ),

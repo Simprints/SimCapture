@@ -79,7 +79,7 @@ sealed class FilterItem(
     }
 
     fun displayExpandArrow(): Boolean {
-        val filters = listOf(Filters.FOLLOW_UP, Filters.ASSIGNED_TO_ME)
+        val filters = listOf(Filters.FOLLOW_UP, Filters.TRANSFERRED, Filters.ASSIGNED_TO_ME)
         return !filters.any { it == type }
     }
 }
@@ -328,4 +328,19 @@ data class FollowUpFilter(
     fun observeFollowUp(): ObservableField<Boolean> = FilterManager.getInstance().observeFollowUp()
 
     override fun icon() = R.drawable.ic_follow_up_filter
+}
+
+data class TransferredFilter(
+    override val programType: ProgramType,
+    override val sortingItem: ObservableField<SortingItem>,
+    override val openFilter: ObservableField<Filters>,
+    override val filterLabel: String,
+) : FilterItem(Filters.TRANSFERRED, programType, sortingItem, openFilter, filterLabel) {
+    fun activate(setActive: Boolean) {
+        FilterManager.getInstance().setTransferred(setActive)
+    }
+
+    fun observeTransferred(): ObservableField<Boolean> = FilterManager.getInstance().observeTransferred()
+
+    override fun icon() = R.drawable.ic_transfer
 }

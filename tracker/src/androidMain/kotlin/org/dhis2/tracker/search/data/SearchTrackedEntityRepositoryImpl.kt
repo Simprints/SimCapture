@@ -124,7 +124,7 @@ class SearchTrackedEntityRepositoryImpl(
     ): Flow<PagingData<TrackedEntitySearchItemResult>> {
         // if the device is online and there are no state filters, we can use online cache
         val pagerFlow =
-            if (isOnline && !hasStateFilters) {
+            if (isOnline && !hasStateFilters && !filterPresenter.requiresOfflineSearch(selectedProgram)) {
                 trackedEntityInstanceQuery?.allowOnlineCache()?.eq(allowCache)?.offlineFirst()
             } else {
                 // otherwise we use offline only
@@ -146,7 +146,7 @@ class SearchTrackedEntityRepositoryImpl(
     ): List<TrackedEntitySearchItemResult> {
         // if the device is online and there are no state filters, we can use online cache
         val results =
-            if (isOnline && !hasStateFilters) {
+            if (isOnline && !hasStateFilters && !filterPresenter.requiresOfflineSearch(selectedProgram)) {
                 trackedEntityInstanceQuery?.offlineFirst()?.blockingGet()
             } else {
                 // otherwise we use offline only
@@ -192,7 +192,11 @@ class SearchTrackedEntityRepositoryImpl(
                 orgUnitName(item.organisationUnit)
             }
 
-        val ownerOrgUnit = item.programOwners?.firstOrNull()?.ownerOrgUnit
+        val ownerOrgUnit =
+            item.programOwners
+                ?.firstOrNull {
+                    selectedProgram.isNullOrEmpty() || it.program == selectedProgram
+                }?.ownerOrgUnit
         val ownerOrgUnitName =
             if (ownerOrgUnit != selectedEnrollment?.orgUnit) {
                 orgUnitName(ownerOrgUnit)

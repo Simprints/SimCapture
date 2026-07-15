@@ -87,7 +87,11 @@ class SearchRepositoryImplKt(
             allowCache = true
         }
 
-        return if (isOnline && FilterManager.getInstance().stateFilters.isEmpty()) {
+        return if (
+            isOnline &&
+            FilterManager.getInstance().stateFilters.isEmpty() &&
+            !(FilterManager.getInstance().transferredFilter && searchParametersModel.selectedProgram != null)
+        ) {
             trackedEntityInstanceQuery
                 .allowOnlineCache()
                 .eq(allowCache)

@@ -8,6 +8,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.res.painterResource
 import org.dhis2.R
 import org.dhis2.commons.date.toUi
 import org.dhis2.commons.resources.ResourceManager
@@ -21,6 +22,7 @@ import org.hisp.dhis.android.core.program.Program
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttribute
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttributeValue
 import org.hisp.dhis.mobile.ui.designsystem.component.AdditionalInfoItem
+import org.hisp.dhis.mobile.ui.designsystem.component.AdditionalInfoItemColor
 import org.hisp.dhis.mobile.ui.designsystem.component.Avatar
 import org.hisp.dhis.mobile.ui.designsystem.component.AvatarStyleData
 import org.hisp.dhis.mobile.ui.designsystem.theme.SurfaceColor
@@ -54,6 +56,10 @@ class TeiDashboardCardMapper(
                     emailCallback,
                     programsCallback,
                 ),
+            emphasizedAdditionalInfoKey =
+                (dashboardModel as? DashboardEnrollmentModel)
+                    ?.takeIf { it.ownerOrgUnit != null && it.getCurrentOrgUnit() != it.ownerOrgUnit }
+                    ?.let { resourceManager.getString(R.string.transferredTo) },
             actionButton = {},
             expandLabelText = resourceManager.getString(R.string.show_more),
             shrinkLabelText = resourceManager.getString(R.string.show_less),
@@ -175,6 +181,7 @@ class TeiDashboardCardMapper(
                         addOwnedBy(
                             list,
                             item.ownerOrgUnit,
+                            item.getCurrentOrgUnit() != item.ownerOrgUnit,
                         )
                         if (item.getCurrentOrgUnit() != item.ownerOrgUnit) {
                             addEnrollIn(
@@ -229,10 +236,23 @@ class TeiDashboardCardMapper(
     private fun addOwnedBy(
         list: MutableList<AdditionalInfoItem>,
         ownedByOrgUnit: OrganisationUnit?,
+        transferred: Boolean,
     ) {
         list.add(
             AdditionalInfoItem(
-                key = resourceManager.getString(R.string.ownedBy),
+                icon =
+                    if (transferred) {
+                        {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_transfer),
+                                contentDescription = resourceManager.getString(R.string.transferredTo),
+                                tint = AdditionalInfoItemColor.DISABLED.color,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                key = resourceManager.getString(if (transferred) R.string.transferredTo else R.string.ownedBy),
                 value = ownedByOrgUnit?.displayName() ?: "-",
                 isConstantItem = true,
             ),

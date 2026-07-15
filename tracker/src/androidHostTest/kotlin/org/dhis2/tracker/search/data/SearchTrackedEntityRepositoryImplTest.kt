@@ -452,6 +452,24 @@ class SearchTrackedEntityRepositoryImplTest {
             verify(mockQuery).allowOnlineCache()
         }
 
+    // SDK doesn't propagate the transferred TEI UID filter to online queries anyway
+    @Test
+    fun `fetchImmediateResults should stay offline when transferred filter is active`() =
+        runTest {
+            val query: TrackedEntitySearchCollectionRepository = mock(defaultAnswer = Mockito.RETURNS_DEEP_STUBS)
+            whenever(filterPresenter.filteredTrackedEntityInstances(programUid, teType)) doReturn query
+            whenever(filterPresenter.requiresOfflineSearch(programUid)) doReturn true
+            repository.addFiltersToQuery(programUid, teType)
+
+            repository.fetchImmediateResults(
+                isOnline = true,
+                hasStateFilters = false,
+                selectedProgram = programUid,
+            )
+
+            verify(query).offlineOnly()
+        }
+
     @Test(expected = IllegalStateException::class)
     fun `fetchResults should throw exception when query not initialized`() =
         runTest {

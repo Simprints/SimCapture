@@ -15,6 +15,8 @@ import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttribute
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttributeValue
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstance
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.doReturn
@@ -29,6 +31,8 @@ class TEIDetailMapperTest {
     fun setUp() {
         whenever(resourceManager.getString(R.string.show_more)) doReturn "Show more"
         whenever(resourceManager.getString(R.string.show_less)) doReturn "Show less"
+        whenever(resourceManager.getString(R.string.ownedBy)) doReturn "Owned by"
+        whenever(resourceManager.getString(R.string.transferredTo)) doReturn "Transferred to"
 
         mapper = TeiDashboardCardMapper(resourceManager)
     }
@@ -49,11 +53,14 @@ class TEIDetailMapperTest {
         assertEquals(result.title, model.teiHeader)
         assertEquals(result.additionalInfo[0].value, model.trackedEntityAttributes[0].second.value())
         assertEquals(result.additionalInfo[1].value, model.trackedEntityAttributes[1].second.value())
+        assertEquals("Owned by", result.additionalInfo[3].key)
+        assertNull(result.additionalInfo[3].icon)
         assertEquals(result.additionalInfo[3].value, orgUnit().displayName())
+        assertNull(result.emphasizedAdditionalInfoKey)
     }
 
     @Test
-    fun shouldShowOwnedAndEnrolledOrgUnit() {
+    fun shouldShowTransferredAndEnrolledOrgUnit() {
         val model = createFakeModel(otherOrgUnit())
 
         val result =
@@ -65,8 +72,11 @@ class TEIDetailMapperTest {
                 onImageClick = {},
             )
 
+        assertEquals("Transferred to", result.additionalInfo[3].key)
+        assertNotNull(result.additionalInfo[3].icon)
         assertEquals(result.additionalInfo[3].value, otherOrgUnit().displayName())
         assertEquals(result.additionalInfo[4].value, model.orgUnits.first().displayName())
+        assertEquals("Transferred to", result.emphasizedAdditionalInfoKey)
     }
 
     private fun createFakeModel(ownerOrgUnit: OrganisationUnit = orgUnit()): DashboardEnrollmentModel {

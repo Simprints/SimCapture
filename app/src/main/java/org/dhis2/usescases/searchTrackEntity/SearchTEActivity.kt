@@ -293,6 +293,7 @@ class SearchTEActivity :
             FilterManager.getInstance().clearSorting()
             FilterManager.getInstance().clearAssignToMe()
             FilterManager.getInstance().clearFollowUp()
+            FilterManager.getInstance().clearTransferred()
             presenter.clearOtherFiltersIfWebAppIsConfig()
         }
         super.onDestroy()

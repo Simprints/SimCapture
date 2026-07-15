@@ -1,16 +1,39 @@
 package org.dhis2.commons.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.dhis2.commons.ui.model.ListCardUiModel
 import org.hisp.dhis.mobile.ui.designsystem.component.AdditionalInfoItem
 import org.hisp.dhis.mobile.ui.designsystem.component.ListCard
 import org.hisp.dhis.mobile.ui.designsystem.component.ListCardDescriptionModel
 import org.hisp.dhis.mobile.ui.designsystem.component.ListCardTitleModel
+import org.hisp.dhis.mobile.ui.designsystem.component.ProvideKeyValueItem
+import org.hisp.dhis.mobile.ui.designsystem.component.ToggleInfoTextButton
+import org.hisp.dhis.mobile.ui.designsystem.component.getKeyValueAnnotatedString
 import org.hisp.dhis.mobile.ui.designsystem.component.state.rememberAdditionalInfoColumnState
 import org.hisp.dhis.mobile.ui.designsystem.component.state.rememberListCardState
+import org.hisp.dhis.mobile.ui.designsystem.theme.Spacing
+import org.hisp.dhis.mobile.ui.designsystem.theme.TextColor
 
 @Composable
 fun ListCardProvider(
@@ -19,6 +42,8 @@ fun ListCardProvider(
     title: ListCardTitleModel = ListCardTitleModel(text = card.title),
     @StringRes syncingResourceId: Int,
 ) {
+    val emphasizedKey = card.emphasizedAdditionalInfoKey
+
     ListCard(
         modifier = modifier,
         listCardState =
@@ -28,7 +53,7 @@ fun ListCardProvider(
                 lastUpdated = card.lastUpdated,
                 additionalInfoColumnState =
                     rememberAdditionalInfoColumnState(
-                        additionalInfoList = card.additionalInfo,
+                        additionalInfoList = card.additionalInfo.takeIf { emphasizedKey == null } ?: emptyList(),
                         syncProgressItem =
                             AdditionalInfoItem(
                                 key = stringResource(id = syncingResourceId),
@@ -42,6 +67,107 @@ fun ListCardProvider(
             ),
         listAvatar = card.avatar,
         onCardClick = card.onCardCLick,
-        actionButton = card.actionButton,
+        actionButton =
+            if (emphasizedKey == null) {
+                card.actionButton
+            } else {
+                {
+                    EmphasizedAdditionalInfoColumn(
+                        additionalInfo = card.additionalInfo,
+                        emphasizedKey = emphasizedKey,
+                        expandLabelText = card.expandLabelText,
+                        shrinkLabelText = card.shrinkLabelText,
+                    )
+                    card.actionButton()
+                }
+            },
     )
+}
+
+@Composable
+fun EmphasizedAdditionalInfoColumn(
+    additionalInfo: List<AdditionalInfoItem>,
+    emphasizedKey: String,
+    expandLabelText: String,
+    shrinkLabelText: String,
+    isDetailCard: Boolean = false,
+) {
+    val columnState =
+        rememberAdditionalInfoColumnState(
+            additionalInfoList = additionalInfo,
+            syncProgressItem = AdditionalInfoItem(value = ""),
+            expandLabelText = expandLabelText,
+            shrinkLabelText = shrinkLabelText,
+        )
+    val visibleItems =
+        if (columnState.isExpanded()) columnState.expandableItemList() else columnState.visibleExpandableItemList()
+
+    Column(Modifier.testTag("LIST_CARD_ADDITIONAL_INFO_COLUMN")) {
+        visibleItems.forEach {
+            AdditionalInfoRow(it, false, isDetailCard)
+        }
+    }
+    Column(Modifier.testTag("LIST_CARD_ADDITIONAL_INFO_CONSTANT_COLUMN")) {
+        columnState.constantItemList().forEach {
+            AdditionalInfoRow(it, it.key == emphasizedKey, isDetailCard)
+        }
+    }
+    if (columnState.showExpandableContent()) {
+        ToggleInfoTextButton(
+            sectionState = columnState.currentSectionState(),
+            shrinkLabelText = shrinkLabelText,
+            expandLabelText = expandLabelText,
+            onClick = columnState::updateSectionState,
+        )
+    }
+}
+
+@Composable
+private fun AdditionalInfoRow(
+    item: AdditionalInfoItem,
+    emphasized: Boolean,
+    isDetailCard: Boolean,
+) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (emphasized) {
+            val text =
+                buildAnnotatedString {
+                    append(getKeyValueAnnotatedString(item.key ?: "", item, false))
+                    addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, length)
+                }
+            Text(
+                text = text,
+                inlineContent =
+                    mapOf(
+                        "ItemIcon" to
+                            InlineTextContent(
+                                Placeholder(
+                                    width = 20.sp,
+                                    height = 20.sp,
+                                    placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+                                ),
+                            ) {
+                                Box(Modifier.size(20.dp)) {
+                                    item.icon?.invoke()
+                                }
+                            },
+                    ),
+                color = item.color ?: TextColor.OnSurface,
+                style =
+                    MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 20.sp,
+                    ),
+                overflow = if (item.truncate) TextOverflow.Ellipsis else TextOverflow.Clip,
+                maxLines = if (item.truncate) 2 else Int.MAX_VALUE,
+            )
+        } else {
+            ProvideKeyValueItem(
+                item,
+                maxWidth / 2 - Spacing.Spacing16,
+                isDetailCard,
+            )
+        }
+    }
+    Spacer(Modifier.size(if (isDetailCard) Spacing.Spacing8 else Spacing.Spacing4))
 }
