@@ -1,4 +1,4 @@
-name: Build signed RAMPcapture APK release
+name: Build signed RAMPcapture AAB release
 
 on:
   workflow_dispatch:
@@ -7,14 +7,14 @@ on:
       - ramp-main
 
 concurrency:
-  group: rampcapture-github-release-signed-apk
+  group: rampcapture-github-release-signed-aab
   cancel-in-progress: false
 
 env:
   MAIN_PROJECT_MODULE: app
 
 jobs:
-  rampcapture-github-release-signed-apk:
+  rampcapture-github-release-signed-aab:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -66,14 +66,14 @@ jobs:
 
           next_fork_number=$((last_fork_number + 1))
           release_tag="RAMPcapture-DHIS2-v${{ steps.read-version.outputs.vName }}-fork-${next_fork_number}"
-          release_apk_name="${release_tag}-signed-release.apk"
-          release_apk_path="$RUNNER_TEMP/$release_apk_name"
+          release_aab_name="${release_tag}-signed-release.aab"
+          release_aab_path="$RUNNER_TEMP/$release_aab_name"
 
           {
             echo "forkNumber=$next_fork_number"
             echo "releaseTag=$release_tag"
-            echo "releaseApkName=$release_apk_name"
-            echo "releaseApkPath=$release_apk_path"
+            echo "releaseAabName=$release_aab_name"
+            echo "releaseAabPath=$release_aab_path"
           } >> "$GITHUB_OUTPUT"
 
       - name: Decode keystore
@@ -84,8 +84,8 @@ jobs:
           fileName: dhis_keystore.jks
           encodedString: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: Build signed release APK
-        run: ./gradlew app:assembleDhis2Release
+      - name: Build signed release AAB
+        run: ./gradlew app:bundleDhis2Release
         env:
           RAMP_CAPTURE_VERSION: ${{ steps.release-info.outputs.forkNumber }}
           SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -93,28 +93,28 @@ jobs:
           SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           SIGNING_KEYSTORE_PATH: ${{ steps.decode-keystore.outputs.filePath }}
 
-      - name: Rename signed release APK for RAMPcapture release
+      - name: Rename signed release AAB for RAMPcapture release
         run: |
           set -euo pipefail
 
           cp \
-            "${MAIN_PROJECT_MODULE}/build/outputs/apk/dhis2/release/dhis2-v${{ steps.read-version.outputs.vName }}.apk" \
-            "${{ steps.release-info.outputs.releaseApkPath }}"
+            "${MAIN_PROJECT_MODULE}/build/outputs/bundle/dhis2Release/dhis2-v${{ steps.read-version.outputs.vName }}-dhis2-release.aab" \
+            "${{ steps.release-info.outputs.releaseAabPath }}"
 
-      - name: Upload signed release APK artifact
+      - name: Upload signed release AAB artifact
         uses: actions/upload-artifact@v7.0.0
         with:
           name: ${{ steps.release-info.outputs.releaseTag }}
-          path: ${{ steps.release-info.outputs.releaseApkPath }}
+          path: ${{ steps.release-info.outputs.releaseAabPath }}
 
-      - name: Create GitHub release with signed APK
+      - name: Create GitHub release with signed AAB
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
           release_notes=$(cat <<EOF
-          RAMPcapture signed APK release.
+          RAMPcapture signed AAB release.
 
           Fork version: ${{ steps.release-info.outputs.forkNumber }}.
           Based on upstream DHIS2 version: v${{ steps.read-version.outputs.vName }}.
@@ -124,7 +124,7 @@ jobs:
           )
 
           gh release create "${{ steps.release-info.outputs.releaseTag }}" \
-            "${{ steps.release-info.outputs.releaseApkPath }}" \
+            "${{ steps.release-info.outputs.releaseAabPath }}" \
             --repo "$CURRENT_FORK_REPOSITORY" \
             --target "${{ github.sha }}" \
             --title "${{ steps.release-info.outputs.releaseTag }}" \
