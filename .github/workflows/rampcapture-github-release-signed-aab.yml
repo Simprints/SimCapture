@@ -1,0 +1,128 @@
+name: Build signed RAMPcapture AAB release
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: rampcapture-github-release-signed-aab
+  cancel-in-progress: false
+
+env:
+  MAIN_PROJECT_MODULE: app
+
+jobs:
+  rampcapture-github-release-signed-aab:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CURRENT_FORK_REPOSITORY: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Get current date and time
+        id: date-time
+        run: echo "dateTimeUtc=$(date -u +'%Y-%m-%d-%H%M')" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+
+      - name: Change wrapper permissions
+        run: chmod +x ./gradlew
+
+      - name: Read upstream app version
+        id: read-version
+        working-directory: ./gradle
+        run: echo "vName=$(grep '^vName' libs.versions.toml | awk -F' = ' '{print $2}' | tr -d '\"')" >> "$GITHUB_OUTPUT"
+
+      - name: Determine next RAMPcapture fork release
+        id: release-info
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          last_fork_number=0
+
+          while IFS= read -r tag_name; do
+            [[ "$tag_name" =~ ^RAMPcapture-DHIS2-v[0-9]+(\.[0-9]+)*-fork-([0-9]+)$ ]] || continue
+
+            candidate_fork_number="${BASH_REMATCH[2]}"
+            if (( candidate_fork_number > last_fork_number )); then
+              last_fork_number="$candidate_fork_number"
+            fi
+          done < <(
+            gh api --paginate "repos/$CURRENT_FORK_REPOSITORY/releases?per_page=100" --jq '.[].tag_name'
+          )
+
+          next_fork_number=$((last_fork_number + 1))
+          release_tag="RAMPcapture-DHIS2-v${{ steps.read-version.outputs.vName }}-fork-${next_fork_number}"
+          release_aab_name="${release_tag}-signed-release.aab"
+          release_aab_path="$RUNNER_TEMP/$release_aab_name"
+
+          {
+            echo "forkNumber=$next_fork_number"
+            echo "releaseTag=$release_tag"
+            echo "releaseAabName=$release_aab_name"
+            echo "releaseAabPath=$release_aab_path"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Decode keystore
+        id: decode-keystore
+        # Third-party action - pinned to commit SHA.
+        uses: timheuer/base64-to-file@604a8926a81a2da120d09b06bb76da9bba5aee6e
+        with:
+          fileName: dhis_keystore.jks
+          encodedString: ${{ secrets.KEYSTORE_BASE64 }}
+
+      - name: Build signed release AAB
+        run: ./gradlew app:bundleDhis2Release
+        env:
+          RAMP_CAPTURE_VERSION: ${{ steps.release-info.outputs.forkNumber }}
+          SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          SIGNING_KEYSTORE_PATH: ${{ steps.decode-keystore.outputs.filePath }}
+
+      - name: Rename signed release AAB for RAMPcapture release
+        run: |
+          set -euo pipefail
+
+          cp \
+            "${MAIN_PROJECT_MODULE}/build/outputs/bundle/dhis2Release/dhis2-v${{ steps.read-version.outputs.vName }}-dhis2-release.aab" \
+            "${{ steps.release-info.outputs.releaseAabPath }}"
+
+      - name: Upload signed release AAB artifact
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: ${{ steps.release-info.outputs.releaseTag }}
+          path: ${{ steps.release-info.outputs.releaseAabPath }}
+
+      - name: Create GitHub release with signed AAB
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          release_notes=$(cat <<EOF
+          RAMPcapture signed AAB release.
+
+          Fork version: ${{ steps.release-info.outputs.forkNumber }}.
+          Based on upstream DHIS2 version: v${{ steps.read-version.outputs.vName }}.
+
+          Release time: ${{ steps.date-time.outputs.dateTimeUtc }} UTC.
+          EOF
+          )
+
+          gh release create "${{ steps.release-info.outputs.releaseTag }}" \
+            "${{ steps.release-info.outputs.releaseAabPath }}" \
+            --repo "$CURRENT_FORK_REPOSITORY" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.release-info.outputs.releaseTag }}" \
+            --notes "$release_notes"
