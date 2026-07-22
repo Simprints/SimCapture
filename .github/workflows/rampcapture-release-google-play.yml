@@ -134,8 +134,10 @@ jobs:
           set -euo pipefail
 
           # Keep only one RAMPcapture draft release at a time: remove any
-          # leftover draft (and its tag) from a prior run before creating
-          # the new one. Published (non-draft) releases are left untouched.
+          # leftover draft from a prior run before creating the new one.
+          # Draft releases don't create an actual git tag until published,
+          # so there's no tag to clean up here. Published (non-draft)
+          # releases are left untouched.
           while IFS=$'\t' read -r tag_name is_draft; do
             [[ "$tag_name" =~ ^RAMPcapture-DHIS2-v[0-9]+(\.[0-9]+)*-fork-[0-9]+$ ]] || continue
             [[ "$is_draft" == "true" ]] || continue
@@ -143,8 +145,7 @@ jobs:
             echo "Deleting previous draft release: $tag_name"
             gh release delete "$tag_name" \
               --repo "${{ github.repository }}" \
-              --yes \
-              --cleanup-tag
+              --yes
           done < <(
             gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" \
               --jq '.[] | [.tag_name, .draft] | @tsv'
