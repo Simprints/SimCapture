@@ -114,6 +114,8 @@ class RampDatastoreRepositoryTest {
               "programStageSpecificSettings": [
                 {
                   "programStageId": " disabledStage ",
+                  "hasVisitNumberPrefixForDateInList": true,
+                  "visitNumberDataElementId": " visit-number ",
                   "isScheduleOptionEnabled": false,
                   "isReferOptionEnabled": false
                 }
@@ -138,6 +140,8 @@ class RampDatastoreRepositoryTest {
         }
         assertEquals("disabledProgram", config.programSpecificSettings.single().programId)
         assertEquals("disabledStage", config.programStageSpecificSettings.single().programStageId)
+        assertEquals(true, config.programStageSpecificSettings.single().hasVisitNumberPrefixForDateInList)
+        assertEquals("visit-number", config.programStageSpecificSettings.single().visitNumberDataElementId)
     }
 
     @Test

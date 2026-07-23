@@ -28,6 +28,7 @@ data class EventModel(
     val metadataIconData: MetadataIconData,
     val editable: Boolean = true,
     val displayOrgUnit: Boolean = true,
+    val followUpVisitNumber: Int? = null,
 ) {
     var isClicked: Boolean = false
 

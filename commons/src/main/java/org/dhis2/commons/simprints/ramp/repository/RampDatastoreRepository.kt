@@ -198,7 +198,10 @@ class RampDatastoreRepository(
         copy(programId = programId.trimToValue())
 
     private fun ProgramStageSpecificSetting.normalized(): ProgramStageSpecificSetting =
-        copy(programStageId = programStageId.trimToValue())
+        copy(
+            programStageId = programStageId.trimToValue(),
+            visitNumberDataElementId = visitNumberDataElementId.trimToValue(),
+        )
 
     private fun String?.trimToValue(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 

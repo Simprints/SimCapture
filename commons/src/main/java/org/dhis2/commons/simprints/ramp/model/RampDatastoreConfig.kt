@@ -68,6 +68,10 @@ data class ProgramSpecificSetting(
 data class ProgramStageSpecificSetting(
     @SerializedName("programStageId")
     val programStageId: String? = null,
+    @SerializedName("hasVisitNumberPrefixForDateInList")
+    val hasVisitNumberPrefixForDateInList: Boolean? = null,
+    @SerializedName("visitNumberDataElementId")
+    val visitNumberDataElementId: String? = null,
     @SerializedName("isScheduleOptionEnabled")
     val isScheduleOptionEnabled: Boolean? = null,
     @SerializedName("isReferOptionEnabled")
