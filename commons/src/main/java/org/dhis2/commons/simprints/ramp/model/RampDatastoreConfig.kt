@@ -61,9 +61,23 @@ data class ProgramSpecificSetting(
     val programId: String? = null,
     @SerializedName("isSearchEnabled")
     val isSearchEnabled: Boolean? = null,
+    @SerializedName("hasDetailedEnrollmentListing")
+    val hasDetailedEnrollmentListing: Boolean? = null,
+    @SerializedName("detailedEnrollmentListingDischargeOutcomeDataElementIds")
+    val detailedEnrollmentListingDischargeOutcomeDataElementIds: List<String>? = null,
+    @SerializedName("detailedEnrollmentListingAdmissionProgramStageIds")
+    val detailedEnrollmentListingAdmissionProgramStageIds: List<String>? = null,
+    @SerializedName("detailedEnrollmentListingDischargeProgramStageIds")
+    val detailedEnrollmentListingDischargeProgramStageIds: List<String>? = null,
 ) {
     fun isValid(): Boolean = !programId.isNullOrBlank()
 }
+
+data class DetailedEnrollmentListingSettings(
+    val dischargeOutcomeDataElementIds: Set<String>,
+    val admissionProgramStageIds: Set<String>,
+    val dischargeProgramStageIds: Set<String>,
+)
 
 data class ProgramStageSpecificSetting(
     @SerializedName("programStageId")

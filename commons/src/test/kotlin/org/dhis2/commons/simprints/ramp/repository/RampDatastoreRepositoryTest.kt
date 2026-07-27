@@ -108,7 +108,11 @@ class RampDatastoreRepositoryTest {
               "programSpecificSettings": [
                 {
                   "programId": " disabledProgram ",
-                  "isSearchEnabled": false
+                  "isSearchEnabled": false,
+                  "hasDetailedEnrollmentListing": true,
+                  "detailedEnrollmentListingDischargeOutcomeDataElementIds": [" outcome ", " "],
+                  "detailedEnrollmentListingAdmissionProgramStageIds": [" admission ", " "],
+                  "detailedEnrollmentListingDischargeProgramStageIds": [" discharge ", " "]
                 }
               ],
               "programStageSpecificSettings": [
@@ -139,6 +143,22 @@ class RampDatastoreRepositoryTest {
             assertEquals(listOf("excluded"), table.excludedFollowUpVisitDataElementIds)
         }
         assertEquals("disabledProgram", config.programSpecificSettings.single().programId)
+        assertEquals(true, config.programSpecificSettings.single().hasDetailedEnrollmentListing)
+        assertEquals(
+            listOf("outcome"),
+            config.programSpecificSettings.single()
+                .detailedEnrollmentListingDischargeOutcomeDataElementIds,
+        )
+        assertEquals(
+            listOf("admission"),
+            config.programSpecificSettings.single()
+                .detailedEnrollmentListingAdmissionProgramStageIds,
+        )
+        assertEquals(
+            listOf("discharge"),
+            config.programSpecificSettings.single()
+                .detailedEnrollmentListingDischargeProgramStageIds,
+        )
         assertEquals("disabledStage", config.programStageSpecificSettings.single().programStageId)
         assertEquals(true, config.programStageSpecificSettings.single().hasVisitNumberPrefixForDateInList)
         assertEquals("visit-number", config.programStageSpecificSettings.single().visitNumberDataElementId)
@@ -173,6 +193,57 @@ class RampDatastoreRepositoryTest {
         assertEquals(true, repository.isSearchEnabled("missingProgram"))
         assertEquals(true, repository.isSearchEnabled(null))
         assertEquals(true, repository.isSearchEnabled(" "))
+    }
+
+    @Test
+    fun `detailed enrollment listing should be enabled only for configured program`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "programSpecificSettings": [
+                {
+                  "programId": "program",
+                  "hasDetailedEnrollmentListing": true,
+                  "detailedEnrollmentListingDischargeOutcomeDataElementIds": [
+                    "outcome1",
+                    "outcome2"
+                  ],
+                  "detailedEnrollmentListingAdmissionProgramStageIds": [
+                    "admissionStage1",
+                    "admissionStage2"
+                  ],
+                  "detailedEnrollmentListingDischargeProgramStageIds": [
+                    "dischargeStage1",
+                    "dischargeStage2"
+                  ]
+                },
+                {
+                  "programId": "disabledProgram",
+                  "hasDetailedEnrollmentListing": false
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val settings = repository.detailedEnrollmentListingSettings("program")
+
+        assertEquals(
+            setOf("outcome1", "outcome2"),
+            settings?.dischargeOutcomeDataElementIds,
+        )
+        assertEquals(
+            setOf("admissionStage1", "admissionStage2"),
+            settings?.admissionProgramStageIds,
+        )
+        assertEquals(
+            setOf("dischargeStage1", "dischargeStage2"),
+            settings?.dischargeProgramStageIds,
+        )
+        assertEquals(null, repository.detailedEnrollmentListingSettings("disabledProgram"))
+        assertEquals(null, repository.detailedEnrollmentListingSettings("missingProgram"))
+        assertEquals(null, repository.detailedEnrollmentListingSettings(null))
+        assertEquals(null, repository.detailedEnrollmentListingSettings(" "))
     }
 
     @Test

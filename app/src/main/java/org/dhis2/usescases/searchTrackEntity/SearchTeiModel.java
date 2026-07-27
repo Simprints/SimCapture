@@ -1,6 +1,7 @@
 package org.dhis2.usescases.searchTrackEntity;
 
 import org.dhis2.mobile.commons.model.MetadataIconData;
+import org.dhis2.simprints.ramp.model.DetailedEnrollment;
 import org.dhis2.tracker.search.model.DomainEnrollment;
 import org.dhis2.tracker.search.model.TrackedEntitySearchItemAttributeDomain;
 import org.dhis2.tracker.search.model.TrackedEntitySearchItemResult;
@@ -9,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 public class SearchTeiModel{
 
@@ -22,6 +24,7 @@ public class SearchTeiModel{
     private boolean openedAttributeList = false;
     private String sortingKey;
     private String sortingValue;
+    private List<DetailedEnrollment> detailedEnrollments;
 
     @Nullable
     public String onlineErrorMessage;
@@ -34,6 +37,7 @@ public class SearchTeiModel{
         this.textAttributeValues = new LinkedHashMap<>();
         this.sortingKey = null;
         this.sortingValue = null;
+        this.detailedEnrollments = null;
         this.onlineErrorMessage = null;
         this.metadataIconDataMap = new HashMap<>();
     }
@@ -138,6 +142,15 @@ public class SearchTeiModel{
 
     public String getSortingValue() {
         return sortingValue;
+    }
+
+    @Nullable
+    public List<DetailedEnrollment> getDetailedEnrollments() {
+        return detailedEnrollments;
+    }
+
+    public void setDetailedEnrollments(@Nullable List<DetailedEnrollment> detailedEnrollments) {
+        this.detailedEnrollments = detailedEnrollments;
     }
 
 

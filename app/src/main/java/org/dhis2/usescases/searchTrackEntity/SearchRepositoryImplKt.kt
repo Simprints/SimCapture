@@ -7,11 +7,14 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.withContext
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.filters.sorting.SortingItem
+import org.dhis2.commons.simprints.ramp.model.DetailedEnrollmentListingSettings
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.data.search.SearchParametersModel
 import org.dhis2.maps.model.MapItemModel
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository
 import org.dhis2.mobile.commons.model.CustomIntentActionTypeModel
+import org.dhis2.simprints.ramp.data.DetailedEnrollmentRepository
 import org.dhis2.tracker.input.model.TrackerInputType
 import org.dhis2.tracker.input.ui.action.FieldUid
 import org.dhis2.tracker.search.model.TrackedEntitySearchItemResult
@@ -38,6 +41,9 @@ class SearchRepositoryImplKt(
     private val eventInfoProvider: EventInfoProvider,
     private val customIntentRepository: CustomIntentRepository,
 ) : SearchRepositoryKt {
+    private val rampDatastoreRepository = RampDatastoreRepository(d2)
+    private val detailedEnrollmentRepository = DetailedEnrollmentRepository(d2)
+    private var detailedEnrollmentListingSettings: DetailedEnrollmentListingSettings? = null
     private lateinit var savedSearchParameters: SearchParametersModel
 
     private lateinit var savedFilters: FilterManager
@@ -50,6 +56,8 @@ class SearchRepositoryImplKt(
         queryData: MutableMap<String, List<String>?>?,
         programUid: String?,
     ): Boolean {
+        detailedEnrollmentListingSettings =
+            rampDatastoreRepository.detailedEnrollmentListingSettings(programUid)
         if (!this::savedSearchParameters.isInitialized) {
             savedSearchParameters =
                 SearchParametersModel(
@@ -223,6 +231,15 @@ class SearchRepositoryImplKt(
         ): SearchTeiModel {
         val searchTeiModel = SearchTeiModel()
         searchTeiModel.tei = searchItemResult
+        detailedEnrollmentListingSettings?.let { listingSettings ->
+            searchTeiModel.detailedEnrollments =
+                detailedEnrollmentRepository.get(
+                    enrollments = searchItemResult.enrollments,
+                    programs = searchItemResult.enrolledPrograms,
+                    settings = listingSettings,
+                    excludedProgramUid = searchItemResult.selectedEnrollment?.program,
+                )
+        }
         searchItemResult.enrolledPrograms?.forEach {
             searchTeiModel.addProgramInfo(
                 it.uid,

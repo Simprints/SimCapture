@@ -14,11 +14,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,6 +31,7 @@ import org.hisp.dhis.mobile.ui.designsystem.component.ListCardDescriptionModel
 import org.hisp.dhis.mobile.ui.designsystem.component.ListCardTitleModel
 import org.hisp.dhis.mobile.ui.designsystem.component.ProvideKeyValueItem
 import org.hisp.dhis.mobile.ui.designsystem.component.ToggleInfoTextButton
+import org.hisp.dhis.mobile.ui.designsystem.component.getKeyTrimmedText
 import org.hisp.dhis.mobile.ui.designsystem.component.getKeyValueAnnotatedString
 import org.hisp.dhis.mobile.ui.designsystem.component.state.rememberAdditionalInfoColumnState
 import org.hisp.dhis.mobile.ui.designsystem.component.state.rememberListCardState
@@ -43,6 +46,8 @@ fun ListCardProvider(
     @StringRes syncingResourceId: Int,
 ) {
     val emphasizedKey = card.emphasizedAdditionalInfoKey
+    val hasCustomAdditionalInfo =
+        emphasizedKey != null || card.styledAdditionalInfoValues.isNotEmpty()
 
     ListCard(
         modifier = modifier,
@@ -53,7 +58,8 @@ fun ListCardProvider(
                 lastUpdated = card.lastUpdated,
                 additionalInfoColumnState =
                     rememberAdditionalInfoColumnState(
-                        additionalInfoList = card.additionalInfo.takeIf { emphasizedKey == null } ?: emptyList(),
+                        additionalInfoList =
+                            card.additionalInfo.takeUnless { hasCustomAdditionalInfo } ?: emptyList(),
                         syncProgressItem =
                             AdditionalInfoItem(
                                 key = stringResource(id = syncingResourceId),
@@ -68,13 +74,14 @@ fun ListCardProvider(
         listAvatar = card.avatar,
         onCardClick = card.onCardCLick,
         actionButton =
-            if (emphasizedKey == null) {
+            if (!hasCustomAdditionalInfo) {
                 card.actionButton
             } else {
                 {
                     EmphasizedAdditionalInfoColumn(
                         additionalInfo = card.additionalInfo,
                         emphasizedKey = emphasizedKey,
+                        styledValues = card.styledAdditionalInfoValues,
                         expandLabelText = card.expandLabelText,
                         shrinkLabelText = card.shrinkLabelText,
                     )
@@ -87,7 +94,8 @@ fun ListCardProvider(
 @Composable
 fun EmphasizedAdditionalInfoColumn(
     additionalInfo: List<AdditionalInfoItem>,
-    emphasizedKey: String,
+    emphasizedKey: String?,
+    styledValues: Map<String, AnnotatedString> = emptyMap(),
     expandLabelText: String,
     shrinkLabelText: String,
     isDetailCard: Boolean = false,
@@ -104,12 +112,22 @@ fun EmphasizedAdditionalInfoColumn(
 
     Column(Modifier.testTag("LIST_CARD_ADDITIONAL_INFO_COLUMN")) {
         visibleItems.forEach {
-            AdditionalInfoRow(it, false, isDetailCard)
+            AdditionalInfoRow(
+                item = it,
+                emphasized = false,
+                styledValue = it.key?.let(styledValues::get),
+                isDetailCard = isDetailCard,
+            )
         }
     }
     Column(Modifier.testTag("LIST_CARD_ADDITIONAL_INFO_CONSTANT_COLUMN")) {
         columnState.constantItemList().forEach {
-            AdditionalInfoRow(it, it.key == emphasizedKey, isDetailCard)
+            AdditionalInfoRow(
+                item = it,
+                emphasized = it.key == emphasizedKey,
+                styledValue = it.key?.let(styledValues::get),
+                isDetailCard = isDetailCard,
+            )
         }
     }
     if (columnState.showExpandableContent()) {
@@ -126,14 +144,35 @@ fun EmphasizedAdditionalInfoColumn(
 private fun AdditionalInfoRow(
     item: AdditionalInfoItem,
     emphasized: Boolean,
+    styledValue: AnnotatedString?,
     isDetailCard: Boolean,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (emphasized) {
+        if (emphasized || styledValue != null) {
+            val keyText =
+                getKeyTrimmedText(
+                    item.key.orEmpty(),
+                    maxWidth / 2 - Spacing.Spacing16,
+                    rememberTextMeasurer(),
+                )
+            val keyValueText = getKeyValueAnnotatedString(keyText, item, isDetailCard)
             val text =
                 buildAnnotatedString {
-                    append(getKeyValueAnnotatedString(item.key ?: "", item, false))
-                    addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, length)
+                    append(keyValueText)
+                    if (emphasized) {
+                        addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, length)
+                    } else if (styledValue?.text == item.value) {
+                        val valueStart = keyValueText.text.lastIndexOf(item.value)
+                        if (valueStart >= 0) {
+                            styledValue.spanStyles.forEach { range ->
+                                addStyle(
+                                    style = range.item,
+                                    start = valueStart + range.start,
+                                    end = valueStart + range.end,
+                                )
+                            }
+                        }
+                    }
                 }
             Text(
                 text = text,
@@ -155,7 +194,12 @@ private fun AdditionalInfoRow(
                 color = item.color ?: TextColor.OnSurface,
                 style =
                     MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
+                        fontWeight =
+                            if (emphasized) {
+                                FontWeight.Bold
+                            } else {
+                                MaterialTheme.typography.bodyMedium.fontWeight
+                            },
                         lineHeight = 20.sp,
                     ),
                 overflow = if (item.truncate) TextOverflow.Ellipsis else TextOverflow.Clip,

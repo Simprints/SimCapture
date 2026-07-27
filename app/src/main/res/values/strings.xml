@@ -98,6 +98,10 @@
     <!--TEI Enrollment list-->
     <string name="enrollment_list">Enrollment list</string>
     <string name="active_programs">Active programs</string>
+    <string name="simprints_ramp_admitted">admitted</string>
+    <string name="simprints_ramp_discharged">discharged</string>
+    <string name="simprints_ramp_outcome">outcome</string>
+    <string name="simprints_ramp_site">site</string>
     <string name="enroll">Enroll</string>
 
     <!--TEI DASHBOARD-->
