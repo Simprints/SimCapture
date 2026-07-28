@@ -121,13 +121,20 @@ android {
         applicationId = "com.acf.dhis.androidnutritioncapture"
         targetSdk = libs.versions.sdk.get().toInt()
         minSdk = libs.versions.minSdk.get().toInt()
-        versionCode = libs.versions.vCode.get().toInt()
         versionName = libs.versions.vName.get()
         testInstrumentationRunner = "org.dhis2.Dhis2Runner"
         vectorDrawables.useSupportLibrary = true
 
         val bitriseSentryDSN = System.getenv("SENTRY_DSN") ?: ""
         val rampCaptureVersion = System.getenv("RAMP_CAPTURE_VERSION") ?: "local build"
+
+        // RAMPcapture fork release version codes are generated in yyMMrrrrr format
+        // (2-digit year, 2-digit month, 5-digit zero-padded GitHub run number), e.g.
+        // year 26, month 07, run 123 => 260700123. This keeps every fork release's
+        // version code unique and increasing for Google Play.
+        val baseVersionCode = libs.versions.vCode.get().toInt()
+        val rampCaptureVersionCode = System.getenv("RAMP_CAPTURE_VERSION_CODE")?.toIntOrNull()
+        versionCode = rampCaptureVersionCode ?: baseVersionCode
 
         buildConfigField("String", "SDK_VERSION", "\"" + libs.versions.dhis2sdk.get() + "\"")
         buildConfigField("String", "RAMP_CAPTURE_VERSION", "\"$rampCaptureVersion\"")

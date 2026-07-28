@@ -1,0 +1,231 @@
+name: Build signed RAMPcapture AAB release and deploy to Google Play
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: rampcapture-release-google-play
+  cancel-in-progress: false
+
+jobs:
+  build-aab:
+    runs-on: ubuntu-latest
+    outputs:
+      releaseTag: ${{ steps.release-info.outputs.releaseTag }}
+      forkNumber: ${{ steps.release-info.outputs.forkNumber }}
+      appVersion: ${{ steps.read-version.outputs.vName }}
+      versionCode: ${{ steps.release-info.outputs.versionCode }}
+      dateTimeUtc: ${{ steps.date-time.outputs.dateTimeUtc }}
+    env:
+      CURRENT_FORK_REPOSITORY: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Get current date and time
+        id: date-time
+        run: echo "dateTimeUtc=$(date -u +'%Y-%m-%d-%H%M')" >> "$GITHUB_OUTPUT"
+
+      - name: Read upstream app version
+        id: read-version
+        working-directory: ./gradle
+        run: |
+          echo "vName=$(grep '^vName' libs.versions.toml | awk -F' = ' '{print $2}' | tr -d '\"')" >> "$GITHUB_OUTPUT"
+          echo "vCode=$(grep '^vCode' libs.versions.toml | awk -F' = ' '{print $2}' | tr -d '\"')" >> "$GITHUB_OUTPUT"
+
+      - name: Determine next RAMPcapture fork release
+        id: release-info
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          last_fork_number=0
+
+          while IFS= read -r tag_name; do
+            [[ "$tag_name" =~ ^RAMPcapture-DHIS2-v[0-9]+(\.[0-9]+)*-fork-([0-9]+)$ ]] || continue
+
+            candidate_fork_number="${BASH_REMATCH[2]}"
+            if (( candidate_fork_number > last_fork_number )); then
+              last_fork_number="$candidate_fork_number"
+            fi
+          done < <(
+            gh api --paginate "repos/$CURRENT_FORK_REPOSITORY/releases?per_page=100" --jq '.[].tag_name'
+          )
+
+          next_fork_number=$((last_fork_number + 1))
+
+          if (( next_fork_number > 99 )); then
+            echo "::error::Fork number $next_fork_number exceeds 2 digits (max 99). Bump the base vCode in gradle/libs.versions.toml and reset fork numbering." >&2
+            exit 1
+          fi
+
+          release_tag="RAMPcapture-DHIS2-v${{ steps.read-version.outputs.vName }}-fork-${next_fork_number}"
+
+          run_number=${{ github.run_number }}
+          if (( run_number > 99999 )); then
+            echo "::error::GitHub run number $run_number exceeds 5 digits (max 99999) required for versionCode format yyMMrrrrr." >&2
+            exit 1
+          fi
+          # yyMMrrrrr: 2-digit year, 2-digit month, 5-digit zero-padded run
+          # number, e.g. year 26, month 07, run 123 => 260700123. Keeps each
+          # fork release's version code unique and increasing for Google Play.
+          version_code="$(date -u +'%y%m')$(printf '%05d' "$run_number")"
+
+          {
+            echo "forkNumber=$next_fork_number"
+            echo "releaseTag=$release_tag"
+            echo "versionCode=$version_code"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+
+      - name: Change wrapper permissions
+        run: chmod +x ./gradlew
+
+      - name: Decode keystore
+        id: decode-keystore
+        # Third-party action - pinned to commit SHA.
+        uses: timheuer/base64-to-file@604a8926a81a2da120d09b06bb76da9bba5aee6e
+        with:
+          fileName: dhis_keystore.jks
+          encodedString: ${{ secrets.KEYSTORE_BASE64 }}
+
+      - name: Build signed release AAB
+        run: ./gradlew app:bundleDhis2Release
+        env:
+          RAMP_CAPTURE_VERSION: ${{ steps.release-info.outputs.forkNumber }}
+          RAMP_CAPTURE_VERSION_CODE: ${{ steps.release-info.outputs.versionCode }}
+          SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          SIGNING_KEYSTORE_PATH: ${{ steps.decode-keystore.outputs.filePath }}
+
+      - name: Copy signed release AAB to output path
+        run: |
+          set -euo pipefail
+
+          cp \
+            "app/build/outputs/bundle/dhis2Release/dhis2-v${{ steps.read-version.outputs.vName }}-dhis2-release.aab" \
+            "${{ runner.temp }}/${{ steps.release-info.outputs.releaseTag }}-signed-release.aab"
+
+      - name: Upload signed release AAB artifact
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: ${{ steps.release-info.outputs.releaseTag }}
+          path: ${{ runner.temp }}/${{ steps.release-info.outputs.releaseTag }}-signed-release.aab
+
+  create-github-release:
+    needs: build-aab
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete previous draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Keep only one RAMPcapture draft release at a time: remove any
+          # leftover draft from a prior run before creating the new one.
+          # Draft releases don't create an actual git tag until published,
+          # so there's no tag to clean up here. Published (non-draft)
+          # releases are left untouched.
+          while IFS=$'\t' read -r tag_name is_draft; do
+            [[ "$tag_name" =~ ^RAMPcapture-DHIS2-v[0-9]+(\.[0-9]+)*-fork-[0-9]+$ ]] || continue
+            [[ "$is_draft" == "true" ]] || continue
+
+            echo "Deleting previous draft release: $tag_name"
+            gh release delete "$tag_name" \
+              --repo "${{ github.repository }}" \
+              --yes
+          done < <(
+            gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" \
+              --jq '.[] | [.tag_name, .draft] | @tsv'
+          )
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          release_notes=$(cat <<EOF
+          RAMPcapture signed release.
+
+          Fork version: ${{ needs.build-aab.outputs.forkNumber }}.
+          Based on upstream DHIS2 version: v${{ needs.build-aab.outputs.appVersion }}.
+
+          Release time: ${{ needs.build-aab.outputs.dateTimeUtc }} UTC.
+          EOF
+          )
+
+          gh release create "${{ needs.build-aab.outputs.releaseTag }}" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ needs.build-aab.outputs.releaseTag }}" \
+            --notes "$release_notes" \
+            --draft
+
+  deploy-google-play:
+    needs: build-aab
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download signed release AAB artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build-aab.outputs.releaseTag }}
+          path: ${{ runner.temp }}
+
+      - name: Upload AAB to Google Play
+        # Third-party action - pinned to commit SHA (v1.1.5).
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.acf.dhis.androidnutritioncapture
+          releaseFiles: ${{ runner.temp }}/${{ needs.build-aab.outputs.releaseTag }}-signed-release.aab
+          tracks: internal
+
+  attach-universal-apk:
+    needs: [build-aab, create-github-release, deploy-google-play]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --only-binary :all: "google-api-python-client==2.197.0" "google-auth==2.55.0"
+
+      - name: Download universal APK from Google Play
+        env:
+          PACKAGE_NAME: com.acf.dhis.androidnutritioncapture
+          VERSION_CODE: ${{ needs.build-aab.outputs.versionCode }}
+          OUTPUT_APK: ${{ runner.temp }}/${{ needs.build-aab.outputs.releaseTag }}-universal.apk
+          GOOGLE_API_KEY_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python3 scripts/rampcapture-release/download-universal-apk.py
+
+      - name: Attach universal APK to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gh release upload "${{ needs.build-aab.outputs.releaseTag }}" \
+            "${{ runner.temp }}/${{ needs.build-aab.outputs.releaseTag }}-universal.apk" \
+            --repo "${{ github.repository }}"
