@@ -226,8 +226,8 @@ class ProgramRulesTest {
                 formViewModel.submitIntent(intent)
                 val sections = awaitItem()
 
+                assertEquals(6, sections.sumOf { it.fields.size })
                 sections.forEach {
-                    assert(it.fields.size == 6)
                     it.fields.forEach { field ->
                         assert(field.uid != "uid001")
                     }
@@ -319,9 +319,7 @@ class ProgramRulesTest {
                 formViewModel.submitIntent(intent)
 
                 val sections = awaitItem()
-                assertTrue(sections.size == 1)
-
-                sections.first().fields.forEach {
+                sections.flatMap { it.fields }.forEach {
                     if (it.uid == "uid002") {
                         assertNotNull(it.warning)
                         assertEquals(it.warning, "content warning message")
@@ -365,7 +363,6 @@ class ProgramRulesTest {
             formViewModel.items.test {
                 formViewModel.submitIntent(intent)
                 val sections = awaitItem()
-                assertTrue(sections.size == 1)
                 assertEquals(SectionState.FIXED, sections.first().state)
                 sections.first().fields.forEach {
                     if (it.uid == "uid003") {

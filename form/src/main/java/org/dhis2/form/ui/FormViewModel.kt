@@ -127,6 +127,7 @@ class FormViewModel(
 
     private val handler = Handler(Looper.getMainLooper())
     private var textChangeDebounceRunnable: Runnable? = null
+    private var legendRefreshRunnable: Runnable? = null
 
     var filePath: String? = null
 
@@ -134,11 +135,9 @@ class FormViewModel(
 
         pendingIntents
             .distinctUntilChanged { old, new ->
-                if (old is FormIntent.OnFinish && new is FormIntent.OnFinish) {
-                    false
-                } else {
-                    old == new
-                }
+                old == new &&
+                    old !is FormIntent.OnFinish &&
+                    old !is FormIntent.OnSection
             }.onEach { intent ->
                 FormCountingIdlingResource.increment()
                 val result = createRowActionStore(intent)
@@ -164,6 +163,7 @@ class FormViewModel(
 
     override fun onCleared() {
         textChangeDebounceRunnable?.let { handler.removeCallbacks(it) }
+        legendRefreshRunnable?.let { handler.removeCallbacks(it) }
         super.onCleared()
     }
 
@@ -210,10 +210,11 @@ class FormViewModel(
                         _queryData.postValue(it)
                     }
                     if (repository.hasLegendSet(result.first.id)) {
-                        handler.removeCallbacksAndMessages(null)
-                        handler.postDelayed({
-                            processCalculatedItems(skipProgramRules = true)
-                        }, 500L)
+                        legendRefreshRunnable?.let { handler.removeCallbacks(it) }
+                        legendRefreshRunnable =
+                            Runnable {
+                                processCalculatedItems(skipProgramRules = true)
+                            }.also { handler.postDelayed(it, 500L) }
                     }
                 }
 
