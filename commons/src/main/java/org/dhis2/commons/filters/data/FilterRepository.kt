@@ -616,7 +616,6 @@ constructor(
                 observableOpenFilter,
                 resources.filterOrgUnitLabel(),
                 userOrgUnit = singleCaptureOrgUnit(program.uid()),
-                showUserOrgUnitAction = true,
             )
         defaultTrackerFilters[ProgramFilter.SYNC_STATUS] =
             SyncStateFilter(
