@@ -32,6 +32,7 @@ import org.hisp.dhis.rules.models.RuleAction
 import org.hisp.dhis.rules.models.RuleEffect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -79,14 +80,20 @@ class FormRepositoryImplTest {
             whenever(
                 dataEntryRepository.updateSection(
                     any<FieldUiModel>(),
-                    any<Boolean>(),
+                    anyOrNull<Boolean>(),
                     any<Int>(),
                     any<Int>(),
                     any<Int>(),
                     any<Int>(),
                 ),
             ).thenAnswer { invocationOnMock ->
-                invocationOnMock.getArgument(0) as FieldUiModel
+                (invocationOnMock.getArgument(0) as SectionUiModelImpl).copy(
+                    isOpen = invocationOnMock.getArgument(1),
+                    totalFields = invocationOnMock.getArgument(2),
+                    completedFields = invocationOnMock.getArgument(3),
+                    errors = invocationOnMock.getArgument(4),
+                    warnings = invocationOnMock.getArgument(5),
+                )
             }
 
             repository =
@@ -311,6 +318,74 @@ class FormRepositoryImplTest {
         }
 
     @Test
+    fun `Should have all sections open initially when they have no mandatory fields`() =
+        runBlocking {
+            whenever(dataEntryRepository.list()) doReturn Flowable.just(provideTwoSectionItemList())
+
+            val sections = repository.fetchFormItems().filterIsInstance<SectionUiModelImpl>()
+
+            assertEquals(listOf(true, true), sections.map { it.isOpen })
+        }
+
+    @Test
+    fun `Should keep mandatory section forced open until its mandatory fields are completed`() =
+        runBlocking {
+            whenever(dataEntryRepository.list()) doReturn
+                Flowable.just(provideSectionItemList(mandatoryValue = null))
+
+            val initialSection = repository.fetchFormItems().section("section1")
+            assertNull(initialSection.isOpen)
+
+            repository.updateSectionOpened(sectionAction("section1"))
+            assertNull(repository.composeList().section("section1").isOpen)
+
+            repository.updateValueOnList("mandatory1", "completed", ValueType.TEXT)
+            assertTrue(repository.composeList().section("section1").isOpen == true)
+        }
+
+    @Test
+    fun `Should close and open completed sections independently`() =
+        runBlocking {
+            whenever(dataEntryRepository.list()) doReturn Flowable.just(provideTwoSectionItemList())
+            repository.fetchFormItems()
+
+            repository.updateSectionOpened(sectionAction("section1"))
+            assertEquals(
+                mapOf("section1" to false, "section2" to true),
+                repository.composeList().sectionStates(),
+            )
+
+            repository.updateSectionOpened(sectionAction("section2"))
+            assertEquals(
+                mapOf("section1" to false, "section2" to false),
+                repository.composeList().sectionStates(),
+            )
+
+            repository.updateSectionOpened(sectionAction("section1"))
+            assertEquals(
+                mapOf("section1" to true, "section2" to false),
+                repository.composeList().sectionStates(),
+            )
+        }
+
+    @Test
+    fun `Should forget section openness state when a mandatory value is cleared`() =
+        runBlocking {
+            whenever(dataEntryRepository.list()) doReturn
+                Flowable.just(provideSectionItemList(mandatoryValue = "completed"))
+            repository.fetchFormItems()
+
+            repository.updateSectionOpened(sectionAction("section1"))
+            assertEquals(false, repository.composeList().section("section1").isOpen)
+
+            repository.updateValueOnList("mandatory1", null, ValueType.TEXT)
+            assertNull(repository.composeList().section("section1").isOpen)
+
+            repository.updateValueOnList("mandatory1", "completed again", ValueType.TEXT)
+            assertTrue(repository.composeList().section("section1").isOpen == true)
+        }
+
+    @Test
     fun `Should allow to complete only uncompleted events`() =
         runBlocking {
             whenever(
@@ -449,12 +524,14 @@ class FormRepositoryImplTest {
             whenever(
                 dataEntryRepository.list(),
             ) doReturn Flowable.just(provideMandatoryListWithCategoryCombo("option1"))
-            repository.fetchFormItems()
+            val incompleteSection = repository.fetchFormItems().section("section1")
+            assertNull(incompleteSection.isOpen)
             assertTrue(repository.runDataIntegrityCheck(false) is MissingMandatoryResult)
             whenever(
                 dataEntryRepository.list(),
             ) doReturn Flowable.just(provideMandatoryListWithCategoryCombo("option1,option2"))
-            repository.fetchFormItems()
+            val completeSection = repository.fetchFormItems().section("section1")
+            assertTrue(completeSection.isOpen == true)
             assertTrue(repository.runDataIntegrityCheck(false) is SuccessfulResult)
         }
 
@@ -494,6 +571,7 @@ class FormRepositoryImplTest {
 
             assertEquals(1f, repository.completedFieldsPercentage(result), 0f)
             assertEquals(1, section.completedFields)
+            assertTrue(section.isOpen == true)
             assertTrue(repository.runDataIntegrityCheck(false) is SuccessfulResult)
         }
 
@@ -565,6 +643,55 @@ class FormRepositoryImplTest {
             label = "section2",
             selectedField = ObservableField(""),
         )
+
+    private fun provideSectionItemList(mandatoryValue: String?) =
+        listOf(
+            section1(),
+            FieldUiModelImpl(
+                uid = "mandatory1",
+                value = mandatoryValue,
+                label = "Mandatory field",
+                valueType = ValueType.TEXT,
+                programStageSection = "section1",
+                mandatory = true,
+                optionSetConfiguration = null,
+                autocompleteList = null,
+            ),
+        )
+
+    private fun provideTwoSectionItemList() =
+        listOf(
+            section1(),
+            sectionField("field1", "section1"),
+            section2(),
+            sectionField("field2", "section2"),
+        )
+
+    private fun sectionField(
+        uid: String,
+        sectionUid: String,
+    ) =
+        FieldUiModelImpl(
+            uid = uid,
+            value = "value",
+            label = uid,
+            valueType = ValueType.TEXT,
+            programStageSection = sectionUid,
+            optionSetConfiguration = null,
+            autocompleteList = null,
+        )
+
+    private fun sectionAction(sectionUid: String) =
+        RowAction(
+            id = sectionUid,
+            type = ActionType.ON_SECTION_CHANGE,
+        )
+
+    private fun List<FieldUiModel>.section(sectionUid: String) =
+        filterIsInstance<SectionUiModelImpl>().first { it.uid == sectionUid }
+
+    private fun List<FieldUiModel>.sectionStates() =
+        filterIsInstance<SectionUiModelImpl>().associate { it.uid to it.isOpen }
 
     private fun provideEmptySectionItemList() =
         listOf(

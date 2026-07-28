@@ -26,6 +26,7 @@ import org.hisp.dhis.android.core.program.Program
 import org.hisp.dhis.android.core.program.ProgramTrackedEntityAttribute
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttribute
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityType
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -103,7 +104,7 @@ class FormRepositoryIntegrationTest {
     }
 
     @Test
-    fun shouldOpenEnrollmentDetailSectionIfIsNewAndNotCompleted() =
+    fun shouldKeepEnrollmentDetailSectionForcedOpenIfIsNewAndNotCompleted() =
         runTest {
             mockUncompletedEnrollment()
             whenever(conf.disableCollapsableSectionsInProgram(any())) doReturn false
@@ -111,14 +112,14 @@ class FormRepositoryIntegrationTest {
             val repository = mockFormRepository()
 
             val fields = repository.fetchFormItems()
-            assertTrue((fields.first { it.isSection() } as SectionUiModelImpl).isOpen == true)
+            assertNull((fields.first { it.isSection() } as SectionUiModelImpl).isOpen)
         }
 
     @Test
-    fun shouldOpenEnrollmentDetailSectionIfIsNewAndCompleted() =
+    fun shouldOpenEnrollmentDetailSectionIfIsNewAndCompletedRegardlessOfAppearanceSetting() =
         runTest {
             mockCompletedEnrollment()
-            whenever(conf.disableCollapsableSectionsInProgram(any())) doReturn false
+            whenever(conf.disableCollapsableSectionsInProgram(any())) doReturn true
 
             val repository = mockFormRepository(EnrollmentMode.NEW)
 
@@ -127,7 +128,7 @@ class FormRepositoryIntegrationTest {
         }
 
     @Test
-    fun shouldOpenEnrollmentDetailSectionIfNotCompleted() =
+    fun shouldKeepEnrollmentDetailSectionOpenIfNotCompleted() =
         runTest {
             mockUncompletedEnrollment()
             whenever(conf.disableCollapsableSectionsInProgram(any())) doReturn false
@@ -135,11 +136,11 @@ class FormRepositoryIntegrationTest {
             val repository = mockFormRepository(EnrollmentMode.CHECK)
 
             val fields = repository.fetchFormItems()
-            assertTrue((fields.first { it.isSection() } as SectionUiModelImpl).isOpen == true)
+            assertNull((fields.first { it.isSection() } as SectionUiModelImpl).isOpen)
         }
 
     @Test
-    fun shouldNotOpenEnrollmentDetailSectionIfCompleted() =
+    fun shouldOpenAllSectionsIfCompleted() =
         runTest {
             mockCompletedEnrollment()
             whenever(conf.disableCollapsableSectionsInProgram(any())) doReturn false
@@ -147,9 +148,7 @@ class FormRepositoryIntegrationTest {
             val repository = mockFormRepository(EnrollmentMode.CHECK)
 
             val fields = repository.fetchFormItems()
-            assertTrue(
-                (fields.filter { it.isSection() }[1] as SectionUiModelImpl).isOpen == true,
-            )
+            assertTrue(fields.filterIsInstance<SectionUiModelImpl>().all { it.isOpen == true })
         }
 
     private fun mockUncompletedEnrollment() {

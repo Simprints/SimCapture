@@ -100,7 +100,9 @@ fun Form(
 
                 val onNextSection: () -> Unit = {
                     getNextSection(section, sections)?.let {
-                        intentHandler.invoke(FormIntent.OnSection(it.uid))
+                        if (it.state == SectionState.CLOSE) { // only toggle next section when it needs opening
+                            intentHandler.invoke(FormIntent.OnSection(it.uid))
+                        }
                         scope.launch {
                             scrollState.animateScrollToItem(sections.indexOf(it))
                         }
