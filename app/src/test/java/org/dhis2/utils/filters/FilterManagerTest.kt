@@ -130,6 +130,20 @@ class FilterManagerTest {
     }
 
     @Test
+    fun `Should add transferred patient filter`() {
+        filterManager.setTransferred(true)
+
+        assertTrue(filterManager.totalFilters == 1)
+        assertTrue(filterManager.observeField(Filters.TRANSFERRED).get() == 1)
+        assertTrue(filterManager.copy().sameFilters(filterManager))
+
+        filterManager.clearTransferred()
+
+        assertTrue(filterManager.totalFilters == 0)
+        assertTrue(filterManager.observeTransferred().get() == false)
+    }
+
+    @Test
     fun `Should add a sortingItem to filterManager`() {
         val sortingItem = SortingItem(Filters.ORG_UNIT, SortingStatus.ASC)
 

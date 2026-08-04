@@ -16,9 +16,12 @@ import org.hisp.dhis.android.core.event.Event
 import org.hisp.dhis.android.core.maintenance.D2Error
 import org.hisp.dhis.android.core.maintenance.D2ErrorCode
 import org.hisp.dhis.android.core.maintenance.D2ErrorComponent
+import org.hisp.dhis.android.core.organisationunit.OrganisationUnit
 import org.hisp.dhis.android.core.program.ProgramStage
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttribute
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttributeValue
+import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstance
+import org.hisp.dhis.android.core.trackedentity.ownership.ProgramOwner
 import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
@@ -69,6 +72,43 @@ class DashboardRepositoryImplTest {
         ).thenAnswer { throw d2Error() }
 
         assertFalse(repository.programHasSimprintsRampProgramStageHistoryTable())
+    }
+
+    @Test
+    fun `Should use current program owner when checking transfer availability`() {
+        val selectedOwner = OrganisationUnit.builder().uid("selectedOwner").build()
+        val trackedEntity =
+            TrackedEntityInstance
+                .builder()
+                .uid("teiUid")
+                .programOwners(
+                    listOf(
+                        programOwner("otherProgram", "otherOwner"),
+                        programOwner("programUid", selectedOwner.uid()),
+                    ),
+                ).build()
+
+        whenever(
+            d2
+                .organisationUnitModule()
+                .organisationUnits()
+                .byOrganisationUnitScope(OrganisationUnit.Scope.SCOPE_TEI_SEARCH)
+                .byProgramUids(listOf("programUid"))
+                .blockingGet(),
+        ) doReturn listOf(selectedOwner)
+        whenever(
+            d2
+                .trackedEntityModule()
+                .trackedEntityInstances()
+                .withProgramOwners()
+                .uid("teiUid")
+                .blockingGet(),
+        ) doReturn trackedEntity
+        whenever(
+            d2.organisationUnitModule().organisationUnits().uid(selectedOwner.uid()).blockingGet(),
+        ) doReturn selectedOwner
+
+        assertFalse(repository.teiCanBeTransferred())
     }
 
     @Test
@@ -604,6 +644,17 @@ class DashboardRepositoryImplTest {
             .builder()
             .uid("enrollmentUid")
             .attributeOptionCombo("attributeOptionComboUid")
+            .build()
+
+    private fun programOwner(
+        programUid: String,
+        ownerOrgUnitUid: String,
+    ): ProgramOwner =
+        ProgramOwner
+            .builder()
+            .trackedEntityInstance("teiUid")
+            .program(programUid)
+            .ownerOrgUnit(ownerOrgUnitUid)
             .build()
 
     private fun getMockSingleEvent(): Event =

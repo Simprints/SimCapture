@@ -4,19 +4,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -47,9 +48,13 @@ fun Form(
     intentHandler: (FormIntent) -> Unit,
     uiEventHandler: (RecyclerViewUiEvents) -> Unit,
 ) {
-    val scrollState = rememberLazyListState()
+    val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
+    val sectionRequesters =
+        remember(sections.map { it.uid }) {
+            sections.associate { it.uid to BringIntoViewRequester() }
+        }
     val callback =
         remember {
             object : FieldUiModel.Callback {
@@ -62,7 +67,7 @@ fun Form(
                 }
             }
         }
-    LazyColumn(
+    Column(
         modifier =
             Modifier
                 .testTag("FORM_VIEW")
@@ -77,6 +82,7 @@ fun Form(
                             bottomEnd = Spacing.Spacing0,
                         ),
                 )
+                .verticalScroll(scrollState)
                 .clickable(
                     interactionSource =
                         remember {
@@ -84,82 +90,83 @@ fun Form(
                         },
                     indication = null,
                     onClick = { focusManager.clearFocus() },
+                )
+                .padding(
+                    horizontal = Spacing.Spacing16,
+                    vertical = Spacing.Spacing16,
                 ),
-        contentPadding =
-            PaddingValues(
-                horizontal = Spacing.Spacing16,
-                vertical = Spacing.Spacing16,
-            ),
-        state = scrollState,
     ) {
         if (sections.isNotEmpty()) {
-            this.itemsIndexed(
-                items = sections,
-                key = { _, fieldUiModel -> fieldUiModel.uid },
-            ) { _, section ->
-
-                val onNextSection: () -> Unit = {
-                    getNextSection(section, sections)?.let {
-                        intentHandler.invoke(FormIntent.OnSection(it.uid))
-                        scope.launch {
-                            scrollState.animateScrollToItem(sections.indexOf(it))
-                        }
-                    } ?: run {
-                        intentHandler.invoke(FormIntent.OnFocus("", null))
-                        focusManager.clearFocus()
-                    }
-                }
-                Section(
-                    title = section.title,
-                    isLastSection = getNextSection(section, sections) == null,
-                    description = if (section.fields.isNotEmpty()) section.description else null,
-                    completedFields = section.completeFields,
-                    totalFields = section.totalFields,
-                    state = section.state,
-                    errorCount = section.errors,
-                    warningCount = section.warnings,
-                    warningMessage = section.warningMessage?.let { stringResource(it) },
-                    onNextSection = onNextSection,
-                    onSectionClick = {
-                        intentHandler.invoke(FormIntent.OnSection(section.uid))
-                    },
-                    content = {
-                        if (section.fields.isNotEmpty()) {
-                            section.fields.forEachIndexed { index, fieldUiModel ->
-                                fieldUiModel.setCallback(callback)
-                                FieldProvider(
-                                    modifier = Modifier,
-                                    fieldUiModel = fieldUiModel,
-                                    uiEventHandler = uiEventHandler,
-                                    intentHandler = intentHandler,
-                                    focusManager = focusManager,
-                                    onNextClicked = {
-                                        manageOnNextEvent(
-                                            focusManager,
-                                            index,
-                                            section,
-                                            onNextSection,
-                                        )
-                                    },
-                                    onFileSelected = { path ->
-                                        intentHandler.invoke(
-                                            FormIntent.OnStoreFile(
-                                                uid = fieldUiModel.uid,
-                                                filePath = path,
-                                                valueType = fieldUiModel.valueType,
-                                            ),
-                                        )
-                                    },
-                                    reEvaluateCustomIntentRequestParameters = true,
-                                )
+            sections.forEach { section ->
+                key(section.uid) {
+                    val nextSection = getNextSection(section, sections)
+                    val onNextSection: () -> Unit = {
+                        nextSection?.let {
+                            if (it.state == SectionState.CLOSE) { // only toggle next section when it needs opening
+                                intentHandler.invoke(FormIntent.OnSection(it.uid))
                             }
+                            scope.launch {
+                                sectionRequesters[it.uid]?.bringIntoView()
+                            }
+                        } ?: run {
+                            intentHandler.invoke(FormIntent.OnFocus("", null))
+                            focusManager.clearFocus()
                         }
-                    },
-                )
+                    }
+                    Section(
+                        modifier =
+                            Modifier.bringIntoViewRequester(
+                                sectionRequesters.getValue(section.uid),
+                            ),
+                        title = section.title,
+                        isLastSection = nextSection == null,
+                        description = if (section.fields.isNotEmpty()) section.description else null,
+                        completedFields = section.completeFields,
+                        totalFields = section.totalFields,
+                        state = section.state,
+                        errorCount = section.errors,
+                        warningCount = section.warnings,
+                        warningMessage = section.warningMessage?.let { stringResource(it) },
+                        onNextSection = onNextSection,
+                        onSectionClick = {
+                            intentHandler.invoke(FormIntent.OnSection(section.uid))
+                        },
+                        content = {
+                            section.fields.forEachIndexed { index, fieldUiModel ->
+                                key(fieldUiModel.uid) {
+                                    fieldUiModel.setCallback(callback)
+                                    FieldProvider(
+                                        modifier = Modifier,
+                                        fieldUiModel = fieldUiModel,
+                                        uiEventHandler = uiEventHandler,
+                                        intentHandler = intentHandler,
+                                        focusManager = focusManager,
+                                        onNextClicked = {
+                                            manageOnNextEvent(
+                                                focusManager,
+                                                index,
+                                                section,
+                                                onNextSection,
+                                            )
+                                        },
+                                        onFileSelected = { path ->
+                                            intentHandler.invoke(
+                                                FormIntent.OnStoreFile(
+                                                    uid = fieldUiModel.uid,
+                                                    filePath = path,
+                                                    valueType = fieldUiModel.valueType,
+                                                ),
+                                            )
+                                        },
+                                        reEvaluateCustomIntentRequestParameters = true,
+                                    )
+                                }
+                            }
+                        },
+                    )
+                }
             }
-            item(sections.size - 1) {
-                Spacer(modifier = Modifier.height(Spacing.Spacing120))
-            }
+            Spacer(modifier = Modifier.height(Spacing.Spacing120))
         }
     }
     if (shouldDisplayNoFieldsWarning(sections)) {

@@ -31,6 +31,18 @@ sealed class FilterItem(
 
     fun showSorting(): Boolean = Sorting.getSortingOptions(programType).any { it == type }
 
+    fun showUserOrgUnitAction(): Boolean =
+        (this as? OrgUnitFilter)?.showUserOrgUnitAction == true
+
+    fun onUserOrgUnitClick() {
+        val filterManager = FilterManager.getInstance()
+        if (!filterManager.isFilterActiveForWorkingList(type)) {
+            (this as? OrgUnitFilter)?.userOrgUnit?.let {
+                filterManager.addOrgUnits(listOf(it))
+            }
+        }
+    }
+
     fun observeCount(): ObservableField<Int> = FilterManager.getInstance().observeField(type)
 
     fun getFilterValue(defaultValue: String): String = FilterManager.getInstance().getFilterStringValue(type, defaultValue)
@@ -67,7 +79,7 @@ sealed class FilterItem(
     }
 
     fun displayExpandArrow(): Boolean {
-        val filters = listOf(Filters.FOLLOW_UP, Filters.ASSIGNED_TO_ME)
+        val filters = listOf(Filters.FOLLOW_UP, Filters.TRANSFERRED, Filters.ASSIGNED_TO_ME)
         return !filters.any { it == type }
     }
 }
@@ -158,6 +170,8 @@ data class OrgUnitFilter(
     override val sortingItem: ObservableField<SortingItem>,
     override val openFilter: ObservableField<Filters>,
     override val filterLabel: String,
+    val userOrgUnit: OrganisationUnit? = null,
+    val showUserOrgUnitAction: Boolean = userOrgUnit != null,
 ) : FilterItem(Filters.ORG_UNIT, programType, sortingItem, openFilter, filterLabel) {
     override fun icon(): Int = R.drawable.ic_filter_ou
 }
@@ -314,4 +328,19 @@ data class FollowUpFilter(
     fun observeFollowUp(): ObservableField<Boolean> = FilterManager.getInstance().observeFollowUp()
 
     override fun icon() = R.drawable.ic_follow_up_filter
+}
+
+data class TransferredFilter(
+    override val programType: ProgramType,
+    override val sortingItem: ObservableField<SortingItem>,
+    override val openFilter: ObservableField<Filters>,
+    override val filterLabel: String,
+) : FilterItem(Filters.TRANSFERRED, programType, sortingItem, openFilter, filterLabel) {
+    fun activate(setActive: Boolean) {
+        FilterManager.getInstance().setTransferred(setActive)
+    }
+
+    fun observeTransferred(): ObservableField<Boolean> = FilterManager.getInstance().observeTransferred()
+
+    override fun icon() = R.drawable.ic_transfer
 }

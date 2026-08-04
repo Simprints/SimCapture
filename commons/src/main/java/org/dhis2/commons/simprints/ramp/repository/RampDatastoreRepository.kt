@@ -5,6 +5,7 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonParseException
 import com.google.gson.JsonParser
 import org.dhis2.commons.simprints.ramp.model.DataElementHistoryChartConfig
+import org.dhis2.commons.simprints.ramp.model.DetailedEnrollmentListingSettings
 import org.dhis2.commons.simprints.ramp.model.ProgramSpecificSetting
 import org.dhis2.commons.simprints.ramp.model.ProgramStageHistoryTableConfig
 import org.dhis2.commons.simprints.ramp.model.ProgramStageSpecificSetting
@@ -50,6 +51,37 @@ class RampDatastoreRepository(
         } catch (exception: RuntimeException) {
             Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
             true
+        }
+    }
+
+    fun detailedEnrollmentListingSettings(programId: String?): DetailedEnrollmentListingSettings? {
+        val normalizedProgramId = programId.trimToValue() ?: return null
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull {
+                    it.programId == normalizedProgramId &&
+                        it.hasDetailedEnrollmentListing == true
+                }?.let {
+                    DetailedEnrollmentListingSettings(
+                        dischargeOutcomeDataElementIds =
+                            it.detailedEnrollmentListingDischargeOutcomeDataElementIds
+                                .orEmpty()
+                                .toSet(),
+                        admissionProgramStageIds =
+                            it.detailedEnrollmentListingAdmissionProgramStageIds
+                                .orEmpty()
+                                .toSet(),
+                        dischargeProgramStageIds =
+                            it.detailedEnrollmentListingDischargeProgramStageIds
+                                .orEmpty()
+                                .toSet(),
+                    )
+                }
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
         }
     }
 
@@ -195,10 +227,24 @@ class RampDatastoreRepository(
         )
 
     private fun ProgramSpecificSetting.normalized(): ProgramSpecificSetting =
-        copy(programId = programId.trimToValue())
+        copy(
+            programId = programId.trimToValue(),
+            detailedEnrollmentListingDischargeOutcomeDataElementIds =
+                detailedEnrollmentListingDischargeOutcomeDataElementIds
+                    ?.mapNotNull { it.trimToValue() },
+            detailedEnrollmentListingAdmissionProgramStageIds =
+                detailedEnrollmentListingAdmissionProgramStageIds
+                    ?.mapNotNull { it.trimToValue() },
+            detailedEnrollmentListingDischargeProgramStageIds =
+                detailedEnrollmentListingDischargeProgramStageIds
+                    ?.mapNotNull { it.trimToValue() },
+        )
 
     private fun ProgramStageSpecificSetting.normalized(): ProgramStageSpecificSetting =
-        copy(programStageId = programStageId.trimToValue())
+        copy(
+            programStageId = programStageId.trimToValue(),
+            visitNumberDataElementId = visitNumberDataElementId.trimToValue(),
+        )
 
     private fun String?.trimToValue(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 

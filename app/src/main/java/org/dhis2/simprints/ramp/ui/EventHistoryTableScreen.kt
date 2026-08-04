@@ -130,7 +130,7 @@ private fun VisitHeaderRow(
 ) {
     Row(modifier = Modifier.heightIntrinsicRow()) {
         HeaderCell(
-            text = stringResource(R.string.simprints_ramp_history_table_visit),
+            text = stringResource(R.string.simprints_ramp_visit),
             width = RowHeaderWidth,
             textAlign = TextAlign.Start,
         )

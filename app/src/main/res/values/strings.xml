@@ -98,6 +98,10 @@
     <!--TEI Enrollment list-->
     <string name="enrollment_list">Enrollment list</string>
     <string name="active_programs">Active programs</string>
+    <string name="simprints_ramp_admitted">admitted</string>
+    <string name="simprints_ramp_discharged">discharged</string>
+    <string name="simprints_ramp_outcome">outcome</string>
+    <string name="simprints_ramp_site">site</string>
     <string name="enroll">Enroll</string>
 
     <!--TEI DASHBOARD-->
@@ -441,7 +445,7 @@
     <string name="navigation_data_entry">Data entry</string>
     <string name="navigation_form">Form</string>
     <string name="navigation_tei_data">Details</string>
-    <string name="simprints_ramp_history_table_visit">Visit</string>
+    <string name="simprints_ramp_visit">Visit</string>
     <string name="simprints_ramp_history_table_date">Date</string>
     <string name="simprints_ramp_history_table_empty">No history available</string>
     <string name="show_bar_graph">View as Bar</string>
@@ -547,6 +551,7 @@
     <string name="downloading_image_resources">Downloading images...</string>
     <string name="enrolledIn">Enrolled in</string>
     <string name="ownedBy">Owned by</string>
+    <string name="transferredTo">Transferred to</string>
     <string name="sync_dialog_title_not_synced">Sync needed</string>
     <string name="sync_dialog_title_error">Sync error</string>
     <string name="sync_dialog_title_synced">Synced</string>

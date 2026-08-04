@@ -85,6 +85,8 @@ public class FilterManager implements Serializable {
     private SortingItem sortingItem;
     private boolean followUpFilter;
     private ObservableField<Boolean> observableFollowUp = new ObservableField<>();
+    private boolean transferredFilter;
+    private ObservableField<Boolean> observableTransferred = new ObservableField<>();
 
     private ArrayList<Filters> unsupportedFilters = new ArrayList<>();
 
@@ -97,6 +99,7 @@ public class FilterManager implements Serializable {
     private ObservableField<Integer> enrollmentStatusFiltersApplied;
     private ObservableField<Integer> assignedToMeApplied;
     private ObservableField<Integer> followUpFilterApplied;
+    private ObservableField<Integer> transferredFilterApplied;
 
     private List<String> stateValues = new ArrayList<>();
 
@@ -155,6 +158,8 @@ public class FilterManager implements Serializable {
         enrollmentStatusFilters = new ArrayList<>();
         assignedFilter = false;
         followUpFilter = false;
+        transferredFilter = false;
+        observableTransferred.set(false);
         sortingItem = null;
 
         ouFiltersApplied = new ObservableField<>(0);
@@ -166,6 +171,7 @@ public class FilterManager implements Serializable {
         enrollmentStatusFiltersApplied = new ObservableField<>(0);
         assignedToMeApplied = new ObservableField<>(0);
         followUpFilterApplied = new ObservableField<>(0);
+        transferredFilterApplied = new ObservableField<>(0);
 
         filterProcessor = PublishProcessor.create();
         filterFlow = FilterManagerExtensionsKt.initFlow(this);
@@ -185,6 +191,7 @@ public class FilterManager implements Serializable {
         copy.enrollmentStatusFilters = new ArrayList<>(getEnrollmentStatusFilters());
         copy.assignedFilter = getAssignedFilter();
         copy.followUpFilter = getFollowUpFilter();
+        copy.transferredFilter = getTransferredFilter();
         copy.sortingItem = getSortingItem();
         return copy;
     }
@@ -199,6 +206,7 @@ public class FilterManager implements Serializable {
                 Objects.equals(filterManager.enrollmentStatusFilters, this.enrollmentStatusFilters) &&
                 filterManager.assignedFilter == this.assignedFilter &&
                 filterManager.followUpFilter == this.followUpFilter &&
+                filterManager.transferredFilter == this.transferredFilter &&
                 Objects.equals(filterManager.sortingItem, this.sortingItem);
     }
 
@@ -363,6 +371,8 @@ public class FilterManager implements Serializable {
                 return assignedToMeApplied;
             case FOLLOW_UP:
                 return followUpFilterApplied;
+            case TRANSFERRED:
+                return transferredFilterApplied;
             default:
                 return new ObservableField<>(0);
         }
@@ -413,10 +423,11 @@ public class FilterManager implements Serializable {
         int sortingIsActive = sortingItem != null ? 1 : 0;
         int workingListFilters = getTotalFilterCounterForWorkingList(currentWorkingListScope.get());
         int followUpApplying = followUpFilter ? 1 : 0;
+        int transferredApplying = transferredFilter ? 1 : 0;
         return ouIsApplying + stateIsApplying + periodIsApplying +
                 eventStatusApplying + catComboApplying +
                 assignedApplying + enrollmentPeriodIsApplying + enrollmentStatusApplying +
-                sortingIsActive + workingListFilters + followUpApplying;
+                sortingIsActive + workingListFilters + followUpApplying + transferredApplying;
     }
 
     public List<DatePeriod> getPeriodFilters() {
@@ -557,6 +568,14 @@ public class FilterManager implements Serializable {
         }
     }
 
+    public void clearTransferred() {
+        if (transferredFilter) {
+            transferredFilter = false;
+            observableTransferred.set(false);
+            transferredFilterApplied.set(0);
+        }
+    }
+
     public void clearSorting() {
         sortingItem = null;
     }
@@ -600,6 +619,8 @@ public class FilterManager implements Serializable {
         sortingItem = null;
         followUpFilter = false;
         observableFollowUp.set(false);
+        transferredFilter = false;
+        observableTransferred.set(false);
 
         eventStatusFiltersApplied.set(eventStatusFilters.size());
         enrollmentPeriodFiltersApplied.set(enrollmentPeriodFilters.size());
@@ -612,6 +633,7 @@ public class FilterManager implements Serializable {
         this.currentWorkingList = null;
         setWorkingListScope(new EmptyWorkingList());
         followUpFilterApplied.set(0);
+        transferredFilterApplied.set(0);
 
         if (!workingListActive())
             publishData();
@@ -657,6 +679,21 @@ public class FilterManager implements Serializable {
         followUpFilterApplied.set(isChecked ? 1 : 0);
         publishData();
 
+    }
+
+    public boolean getTransferredFilter() {
+        return transferredFilter;
+    }
+
+    public ObservableField<Boolean> observeTransferred() {
+        return observableTransferred;
+    }
+
+    public void setTransferred(boolean isChecked) {
+        this.transferredFilter = isChecked;
+        observableTransferred.set(isChecked);
+        transferredFilterApplied.set(isChecked ? 1 : 0);
+        publishData();
     }
 
     public SortingItem getSortingItem() {

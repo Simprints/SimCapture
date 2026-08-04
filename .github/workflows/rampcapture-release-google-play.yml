@@ -56,11 +56,6 @@ jobs:
 
           next_fork_number=$((last_fork_number + 1))
 
-          if (( next_fork_number > 99 )); then
-            echo "::error::Fork number $next_fork_number exceeds 2 digits (max 99). Bump the base vCode in gradle/libs.versions.toml and reset fork numbering." >&2
-            exit 1
-          fi
-
           release_tag="RAMPcapture-DHIS2-v${{ steps.read-version.outputs.vName }}-fork-${next_fork_number}"
 
           run_number=${{ github.run_number }}
@@ -127,30 +122,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Delete previous draft release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          # Keep only one RAMPcapture draft release at a time: remove any
-          # leftover draft from a prior run before creating the new one.
-          # Draft releases don't create an actual git tag until published,
-          # so there's no tag to clean up here. Published (non-draft)
-          # releases are left untouched.
-          while IFS=$'\t' read -r tag_name is_draft; do
-            [[ "$tag_name" =~ ^RAMPcapture-DHIS2-v[0-9]+(\.[0-9]+)*-fork-[0-9]+$ ]] || continue
-            [[ "$is_draft" == "true" ]] || continue
-
-            echo "Deleting previous draft release: $tag_name"
-            gh release delete "$tag_name" \
-              --repo "${{ github.repository }}" \
-              --yes
-          done < <(
-            gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" \
-              --jq '.[] | [.tag_name, .draft] | @tsv'
-          )
-
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -171,8 +142,7 @@ jobs:
             --repo "${{ github.repository }}" \
             --target "${{ github.sha }}" \
             --title "${{ needs.build-aab.outputs.releaseTag }}" \
-            --notes "$release_notes" \
-            --draft
+            --notes "$release_notes"
 
   deploy-google-play:
     needs: build-aab

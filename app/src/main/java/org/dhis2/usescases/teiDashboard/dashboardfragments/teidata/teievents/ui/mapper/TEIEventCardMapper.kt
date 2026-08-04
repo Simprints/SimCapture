@@ -82,8 +82,13 @@ class TEIEventCardMapper(
         )
     }
 
-    private fun getTitle(event: EventModel): String =
-        when (event.event?.status()) {
+    private fun getTitle(event: EventModel): String {
+        val visitNumber = event.followUpVisitNumber
+        if (visitNumber != null) {
+            return "${resourceManager.getString(R.string.simprints_ramp_visit)} $visitNumber: ${event.displayDate.orEmpty()}"
+        }
+
+        return when (event.event?.status()) {
             EventStatus.SCHEDULE -> {
                 resourceManager
                     .getString(R.string.scheduled_for)
@@ -92,6 +97,7 @@ class TEIEventCardMapper(
 
             else -> event.displayDate ?: ""
         }
+    }
 
     private fun getDescription(event: EventModel): String? =
         if (event.groupedByStage == true) {

@@ -38,6 +38,7 @@ import org.dhis2.mobileProgramRules.RuleEngineHelper
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.program.ProgramRuleActionType
+import org.hisp.dhis.mobile.ui.designsystem.component.SectionState
 import org.hisp.dhis.rules.models.RuleAction
 import org.hisp.dhis.rules.models.RuleEffect
 import org.junit.After
@@ -101,14 +102,20 @@ class ProgramRulesTest {
         whenever(
             dataEntryRepository.updateSection(
                 any<FieldUiModel>(),
-                any<Boolean>(),
+                anyOrNull<Boolean>(),
                 any<Int>(),
                 any<Int>(),
                 any<Int>(),
                 any<Int>(),
             ),
         ).thenAnswer { invocationOnMock ->
-            invocationOnMock.getArgument(0) as FieldUiModel
+            (invocationOnMock.getArgument(0) as SectionUiModelImpl).copy(
+                isOpen = invocationOnMock.getArgument(1),
+                totalFields = invocationOnMock.getArgument(2),
+                completedFields = invocationOnMock.getArgument(3),
+                errors = invocationOnMock.getArgument(4),
+                warnings = invocationOnMock.getArgument(5),
+            )
         }
 
         whenever(formValueStore.save(any(), anyOrNull(), anyOrNull())) doReturn
@@ -219,8 +226,8 @@ class ProgramRulesTest {
                 formViewModel.submitIntent(intent)
                 val sections = awaitItem()
 
+                assertEquals(6, sections.sumOf { it.fields.size })
                 sections.forEach {
-                    assert(it.fields.size == 6)
                     it.fields.forEach { field ->
                         assert(field.uid != "uid001")
                     }
@@ -312,9 +319,7 @@ class ProgramRulesTest {
                 formViewModel.submitIntent(intent)
 
                 val sections = awaitItem()
-                assertTrue(sections.size == 1)
-
-                sections.first().fields.forEach {
+                sections.flatMap { it.fields }.forEach {
                     if (it.uid == "uid002") {
                         assertNotNull(it.warning)
                         assertEquals(it.warning, "content warning message")
@@ -331,6 +336,7 @@ class ProgramRulesTest {
     @Test
     fun `Should set mandatory field`() =
         runTest {
+            repository.updateValueOnList("uid003", null, ValueType.TEXT)
             whenever(ruleEngineHelper.evaluate()) doReturn
                     listOf(
                         RuleEffect(
@@ -357,7 +363,7 @@ class ProgramRulesTest {
             formViewModel.items.test {
                 formViewModel.submitIntent(intent)
                 val sections = awaitItem()
-                assertTrue(sections.size == 1)
+                assertEquals(SectionState.FIXED, sections.first().state)
                 sections.first().fields.forEach {
                     if (it.uid == "uid003") {
                         assertTrue(it.mandatory)

@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import org.dhis2.commons.data.EventCreationType
+import org.dhis2.commons.ui.EmphasizedAdditionalInfoColumn
 import org.dhis2.usescases.teiDashboard.ui.model.InfoBarUiModel
 import org.dhis2.usescases.teiDashboard.ui.model.QuickActionUiModel
 import org.dhis2.usescases.teiDashboard.ui.model.TeiCardUiModel
@@ -57,11 +58,26 @@ fun TeiDetailDashboard(
         }
 
         card?.let {
+            val emphasizedKey = card.emphasizedAdditionalInfoKey
             CardDetail(
                 title = card.title,
-                additionalInfoList = card.additionalInfo,
+                additionalInfoList = card.additionalInfo.takeIf { emphasizedKey == null } ?: emptyList(),
                 avatar = card.avatar,
-                actionButton = card.actionButton,
+                actionButton =
+                    if (emphasizedKey == null) {
+                        card.actionButton
+                    } else {
+                        {
+                            EmphasizedAdditionalInfoColumn(
+                                additionalInfo = card.additionalInfo,
+                                emphasizedKey = emphasizedKey,
+                                expandLabelText = card.expandLabelText,
+                                shrinkLabelText = card.shrinkLabelText,
+                                isDetailCard = true,
+                            )
+                            card.actionButton()
+                        }
+                    },
                 expandLabelText = card.expandLabelText,
                 shrinkLabelText = card.shrinkLabelText,
                 showLoading = card.showLoading,

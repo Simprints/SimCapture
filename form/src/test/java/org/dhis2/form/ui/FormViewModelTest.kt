@@ -1,8 +1,8 @@
 package org.dhis2.form.ui
 
 import android.content.Intent
+import app.cash.turbine.test
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
-import androidx.lifecycle.Observer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
@@ -32,6 +32,7 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
@@ -162,22 +163,31 @@ class FormViewModelTest {
                     dispatcher,
                     geometryController,
                     resultDialogUiProvider = resultDialogUiProvider,
-            )
+                    formSectionMapper = formSectionMapper,
+                )
+            viewModel.items.test {
+                advanceUntilIdle()
+                assertEquals(initialField, awaitItem().single().fields.single())
+                whenever(repository.updateValueOnList("weight", "", ValueType.NUMBER)) doReturn updatedField
+
+                viewModel.submitIntent(FormIntent.OnTextChange("weight", "", ValueType.NUMBER))
+                advanceUntilIdle()
+
+                expectNoEvents()
+                verify(repository).updateValueOnList("weight", "", ValueType.NUMBER)
+            }
+        }
+
+    @Test
+    fun `Should process consecutive section toggles`() =
+        runTest {
+            val intent = FormIntent.OnSection("section")
+
+            viewModel.submitIntent(intent)
+            viewModel.submitIntent(intent)
             advanceUntilIdle()
-            whenever(repository.updateValueOnList("weight", "", ValueType.NUMBER)) doReturn updatedField
-            val emittedItems = mutableListOf<List<FieldUiModel>>()
-            val itemsObserver = Observer<List<FieldUiModel>> { emittedItems.add(it) }
-            viewModel.items.observeForever(itemsObserver)
-            emittedItems.clear()
 
-            viewModel.submitIntent(FormIntent.OnTextChange("weight", "", ValueType.NUMBER))
-            advanceUntilIdle()
-
-            assertTrue(emittedItems.isEmpty())
-            assertEquals(initialField, viewModel.items.value?.first())
-            verify(repository).updateValueOnList("weight", "", ValueType.NUMBER)
-
-            viewModel.items.removeObserver(itemsObserver)
+            verify(repository, times(2)).updateSectionOpened(any())
         }
 
     private val futureDate: String = LocalDate.now().plusDays(1).format(DateTimeFormatter.ISO_DATE)

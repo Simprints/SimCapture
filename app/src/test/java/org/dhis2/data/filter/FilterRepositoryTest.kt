@@ -45,6 +45,7 @@ class FilterRepositoryTest {
         const val HOME_FILTER = "HomeFilter"
         const val PROGRAM_FILTER = "ProgramFilter"
         const val FOLLOW_UP = "follow_up"
+        const val TRANSFERRED = "transferred"
     }
 
     private val observableSortingInject = ObservableField<SortingItem>()
@@ -84,6 +85,7 @@ class FilterRepositoryTest {
         whenever(filterResources.filterAssignedToMeLabel()) doReturn ASSIGN_TO_ME
         whenever(filterResources.filterEventDateLabel("random")) doReturn EVENT_DATE
         whenever(filterResources.filterFollowUpLabel("Name")) doReturn FOLLOW_UP
+        whenever(filterResources.filterTransferredPatientLabel()) doReturn TRANSFERRED
     }
 
     @Test
@@ -747,8 +749,9 @@ class FilterRepositoryTest {
         assert(result[1].type == Filters.ENROLLMENT_STATUS)
         assert(result[2].type == Filters.EVENT_STATUS)
         assert(result[3].type == Filters.FOLLOW_UP)
-        assert(result[4].type == Filters.ASSIGNED_TO_ME)
-        assert(result.size == 5)
+        assert(result[4].type == Filters.TRANSFERRED)
+        assert(result[5].type == Filters.ASSIGNED_TO_ME)
+        assert(result.size == 6)
     }
 
     private fun createTrackerEntityInstanceFilters(): List<TrackedEntityInstanceFilter> =

@@ -120,7 +120,7 @@ class DataEntryIntegrationTest {
         whenever(
             dataEntryRepository.updateSection(
                 any<FieldUiModel>(),
-                any<Boolean>(),
+                anyOrNull<Boolean>(),
                 any<Int>(),
                 any<Int>(),
                 any<Int>(),
@@ -129,7 +129,7 @@ class DataEntryIntegrationTest {
         ).thenAnswer { invocationOnMock ->
             val sectionUiModel = invocationOnMock.getArgument(0) as SectionUiModelImpl
             sectionUiModel.copy(
-                isOpen = invocationOnMock.getArgument(1) as Boolean,
+                isOpen = invocationOnMock.getArgument(1),
                 totalFields = invocationOnMock.getArgument(2) as Int,
                 completedFields = invocationOnMock.getArgument(3) as Int,
                 errors = invocationOnMock.getArgument(4) as Int,

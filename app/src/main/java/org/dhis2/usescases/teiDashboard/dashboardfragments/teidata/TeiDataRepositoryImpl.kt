@@ -10,6 +10,8 @@ import org.dhis2.commons.data.StageSection
 import org.dhis2.commons.date.DateUtils
 import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.MetadataIconProvider
+import org.dhis2.commons.simprints.ramp.model.RampDatastoreConfig
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.mobile.commons.extensions.toColor
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope
@@ -34,6 +36,7 @@ class TeiDataRepositoryImpl(
     private val periodUtils: DhisPeriodUtils,
     private val metadataIconProvider: MetadataIconProvider,
     private val dateUtils: DateUtils,
+    private val rampDatastoreRepository: RampDatastoreRepository,
 ) : TeiDataRepository {
     override fun getTEIEnrollmentEvents(
         selectedStage: StageSection,
@@ -45,11 +48,12 @@ class TeiDataRepositoryImpl(
                 .events()
                 .byEnrollmentUid()
                 .eq(enrollmentUid)
+        val rampDatastoreConfig = rampDatastoreRepository.getConfig()
 
         return if (groupedByStage) {
-            getGroupedEvents(eventRepo, selectedStage)
+            getGroupedEvents(eventRepo, selectedStage, rampDatastoreConfig)
         } else {
-            getTimelineEvents(eventRepo, selectedStage.showAllEvents)
+            getTimelineEvents(eventRepo, selectedStage.showAllEvents, rampDatastoreConfig)
         }
     }
 
@@ -192,6 +196,7 @@ class TeiDataRepositoryImpl(
     private fun getGroupedEvents(
         eventRepository: EventCollectionRepository,
         selectedStage: StageSection,
+        rampDatastoreConfig: RampDatastoreConfig,
     ): Single<List<EventModel>> {
         val eventModels = mutableListOf<EventModel>()
         var eventRepo: EventCollectionRepository
@@ -293,6 +298,7 @@ class TeiDataRepositoryImpl(
                                             programStage.style(),
                                             program?.style()?.color()?.toColor() ?: SurfaceColor.Primary,
                                         ),
+                                    followUpVisitNumber = getFollowUpVisitNumber(event, rampDatastoreConfig),
                                 ),
                             )
                         }
@@ -331,6 +337,7 @@ class TeiDataRepositoryImpl(
     private fun getTimelineEvents(
         eventRepository: EventCollectionRepository,
         showAllEvents: Boolean,
+        rampDatastoreConfig: RampDatastoreConfig,
     ): Single<List<EventModel>> {
         val eventModels = mutableListOf<EventModel>()
         val maxEventToShow = 5
@@ -384,6 +391,7 @@ class TeiDataRepositoryImpl(
                                     programUid?.let {
                                         displayOrganisationUnit(it)
                                     } ?: false,
+                                followUpVisitNumber = getFollowUpVisitNumber(event, rampDatastoreConfig),
                             ),
                         )
                     }
@@ -525,6 +533,32 @@ class TeiDataRepositoryImpl(
             else -> true
         }
 
+    private fun getFollowUpVisitNumber(
+        event: Event,
+        rampDatastoreConfig: RampDatastoreConfig,
+    ): Int? {
+        val dataElementId =
+            rampDatastoreConfig.programStageSpecificSettings
+                .firstOrNull { setting ->
+                    setting.programStageId == event.programStage() &&
+                        setting.hasVisitNumberPrefixForDateInList == true
+                }?.visitNumberDataElementId ?: return null
+        val valueRepository =
+            d2
+                .trackedEntityModule()
+                .trackedEntityDataValues()
+                .value(event.uid(), dataElementId)
+
+        return if (valueRepository.blockingExists()) {
+            valueRepository.blockingGet()?.value()?.toVisitNumber()
+        } else {
+            null
+        }
+    }
+
+    private fun String.toVisitNumber(): Int? =
+        trim().toIntOrNull()?.takeIf { it >= 0 }
+
     private fun getCatOptionComboName(categoryOptionComboUid: String?): String? =
         categoryOptionComboUid?.let {
             d2
@@ -554,7 +588,8 @@ class TeiDataRepositoryImpl(
                 .blockingGet()
                 ?.programOwners()
                 ?.firstOrNull {
-                    it.trackedEntityInstance() == teiUid
+                    it.trackedEntityInstance() == teiUid &&
+                        (programUid.isNullOrEmpty() || it.program() == programUid)
                 }?.ownerOrgUnit()
     }
 

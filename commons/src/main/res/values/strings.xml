@@ -41,7 +41,9 @@
     <string name="filters_title_event_label_status">%s status</string>
     <string name="filters_title_enrollment_status">@string/enrollment_status</string>
     <string name="filter_follow_up_label">Followed up %s</string>
+    <string name="filter_transferred_patient_label">Transferred patient</string>
     <string name="select_period">Select period type</string>
+    <string name="select_my_org_unit">Select my organization unit</string>
     <string name="weekly">Weekly</string>
     <string name="bi_weekly">Bi-weekly</string>
     <string name="weekly_start_wednesday">Weekly starting Wednesday</string>

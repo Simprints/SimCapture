@@ -16,13 +16,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import org.dhis2.R
 import org.dhis2.commons.bindings.isFilePathValid
+import org.dhis2.commons.date.DateUtils
 import org.dhis2.commons.date.toDateSpan
 import org.dhis2.commons.date.toOverdueOrScheduledUiText
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.commons.ui.model.ListCardUiModel
 import org.dhis2.mobile.commons.extensions.toJavaDate
+import org.dhis2.simprints.ramp.model.DetailedEnrollment
 import org.dhis2.tracker.search.model.DomainEnrollment
 import org.dhis2.tracker.search.model.DomainProgram
 import org.dhis2.tracker.search.model.EnrollmentStatus
@@ -50,17 +58,29 @@ class TEICardMapper(
         onSyncIconClick: () -> Unit,
         onCardClick: () -> Unit,
         onImageClick: (String) -> Unit,
-    ): ListCardUiModel =
-        ListCardUiModel(
+    ): ListCardUiModel {
+        val programsKey = resourceManager.getString(R.string.programs)
+        val detailedEnrollmentListing =
+            searchTEIModel.detailedEnrollments?.toDetailedEnrollmentListing()
+
+        return ListCardUiModel(
             avatar = { ProvideAvatar(searchTEIModel, onImageClick) },
             title = getTitle(searchTEIModel),
             lastUpdated = searchTEIModel.tei.lastUpdated?.toJavaDate().toDateSpan(context),
-            additionalInfo = getAdditionalInfoList(searchTEIModel),
+            additionalInfo = getAdditionalInfoList(searchTEIModel, detailedEnrollmentListing),
+            styledAdditionalInfoValues =
+                detailedEnrollmentListing?.let { mapOf(programsKey to it) }.orEmpty(),
+            emphasizedAdditionalInfoKey =
+                resourceManager.getString(R.string.transferredTo).takeIf {
+                    searchTEIModel.tei.ownerOrgUnit != null &&
+                        searchTEIModel.tei.ownerOrgUnit != searchTEIModel.tei.enrollmentOrgUnit
+                },
             actionButton = { ProvideSyncButton(searchTEIModel, onSyncIconClick) },
             expandLabelText = resourceManager.getString(R.string.show_more),
             shrinkLabelText = resourceManager.getString(R.string.show_less),
             onCardCLick = onCardClick,
         )
+    }
 
     @Composable
     private fun ProvideAvatar(
@@ -124,7 +144,10 @@ class TEICardMapper(
             "$key: $value"
         }
 
-    private fun getAdditionalInfoList(searchTEIModel: SearchTeiModel): List<AdditionalInfoItem> {
+    private fun getAdditionalInfoList(
+        searchTEIModel: SearchTeiModel,
+        detailedEnrollmentListing: AnnotatedString?,
+    ): List<AdditionalInfoItem> {
         val attributeList =
             searchTEIModel.tei.attributeValues
                 .map {
@@ -142,7 +165,7 @@ class TEICardMapper(
         return attributeList.also { list ->
             searchTEIModel.tei.ownerOrgUnit?.let {
                 if (it != searchTEIModel.tei.enrollmentOrgUnit) {
-                    addOwnedBy(
+                    addTransferredTo(
                         list = list,
                         ownerOrgUnit = it,
                     )
@@ -154,11 +177,19 @@ class TEICardMapper(
                     enrolledOrgUnit = searchTEIModel.tei.enrollmentOrgUnit,
                 )
             }
-
-            checkEnrolledPrograms(
-                list = list,
-                enrolledPrograms = searchTEIModel.tei.enrolledPrograms,
-            )
+            if (searchTEIModel.detailedEnrollments != null) {
+                detailedEnrollmentListing?.let {
+                    addDetailedEnrollmentListing(
+                        list = list,
+                        detailedEnrollmentListing = it.text,
+                    )
+                }
+            } else {
+                checkEnrolledPrograms(
+                    list = list,
+                    enrolledPrograms = searchTEIModel.tei.enrolledPrograms,
+                )
+            }
             val programUid: String? =
                 if (searchTEIModel.selectedEnrollment != null) {
                     searchTEIModel.selectedEnrollment.program
@@ -286,6 +317,58 @@ class TEICardMapper(
         }
     }
 
+    private fun addDetailedEnrollmentListing(
+        list: MutableList<AdditionalInfoItem>,
+        detailedEnrollmentListing: String,
+    ) {
+        list.add(
+            AdditionalInfoItem(
+                key = resourceManager.getString(R.string.programs),
+                value = detailedEnrollmentListing,
+                isConstantItem = true,
+                truncate = false,
+            ),
+        )
+    }
+
+    private fun List<DetailedEnrollment>.toDetailedEnrollmentListing(): AnnotatedString? {
+        val namedEnrollments = filter { it.programName.isNotBlank() }
+        if (namedEnrollments.isEmpty()) return null
+        val admittedLabel = resourceManager.getString(R.string.simprints_ramp_admitted)
+        val dischargedLabel = resourceManager.getString(R.string.simprints_ramp_discharged)
+        val outcomeLabel = resourceManager.getString(R.string.simprints_ramp_outcome)
+        val siteLabel = resourceManager.getString(R.string.simprints_ramp_site)
+        val dateFormat = DateUtils.oldUiDateFormat()
+
+        // attributes are optional, so we are not using a string resource with params here
+        return buildAnnotatedString {
+            namedEnrollments.forEachIndexed { index, enrollment ->
+                if (index > 0) append(". ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(enrollment.programName)
+                }
+
+                val details =
+                    buildList {
+                        enrollment.admitted
+                            ?.let { add("$admittedLabel: ${dateFormat.format(it)}") }
+                        enrollment.discharge
+                            ?.let { add("$dischargedLabel: ${dateFormat.format(it)}") }
+                        enrollment.outcome
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { add("$outcomeLabel: $it") }
+                        enrollment.site
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { add("$siteLabel: $it") }
+                    }
+                if (details.isNotEmpty()) {
+                    append(": ${details.joinToString(", ")}")
+                }
+            }
+            append(".")
+        }
+    }
+
     private fun checkEnrolledIn(
         list: MutableList<AdditionalInfoItem>,
         enrolledOrgUnit: String?,
@@ -302,13 +385,20 @@ class TEICardMapper(
 
     }
 
-    private fun addOwnedBy(
+    private fun addTransferredTo(
         list: MutableList<AdditionalInfoItem>,
         ownerOrgUnit: String,
     ) {
         list.add(
             AdditionalInfoItem(
-                key = resourceManager.getString(R.string.ownedBy),
+                icon = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_transfer),
+                        contentDescription = resourceManager.getString(R.string.transferredTo),
+                        tint = AdditionalInfoItemColor.DISABLED.color,
+                    )
+                },
+                key = resourceManager.getString(R.string.transferredTo),
                 value = ownerOrgUnit,
                 isConstantItem = true,
             ),

@@ -7,6 +7,7 @@ data class TeiCardUiModel(
     val avatar: (@Composable () -> Unit)? = null,
     val title: String,
     val additionalInfo: List<AdditionalInfoItem>,
+    val emphasizedAdditionalInfoKey: String? = null,
     val actionButton: @Composable (() -> Unit),
     val expandLabelText: String,
     val shrinkLabelText: String,

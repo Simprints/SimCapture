@@ -52,6 +52,9 @@ class FilterPresenter
 
         fun areFiltersActive(): Boolean = filterManager.totalFilters != 0
 
+        fun requiresOfflineSearch(programUid: String?): Boolean =
+            programUid != null && filterManager.transferredFilter
+
         fun getOrgUnitsByName(name: String): FilteredOrgUnitResult {
             filteredOrgUnitResult =
                 FilteredOrgUnitResult(

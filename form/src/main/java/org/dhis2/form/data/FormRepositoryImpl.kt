@@ -41,7 +41,7 @@ class FormRepositoryImpl(
     private var completionPercentage: Float = 0f
     private val itemsWithError: MutableList<RowAction> = mutableListOf()
     private val mandatoryItemsWithoutValue: MutableMap<String, String> = mutableMapOf()
-    private var openedSectionUid: String? = null
+    private val collapsedSectionUids: MutableSet<String> = mutableSetOf()
     private var itemList: List<FieldUiModel> = emptyList()
     private var focusedItemId: String? = null
     private var ruleEffects: List<RuleEffect> = emptyList()
@@ -64,23 +64,9 @@ class FormRepositoryImpl(
 
     override suspend fun fetchFormItems(shouldOpenErrorLocation: Boolean): List<FieldUiModel> {
         itemList = dataEntryRepository.list().blockingFirst() ?: emptyList()
-        openedSectionUid = getInitialOpenedSection(shouldOpenErrorLocation)
         backupList = itemList
         return composeList()
     }
-
-    private fun getInitialOpenedSection(shouldOpenErrorLocation: Boolean) =
-        when {
-            disableCollapsableSections == true ->
-                null
-
-            shouldOpenErrorLocation ->
-                itemList.firstOrNull { it.error != null || it.warning != null }?.programStageSection
-                    ?: dataEntryRepository.firstSectionToOpen()
-
-            else ->
-                dataEntryRepository.firstSectionToOpen()
-        }
 
     override suspend fun composeList(skipProgramRules: Boolean): List<FieldUiModel> {
         return itemList
@@ -88,7 +74,7 @@ class FormRepositoryImpl(
             .mergeListWithErrorFields(itemsWithError)
             .also {
                 calculateCompletionPercentage(it)
-            }.setOpenedSection()
+            }.setSectionStates()
             .setFocusedItem()
             .setLastItem()
     }
@@ -545,8 +531,11 @@ class FormRepositoryImpl(
             } ?: this
         } ?: this
 
-    private suspend fun List<FieldUiModel>.setOpenedSection(): List<FieldUiModel> =
-        map { field ->
+    private suspend fun List<FieldUiModel>.setSectionStates(): List<FieldUiModel> {
+        val sectionUids = filterIsInstance<SectionUiModelImpl>().mapTo(mutableSetOf()) { it.uid }
+        collapsedSectionUids.retainAll(sectionUids)
+
+        return map { field ->
             if (field.isSection()) {
                 updateSection(field, this)
             } else {
@@ -560,27 +549,34 @@ class FormRepositoryImpl(
                 else ->
                     useCompose ||
                         disableCollapsableSections == true ||
-                        field.programStageSection == openedSectionUid
+                        field.programStageSection !in collapsedSectionUids
             }
         }
+    }
 
     private fun updateSection(
         sectionFieldUiModel: FieldUiModel,
         fields: List<FieldUiModel>,
     ): FieldUiModel {
-        var total = 0
-        var values = 0
-        val isOpen =
-            (sectionFieldUiModel.uid == openedSectionUid)
-                .takeIf { disableCollapsableSections != true }
-        fields
-            .filter {
-                it.programStageSection.equals(sectionFieldUiModel.uid) && it.valueType != null
-            }.forEach {
-                total++
-                if (!it.value.isNullOrEmpty() || hasPendingSimprintsRegisterLastValue(it)) {
-                    values++
+        val sectionFields =
+            fields
+                .filter {
+                    it.programStageSection.equals(sectionFieldUiModel.uid) && it.valueType != null
                 }
+        val values =
+            sectionFields.count {
+                !it.value.isNullOrEmpty() || hasPendingSimprintsRegisterLastValue(it)
+            }
+        val hasMissingMandatoryFields = sectionFields.any(::hasMandatoryWarnings)
+        val isOpen =
+            when {
+                disableCollapsableSections == true -> null
+                hasMissingMandatoryFields -> {
+                    collapsedSectionUids.remove(sectionFieldUiModel.uid)
+                    null
+                }
+
+                else -> sectionFieldUiModel.uid !in collapsedSectionUids
             }
 
         val warningCount =
@@ -617,7 +613,7 @@ class FormRepositoryImpl(
         return dataEntryRepository.updateSection(
             sectionFieldUiModel,
             isOpen,
-            total,
+            sectionFields.size,
             values,
             errorCount + mandatoryCount + errorFields,
             warningCount,
@@ -891,8 +887,8 @@ class FormRepositoryImpl(
     override fun currentFocusedItem(): FieldUiModel? = itemList.find { focusedItemId == it.uid }
 
     override fun updateSectionOpened(action: RowAction) {
-        if (disableCollapsableSections != true) {
-            openedSectionUid = action.id
+        if (disableCollapsableSections != true && !collapsedSectionUids.add(action.id)) {
+            collapsedSectionUids.remove(action.id)
         }
     }
 

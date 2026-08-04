@@ -99,6 +99,7 @@ class TEIDataModule(
         periodUtils: DhisPeriodUtils,
         metadataIconProvider: MetadataIconProvider,
         dateUtils: DateUtils,
+        rampDatastoreRepository: RampDatastoreRepository,
     ): TeiDataRepository =
         TeiDataRepositoryImpl(
             d2,
@@ -108,6 +109,7 @@ class TEIDataModule(
             periodUtils,
             metadataIconProvider,
             dateUtils,
+            rampDatastoreRepository,
         )
 
     @Provides

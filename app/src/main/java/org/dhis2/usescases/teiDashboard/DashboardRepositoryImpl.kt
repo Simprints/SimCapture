@@ -533,7 +533,10 @@ class DashboardRepositoryImpl(
             .uid(teiUid)
             .blockingGet()
             ?.programOwners()
-            ?.firstOrNull { it.trackedEntityInstance() == teiUid }
+            ?.firstOrNull {
+                it.trackedEntityInstance() == teiUid &&
+                    (programUid.isNullOrEmpty() || it.program() == programUid)
+            }
             ?.ownerOrgUnit()
             ?.let { orgUnitUid ->
                 d2
