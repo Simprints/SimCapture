@@ -4,7 +4,9 @@ import kotlinx.coroutines.test.runTest
 import org.dhis2.commons.prefs.PreferenceProvider
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.form.data.metadata.EnrollmentConfiguration
+import org.dhis2.form.model.ActionType
 import org.dhis2.form.model.EnrollmentMode
+import org.dhis2.form.model.RowAction
 import org.dhis2.form.model.SectionUiModelImpl
 import org.dhis2.form.ui.FieldViewModelFactoryImpl
 import org.dhis2.form.ui.provider.AutoCompleteProvider
@@ -26,6 +28,7 @@ import org.hisp.dhis.android.core.program.Program
 import org.hisp.dhis.android.core.program.ProgramTrackedEntityAttribute
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttribute
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityType
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -116,7 +119,7 @@ class FormRepositoryIntegrationTest {
         }
 
     @Test
-    fun shouldOpenEnrollmentDetailSectionIfIsNewAndCompletedRegardlessOfAppearanceSetting() =
+    fun shouldKeepEnrollmentDetailSectionFixedOpenIfCompletedAndCollapsibleSectionsAreDisabled() =
         runTest {
             mockCompletedEnrollment()
             whenever(conf.disableCollapsableSectionsInProgram(any())) doReturn true
@@ -124,7 +127,29 @@ class FormRepositoryIntegrationTest {
             val repository = mockFormRepository(EnrollmentMode.NEW)
 
             val fields = repository.fetchFormItems()
-            assertTrue((fields.first { it.isSection() } as SectionUiModelImpl).isOpen == true)
+            assertNull((fields.first { it.isSection() } as SectionUiModelImpl).isOpen)
+        }
+
+    @Test
+    fun shouldKeepSectionFixedOpenWhenSectionChangeIsRequestedAndCollapsibleSectionsAreDisabled() =
+        runTest {
+            mockCompletedEnrollment()
+            whenever(conf.disableCollapsableSectionsInProgram(any())) doReturn true
+
+            val repository = mockFormRepository(EnrollmentMode.NEW)
+            val fields = repository.fetchFormItems()
+            val section = fields.first { it.isSection() } as SectionUiModelImpl
+
+            repository.updateSectionOpened(
+                RowAction(
+                    id = section.uid,
+                    type = ActionType.ON_SECTION_CHANGE,
+                ),
+            )
+            val recomposedFields = repository.composeList()
+
+            assertNull((recomposedFields.first { it.isSection() } as SectionUiModelImpl).isOpen)
+            assertEquals(fields.map { it.uid }, recomposedFields.map { it.uid })
         }
 
     @Test

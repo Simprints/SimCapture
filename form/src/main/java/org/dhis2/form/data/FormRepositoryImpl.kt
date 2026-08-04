@@ -548,6 +548,7 @@ class FormRepositoryImpl(
 
                 else ->
                     useCompose ||
+                        disableCollapsableSections == true ||
                         field.programStageSection !in collapsedSectionUids
             }
         }
@@ -568,11 +569,14 @@ class FormRepositoryImpl(
             }
         val hasMissingMandatoryFields = sectionFields.any(::hasMandatoryWarnings)
         val isOpen =
-            if (hasMissingMandatoryFields) {
-                collapsedSectionUids.remove(sectionFieldUiModel.uid)
-                null
-            } else {
-                sectionFieldUiModel.uid !in collapsedSectionUids
+            when {
+                disableCollapsableSections == true -> null
+                hasMissingMandatoryFields -> {
+                    collapsedSectionUids.remove(sectionFieldUiModel.uid)
+                    null
+                }
+
+                else -> sectionFieldUiModel.uid !in collapsedSectionUids
             }
 
         val warningCount =
@@ -883,7 +887,7 @@ class FormRepositoryImpl(
     override fun currentFocusedItem(): FieldUiModel? = itemList.find { focusedItemId == it.uid }
 
     override fun updateSectionOpened(action: RowAction) {
-        if (!collapsedSectionUids.add(action.id)) {
+        if (disableCollapsableSections != true && !collapsedSectionUids.add(action.id)) {
             collapsedSectionUids.remove(action.id)
         }
     }
