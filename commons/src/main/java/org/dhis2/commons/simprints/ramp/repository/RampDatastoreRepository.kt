@@ -40,14 +40,23 @@ class RampDatastoreRepository(
             .blockingDownload()
     }
 
-    fun isSearchEnabled(programId: String?): Boolean {
+    fun isSearchEnabled(programId: String?): Boolean =
+        isProgramOptionEnabled(programId) { isSearchEnabled }
+
+    fun isShowingUnfilteredList(programId: String?): Boolean =
+        isProgramOptionEnabled(programId) { isShowingUnfilteredList }
+
+    private fun isProgramOptionEnabled(
+        programId: String?,
+        option: ProgramSpecificSetting.() -> Boolean?,
+    ): Boolean {
         val normalizedProgramId = programId.trimToValue() ?: return true
 
         return try {
             getConfig()
                 .programSpecificSettings
                 .firstOrNull { it.programId == normalizedProgramId }
-                ?.isSearchEnabled != false
+                ?.option() != false
         } catch (exception: RuntimeException) {
             Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
             true

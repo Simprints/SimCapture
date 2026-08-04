@@ -165,6 +165,15 @@ class SearchRepositoryTest {
     }
 
     @Test
+    fun `isShowingUnfilteredList delegates to Simprints RAMP datastore repository`() {
+        val programUid = "programUid"
+        searchRepositoryJava.setCurrentProgram(programUid)
+        whenever(rampDatastoreRepository.isShowingUnfilteredList(programUid)) doReturn false
+
+        assertTrue(!searchRepositoryJava.isShowingUnfilteredList)
+    }
+
+    @Test
     fun shouldTransformToSearchTeiModelWithOverdueEvents() {
         val overdueDate = dateUtils.getCalendarByDate(Date())
         overdueDate.add(Calendar.DATE, -2)

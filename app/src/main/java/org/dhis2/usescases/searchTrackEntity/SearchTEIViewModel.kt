@@ -31,10 +31,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -183,6 +183,7 @@ class SearchTEIViewModel(
 
     private var searching: Boolean = false
     private val filtersActive = MutableLiveData(false)
+    private var isShowingUnfilteredList = false
 
     private val _downloadResult = MutableLiveData<TeiDownloadResult>()
     val downloadResult: LiveData<TeiDownloadResult> = _downloadResult
@@ -236,8 +237,8 @@ class SearchTEIViewModel(
                     emitAll(
                         when {
                             searching -> loadSearchResults()
-                            shouldDisplayFrontPageList() -> loadDisplayInListResults()
-                            else -> emptyFlow()
+                            shouldLoadListResults() -> loadDisplayInListResults()
+                            else -> flowOf(PagingData.empty())
                         },
                     )
                     CoroutineTracker.decrement()
@@ -249,6 +250,8 @@ class SearchTEIViewModel(
     init {
         viewModelScope.launch(dispatchers.io()) {
             val isSearchEnabled = searchRepository.isSearchEnabled()
+            isShowingUnfilteredList = searchRepository.isShowingUnfilteredList()
+            onNewSearch.emit(Unit)
             withContext(dispatchers.ui()) {
                 _isSearchEnabled.value = isSearchEnabled
                 updateSearchEnabledInCurrentScreen(isSearchEnabled)
@@ -971,6 +974,15 @@ class SearchTEIViewModel(
     private fun shouldDisplayFrontPageList(): Boolean =
         displayFrontPageListSettingIsConfigured()
 
+    private fun shouldLoadListResults(): Boolean =
+        shouldDisplayFrontPageList() &&
+            (hasNarrowingFilters() || isShowingUnfilteredList)
+
+    fun shouldShowListContent(): Boolean = searching || shouldLoadListResults()
+
+    private fun hasNarrowingFilters(): Boolean =
+        filterManager.totalFilters > if (filterManager.sortingItem != null) 1 else 0
+
     private fun canPerformSearch(): Boolean =
         (_isSimprintsPossibleDuplicatesSearch.value == true && queryDataList.isNotEmpty()) ||
             isSimprintsBiometricNoMatchesSearch() ||
@@ -1269,8 +1281,10 @@ class SearchTEIViewModel(
                 hasProgramResults,
                 hasGlobalResults,
             )
-        } else if (shouldDisplayFrontPageList()) {
+        } else if (shouldLoadListResults()) {
             handleDisplayInListResult(hasProgramResults)
+        } else if (shouldDisplayFrontPageList()) {
+            _dataResult.postValue(emptyList())
         } else {
             handleInitWithoutData()
         }

@@ -20,6 +20,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.dhis2.R
 import org.dhis2.commons.filters.FilterManager
+import org.dhis2.commons.filters.Filters
+import org.dhis2.commons.filters.sorting.SortingItem
+import org.dhis2.commons.filters.sorting.SortingStatus
 import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.commons.viewmodel.DispatcherProvider
@@ -99,11 +102,16 @@ class SearchTEIViewModelTest {
         setCurrentProgram(testingProgram())
         whenever(repository.canCreateInProgramWithoutSearch()) doReturn true
         whenever(repository.isSearchEnabled()) doReturn true
+        whenever(repository.isShowingUnfilteredList()) doReturn true
         whenever(repository.getTrackedEntityType()) doReturn testingTrackedEntityType()
         whenever(repository.filtersApplyOnGlobalSearch()) doReturn true
         whenever(repositoryKt.getExcludeValues()) doReturn HashSet<String>()
         whenever(repositoryKt.saveSearchValuesAndGetAllowCache(any(), any())) doReturn true
-        viewModel =
+        viewModel = createViewModel()
+        testingDispatcher.scheduler.advanceUntilIdle()
+    }
+
+    private fun createViewModel() =
             SearchTEIViewModel(
                 initialProgram,
                 initialQuery,
@@ -130,8 +138,6 @@ class SearchTEIViewModelTest {
                 loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
                 mapSimprintsBiometricSearchResult = mapSimprintsBiometricSearchResult,
             )
-        testingDispatcher.scheduler.advanceUntilIdle()
-    }
 
     @ExperimentalCoroutinesApi
     @After
@@ -319,6 +325,80 @@ class SearchTEIViewModelTest {
                 awaitItem()
                 verify(searchTrackedEntities, never()).invoke(any())
             }
+        }
+
+    @Test
+    fun `Should hide unfiltered list when disabled by Simprints RAMP config`() =
+        runTest {
+            whenever(repository.isShowingUnfilteredList()) doReturn false
+            viewModel = createViewModel()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            val result = viewModel.searchPagingData.take(1).asSnapshot()
+
+            assertTrue(result.isEmpty())
+            assertTrue(!viewModel.shouldShowListContent())
+            verify(searchTrackedEntities, never()).invoke(any())
+        }
+
+    @Test
+    fun `Should show list when a non-sorting filter is active`() =
+        runTest {
+            val testingProgram = testingProgram()
+            setCurrentProgram(testingProgram)
+            whenever(repository.isShowingUnfilteredList()) doReturn false
+            whenever(filterManager.totalFilters) doReturn 1
+            viewModel = createViewModel()
+            testingDispatcher.scheduler.advanceUntilIdle()
+            viewModel.updateActiveFilters(true)
+
+            viewModel.searchPagingData.take(1).asSnapshot()
+
+            assertTrue(viewModel.shouldShowListContent())
+            verify(searchTrackedEntities).invoke(
+                eq(
+                    SearchTrackedEntitiesInput(
+                        selectedProgram = testingProgram.uid(),
+                        queryDataList = mutableListOf(),
+                        allowCache = true,
+                        excludeValues = emptySet(),
+                        hasStateFilters = false,
+                        isOnline = false,
+                    ),
+                ),
+            )
+        }
+
+    @Test
+    fun `Should keep list hidden when sorting is the only active filter`() =
+        runTest {
+            whenever(repository.isShowingUnfilteredList()) doReturn false
+            whenever(filterManager.totalFilters) doReturn 1
+            whenever(filterManager.sortingItem) doReturn
+                SortingItem(Filters.ORG_UNIT, SortingStatus.ASC)
+            viewModel = createViewModel()
+            testingDispatcher.scheduler.advanceUntilIdle()
+            viewModel.updateActiveFilters(true)
+
+            val result = viewModel.searchPagingData.take(1).asSnapshot()
+
+            assertTrue(result.isEmpty())
+            assertTrue(!viewModel.shouldShowListContent())
+            verify(searchTrackedEntities, never()).invoke(any())
+        }
+
+    @Test
+    fun `Should show search results when unfiltered list is hidden`() =
+        runTest {
+            whenever(repository.isShowingUnfilteredList()) doReturn false
+            viewModel = createViewModel()
+            testingDispatcher.scheduler.advanceUntilIdle()
+            performSearch()
+
+            viewModel.searchPagingData.take(1).asSnapshot()
+
+            assertTrue(viewModel.shouldShowListContent())
+            verify(searchTrackedEntities).invoke(any())
         }
 
     @Test
@@ -587,6 +667,33 @@ class SearchTEIViewModelTest {
             assertTrue(isNotEmpty())
             assertTrue(size == 1)
             assertTrue(first().type == SearchResultType.SEARCH)
+        }
+    }
+
+    @Test
+    fun `Should hide result footer when unfiltered list is hidden`() {
+        whenever(repository.isShowingUnfilteredList()) doReturn false
+        viewModel = createViewModel()
+        testingDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onDataLoaded(0, null)
+
+        assertTrue(viewModel.dataResult.value?.isEmpty() == true)
+    }
+
+    @Test
+    fun `Should show result footer for an active filter with no matches`() {
+        whenever(repository.isShowingUnfilteredList()) doReturn false
+        whenever(filterManager.totalFilters) doReturn 1
+        viewModel = createViewModel()
+        testingDispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateActiveFilters(true)
+
+        viewModel.onDataLoaded(0, null)
+
+        viewModel.dataResult.value?.apply {
+            assertTrue(size == 1)
+            assertTrue(first().type == SearchResultType.SEARCH_OR_CREATE)
         }
     }
 

@@ -61,6 +61,8 @@ data class ProgramSpecificSetting(
     val programId: String? = null,
     @SerializedName("isSearchEnabled")
     val isSearchEnabled: Boolean? = null,
+    @SerializedName("isShowingUnfilteredList")
+    val isShowingUnfilteredList: Boolean? = null,
     @SerializedName("hasDetailedEnrollmentListing")
     val hasDetailedEnrollmentListing: Boolean? = null,
     @SerializedName("detailedEnrollmentListingDischargeOutcomeDataElementIds")

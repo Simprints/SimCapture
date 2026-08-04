@@ -109,6 +109,7 @@ class RampDatastoreRepositoryTest {
                 {
                   "programId": " disabledProgram ",
                   "isSearchEnabled": false,
+                  "isShowingUnfilteredList": false,
                   "hasDetailedEnrollmentListing": true,
                   "detailedEnrollmentListingDischargeOutcomeDataElementIds": [" outcome ", " "],
                   "detailedEnrollmentListingAdmissionProgramStageIds": [" admission ", " "],
@@ -143,6 +144,7 @@ class RampDatastoreRepositoryTest {
             assertEquals(listOf("excluded"), table.excludedFollowUpVisitDataElementIds)
         }
         assertEquals("disabledProgram", config.programSpecificSettings.single().programId)
+        assertEquals(false, config.programSpecificSettings.single().isShowingUnfilteredList)
         assertEquals(true, config.programSpecificSettings.single().hasDetailedEnrollmentListing)
         assertEquals(
             listOf("outcome"),
@@ -193,6 +195,37 @@ class RampDatastoreRepositoryTest {
         assertEquals(true, repository.isSearchEnabled("missingProgram"))
         assertEquals(true, repository.isSearchEnabled(null))
         assertEquals(true, repository.isSearchEnabled(" "))
+    }
+
+    @Test
+    fun `isShowingUnfilteredList should return false only when program hides it`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "programSpecificSettings": [
+                {
+                  "programId": " hiddenProgram ",
+                  "isShowingUnfilteredList": false
+                },
+                {
+                  "programId": "defaultProgram"
+                },
+                {
+                  "programId": "visibleProgram",
+                  "isShowingUnfilteredList": true
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(false, repository.isShowingUnfilteredList("hiddenProgram"))
+        assertEquals(false, repository.isShowingUnfilteredList(" hiddenProgram "))
+        assertEquals(true, repository.isShowingUnfilteredList("visibleProgram"))
+        assertEquals(true, repository.isShowingUnfilteredList("defaultProgram"))
+        assertEquals(true, repository.isShowingUnfilteredList("missingProgram"))
+        assertEquals(true, repository.isShowingUnfilteredList(null))
+        assertEquals(true, repository.isShowingUnfilteredList(" "))
     }
 
     @Test

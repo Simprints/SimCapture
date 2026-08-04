@@ -396,6 +396,7 @@ class SearchTEActivity :
             DHIS2Theme {
                 val uiState by viewModel.navigationBarUIState
                 val isBackdropActive by viewModel.backdropActive.observeAsState(false)
+                val screenState by viewModel.screenState.observeAsState()
                 var selectedItemIndex by remember(uiState) {
                     mutableIntStateOf(
                         uiState.items.indexOfFirst {
@@ -414,7 +415,10 @@ class SearchTEActivity :
                 }
 
                 AnimatedVisibility(
-                    visible = (isBackdropActive.not() && uiState.items.isNotEmpty()) || isLandscape(),
+                    visible =
+                        screenState != null &&
+                            (uiState.selectedItem != NavigationPage.LIST_VIEW || viewModel.shouldShowListContent()) &&
+                            ((isBackdropActive.not() && uiState.items.isNotEmpty()) || isLandscape()),
                     enter = slideInVertically(animationSpec = tween(200)) { it },
                     exit = slideOutVertically(animationSpec = tween(200)) { it },
                 ) {
