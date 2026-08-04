@@ -40,6 +40,7 @@ import org.dhis2.tracker.input.ui.state.TrackerInputUiState
 import org.dhis2.tracker.search.domain.FetchOptionSetOptions
 import org.dhis2.tracker.search.domain.FetchSearchParameters
 import org.dhis2.tracker.search.domain.SearchTrackedEntities
+import org.dhis2.tracker.search.model.SearchParameterModel
 import org.dhis2.tracker.search.model.SearchTrackedEntitiesInput
 import org.dhis2.usescases.searchTrackEntity.listView.SearchResult.SearchResultType
 import org.dhis2.utils.customviews.navigationbar.NavigationPage
@@ -216,6 +217,74 @@ class SearchTEIViewModelTest {
         val screenState = viewModel.screenState.value
         assertTrue(screenState is SearchList)
     }
+
+    @Test
+    fun `Should keep search form closed and launch Simprints identification when direct search is eligible`() =
+        runTest {
+            val identifyIntent =
+                CustomIntentModel(
+                    uid = "identify-intent",
+                    name = "Identify",
+                    packageName = "com.simprints.id.IDENTIFY",
+                    customIntentRequest = emptyList(),
+                    customIntentResponse = emptyList(),
+                )
+            whenever(fetchSearchParameters.invoke(any())) doReturn
+                Result.success(
+                    listOf(
+                        SearchParameterModel(
+                            uid = "biometric",
+                            label = "Biometrics",
+                            inputType = TrackerInputType.CUSTOM_INTENT,
+                            optionSet = null,
+                            customIntentUid = identifyIntent.uid,
+                            minCharactersToSearch = null,
+                            searchOperator = null,
+                            isUnique = false,
+                        ),
+                    ),
+                )
+            whenever(repositoryKt.getCustomIntent("biometric")) doReturn identifyIntent
+
+            viewModel.fetchSearchParameters(initialProgram, "teiTypeUid")
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(viewModel.shouldLaunchSimprintsBiometricIdentification.value == true)
+            viewModel.setSimprintsPossibleDuplicatesSearch(true)
+            assertTrue(viewModel.shouldLaunchSimprintsBiometricIdentification.value == false)
+            viewModel.setSimprintsPossibleDuplicatesSearch(false)
+            assertTrue(viewModel.shouldLaunchSimprintsBiometricIdentification.value == true)
+
+            viewModel.setListScreen()
+            viewModel.onFiltersClick(isLandscape = true)
+            assertTrue((viewModel.screenState.value as SearchList).searchFilters.isOpened)
+
+            viewModel.updateActiveFilters(true)
+            viewModel.onFiltersClick(isLandscape = true)
+            (viewModel.screenState.value as SearchList).let { screenState ->
+                assertTrue(screenState.searchFilters.isOpened.not())
+                assertTrue(screenState.searchForm.isOpened.not())
+            }
+
+            viewModel.searchActions.test {
+                viewModel.onSearchFormRequested()
+                testingDispatcher.scheduler.advanceUntilIdle()
+
+                assertTrue(
+                    awaitItem() ==
+                        TrackerInputAction.LaunchCustomIntent(
+                            fieldUid = "biometric",
+                            customIntentModel = identifyIntent,
+                        ),
+                )
+                assertTrue((viewModel.screenState.value as SearchList).searchForm.isOpened.not())
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.onValueChange("name", "User")
+
+            assertTrue(viewModel.shouldLaunchSimprintsBiometricIdentification.value == false)
+        }
 
     @Test
     fun `Should set previous screen`() {

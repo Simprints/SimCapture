@@ -3,8 +3,10 @@ package org.dhis2.usescases.searchTrackEntity
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
 import org.dhis2.usescases.searchTrackEntity.ui.WrappedSearchButton
@@ -20,15 +22,30 @@ fun ComposeView?.setLandscapeOpenSearchButton(
             val screenState by searchTEIViewModel.screenState.observeAsState()
             val teTypeName by searchTEIViewModel.teTypeName.observeAsState()
             val isSearchEnabled by searchTEIViewModel.isSearchEnabled.observeAsState(true)
+            val shouldLaunchSimprintsBiometricIdentification by
+                searchTEIViewModel.shouldLaunchSimprintsBiometricIdentification.observeAsState(false)
 
-            val visible =
+            val isDirectSimprintsSearch =
                 screenState?.let {
-                    (it is SearchList) && it.searchFilters.isOpened
+                    it is SearchList &&
+                        !it.searchFilters.isOpened &&
+                        !it.searchForm.isOpened &&
+                        shouldLaunchSimprintsBiometricIdentification
                 } ?: false
+            val visible =
+                screenState?.let { it is SearchList && (it.searchFilters.isOpened || isDirectSimprintsSearch) }
+                    ?: false
             val isLandscape =
                 LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-            AnimatedVisibility(visible = isLandscape && visible && isSearchEnabled && !teTypeName.isNullOrBlank()) {
-                WrappedSearchButton(onClick = onClick, teTypeName = teTypeName!!)
+            AnimatedVisibility(
+                visible = isLandscape && visible && isSearchEnabled && !teTypeName.isNullOrBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                WrappedSearchButton(
+                    onClick = onClick,
+                    teTypeName = teTypeName!!,
+                    fillWidth = isDirectSimprintsSearch,
+                )
             }
         }
     }

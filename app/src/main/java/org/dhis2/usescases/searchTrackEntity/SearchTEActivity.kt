@@ -543,12 +543,20 @@ class SearchTEActivity :
     }
 
     private fun observeScreenState() {
-        viewModel.screenState.observe(this) { screenState ->
-            searchScreenConfigurator.configure(screenState)
-            initialLandscapeDrawReady = true
-            binding.root.invalidate()
+        viewModel.screenState.observe(this, ::configureSearchScreen)
+        viewModel.shouldLaunchSimprintsBiometricIdentification.observe(this) {
+            viewModel.screenState.value?.let(::configureSearchScreen)
         }
         viewModel.screenState.observe(this, viewModel::updateBackdrop)
+    }
+
+    private fun configureSearchScreen(screenState: SearchTEScreenState) {
+        searchScreenConfigurator.configure(
+            screenState,
+            viewModel.shouldLaunchSimprintsBiometricIdentification.value == true,
+        )
+        initialLandscapeDrawReady = true
+        binding.root.invalidate()
     }
 
     private fun postponeInitialLandscapeDraw() {
