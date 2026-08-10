@@ -2,16 +2,13 @@ package org.dhis2.simprints.ramp.data
 
 import org.dhis2.commons.simprints.ramp.model.DetailedEnrollmentListingSettings
 import org.dhis2.simprints.ramp.model.DetailedEnrollment
-import org.dhis2.tracker.search.model.DomainEnrollment
-import org.dhis2.tracker.search.model.DomainObjectStyle
-import org.dhis2.tracker.search.model.DomainProgram
-import org.dhis2.tracker.search.model.EnrollmentStatus
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.BooleanFilterConnector
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.StringFilterConnector
 import org.hisp.dhis.android.core.common.ObjectWithUid
 import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.dataelement.DataElement
+import org.hisp.dhis.android.core.enrollment.Enrollment
 import org.hisp.dhis.android.core.event.Event
 import org.hisp.dhis.android.core.event.EventCollectionRepository
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit
@@ -24,7 +21,6 @@ import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import java.util.Date
-import kotlin.time.Instant
 
 class DetailedEnrollmentRepositoryTest {
     private val d2: D2 = Mockito.mock(D2::class.java, Mockito.RETURNS_DEEP_STUBS)
@@ -50,24 +46,7 @@ class DetailedEnrollmentRepositoryTest {
     fun `should return assembled enrollment data from d2`() {
         val admitted = Date(1_000)
         val discharge = Date(4_000)
-        val enrollment =
-            DomainEnrollment(
-                uid = ENROLLMENT_UID,
-                orgUnit = ORG_UNIT_UID,
-                program = PROGRAM_UID,
-                enrollmentDate = Instant.parse("2020-01-01T00:00:00Z"),
-                incidentDate = null,
-                completedDate = Instant.parse("2030-01-01T00:00:00Z"),
-                followUp = false,
-                status = EnrollmentStatus.COMPLETED,
-                trackedEntityInstance = "tei",
-            )
-        val program =
-            DomainProgram(
-                uid = PROGRAM_UID,
-                displayName = "OTP",
-                style = DomainObjectStyle(icon = null, color = null),
-            )
+        val enrollment = enrollment(ORG_UNIT_UID)
         stubOrganisationUnits()
         stubEvents()
         whenever(
@@ -84,22 +63,17 @@ class DetailedEnrollmentRepositoryTest {
                 .valueType(ValueType.TEXT)
                 .build()
 
-        val result =
-            DetailedEnrollmentRepository(d2).get(
-                enrollments = listOf(enrollment),
-                programs = listOf(program),
-                settings = settings,
-            )
+        val result = DetailedEnrollmentRepository(d2).get(listOf(enrollment), settings)
 
         assertEquals(
-            listOf(
-                DetailedEnrollment(
-                    programName = "OTP",
-                    admitted = admitted,
-                    discharge = discharge,
-                    outcome = "Cured",
-                    site = "Site1",
-                ),
+            mapOf(
+                ENROLLMENT_UID to
+                    DetailedEnrollment(
+                        admitted = admitted,
+                        discharge = discharge,
+                        outcome = "Cured",
+                        site = "Site1",
+                    ),
             ),
             result,
         )
@@ -108,45 +82,25 @@ class DetailedEnrollmentRepositoryTest {
     @Test
     fun `should return no details without enrollments`() {
         assertEquals(
-            emptyList<DetailedEnrollment>(),
-            DetailedEnrollmentRepository(d2).get(null, null, settings),
+            emptyMap<String, DetailedEnrollment>(),
+            DetailedEnrollmentRepository(d2).get(emptyList(), settings),
         )
     }
 
     @Test
     fun `should omit event details without configured ids`() {
-        val enrollment =
-            DomainEnrollment(
-                uid = ENROLLMENT_UID,
-                orgUnit = null,
-                program = PROGRAM_UID,
-                enrollmentDate = null,
-                incidentDate = null,
-                completedDate = null,
-                followUp = false,
-                status = EnrollmentStatus.ACTIVE,
-                trackedEntityInstance = "tei",
-            )
-        val program =
-            DomainProgram(
-                uid = PROGRAM_UID,
-                displayName = "OTP",
-                style = DomainObjectStyle(icon = null, color = null),
-            )
-
         assertEquals(
-            listOf(
-                DetailedEnrollment(
-                    programName = "OTP",
-                    admitted = null,
-                    discharge = null,
-                    outcome = null,
-                    site = null,
-                ),
+            mapOf(
+                ENROLLMENT_UID to
+                    DetailedEnrollment(
+                        admitted = null,
+                        discharge = null,
+                        outcome = null,
+                        site = null,
+                    ),
             ),
             DetailedEnrollmentRepository(d2).get(
-                enrollments = listOf(enrollment),
-                programs = listOf(program),
+                enrollments = listOf(enrollment(null)),
                 settings =
                     DetailedEnrollmentListingSettings(
                         dischargeOutcomeDataElementIds = emptySet(),
@@ -157,37 +111,11 @@ class DetailedEnrollmentRepositoryTest {
         )
     }
 
-    @Test
-    fun `should exclude enrollments in viewed program`() {
-        val enrollment =
-            DomainEnrollment(
-                uid = ENROLLMENT_UID,
-                orgUnit = ORG_UNIT_UID,
-                program = PROGRAM_UID,
-                enrollmentDate = null,
-                incidentDate = null,
-                completedDate = null,
-                followUp = false,
-                status = EnrollmentStatus.ACTIVE,
-                trackedEntityInstance = "tei",
-            )
-        val program =
-            DomainProgram(
-                uid = PROGRAM_UID,
-                displayName = "General Registration",
-                style = DomainObjectStyle(icon = null, color = null),
-            )
-
-        assertEquals(
-            emptyList<DetailedEnrollment>(),
-            DetailedEnrollmentRepository(d2).get(
-                enrollments = listOf(enrollment),
-                programs = listOf(program),
-                settings = settings,
-                excludedProgramUid = PROGRAM_UID,
-            ),
-        )
-    }
+    private fun enrollment(orgUnitUid: String?): Enrollment =
+        mock {
+            on { uid() } doReturn ENROLLMENT_UID
+            on { organisationUnit() } doReturn orgUnitUid
+        }
 
     private fun stubOrganisationUnits() {
         whenever(d2.organisationUnitModule().organisationUnits()) doReturn organisationUnits
@@ -269,7 +197,6 @@ class DetailedEnrollmentRepositoryTest {
 
     private companion object {
         const val ENROLLMENT_UID = "enrollment"
-        const val PROGRAM_UID = "program"
         const val ORG_UNIT_UID = "org-unit"
         const val OUTCOME_DATA_ELEMENT_UID = "outcome1"
         const val OTHER_OUTCOME_DATA_ELEMENT_UID = "outcome2"

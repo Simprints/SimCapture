@@ -1,9 +1,15 @@
 package org.dhis2.usescases.teiDashboard.teiProgramList;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
+import org.dhis2.R;
 import org.dhis2.commons.date.DateUtils;
+import org.dhis2.commons.resources.ResourceManager;
 import org.dhis2.commons.resources.MetadataIconProvider;
+import org.dhis2.commons.simprints.ramp.model.DetailedEnrollmentListingSettings;
+import org.dhis2.simprints.ramp.data.DetailedEnrollmentRepository;
+import org.dhis2.simprints.ramp.model.DetailedEnrollment;
 import org.dhis2.usescases.main.program.ProgramDownloadState;
 import org.dhis2.usescases.main.program.ProgramUiModel;
 import org.dhis2.usescases.main.program.ProgramViewModelMapper;
@@ -19,6 +25,8 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 
 import io.reactivex.Flowable;
 import io.reactivex.Observable;
@@ -28,11 +36,24 @@ public class TeiProgramListRepositoryImpl implements TeiProgramListRepository {
     private final D2 d2;
     private final ProgramViewModelMapper programViewModelMapper;
     private final MetadataIconProvider metadataIconProvider;
+    private final DetailedEnrollmentRepository detailedEnrollmentRepository;
+    private final Supplier<DetailedEnrollmentListingSettings> detailedEnrollmentListingSettings;
+    private final ResourceManager resourceManager;
 
-    TeiProgramListRepositoryImpl(D2 d2, ProgramViewModelMapper programViewModelMapper, MetadataIconProvider metadataIconProvider) {
+    TeiProgramListRepositoryImpl(
+            D2 d2,
+            ProgramViewModelMapper programViewModelMapper,
+            MetadataIconProvider metadataIconProvider,
+            DetailedEnrollmentRepository detailedEnrollmentRepository,
+            Supplier<DetailedEnrollmentListingSettings> detailedEnrollmentListingSettings,
+            ResourceManager resourceManager
+    ) {
         this.d2 = d2;
         this.programViewModelMapper = programViewModelMapper;
         this.metadataIconProvider = metadataIconProvider;
+        this.detailedEnrollmentRepository = detailedEnrollmentRepository;
+        this.detailedEnrollmentListingSettings = detailedEnrollmentListingSettings;
+        this.resourceManager = resourceManager;
     }
 
     @NonNull
@@ -43,44 +64,88 @@ public class TeiProgramListRepositoryImpl implements TeiProgramListRepository {
                                 .byTrackedEntityInstance().eq(trackedEntityId)
                                 .byStatus().eq(EnrollmentStatus.ACTIVE)
                                 .byDeleted().eq(false).blockingGet())
-                .flatMapIterable(enrollments -> enrollments)
-                .map(enrollment -> {
-                    Program program = d2.programModule().programs().byUid().eq(enrollment.program()).one().blockingGet();
-                    OrganisationUnit orgUnit = d2.organisationUnitModule().organisationUnits().byUid().eq(enrollment.organisationUnit()).one().blockingGet();
-                    return new EnrollmentViewModel(
-                            enrollment.uid(),
-                            DateUtils.getInstance().formatDate(enrollment.enrollmentDate()),
-                            metadataIconProvider.invoke(program.style()),
-                            program.displayName(),
-                            orgUnit.displayName(),
-                            enrollment.followUp() != null ? enrollment.followUp() : false,
-                            program.uid()
-                    );
-                })
-                .toList()
-                .toObservable();
+                .flatMap(this::mapEnrollments);
     }
 
     @NonNull
     @Override
     public Observable<List<EnrollmentViewModel>> otherEnrollments(String trackedEntityId) {
         return Observable.fromCallable(() -> d2.enrollmentModule().enrollments().byTrackedEntityInstance().eq(trackedEntityId).byStatus().neq(EnrollmentStatus.ACTIVE).blockingGet())
-                .flatMapIterable(enrollments -> enrollments)
+                .flatMap(this::mapEnrollments);
+    }
+
+    private Observable<List<EnrollmentViewModel>> mapEnrollments(
+            List<org.hisp.dhis.android.core.enrollment.Enrollment> enrollments
+    ) {
+        DetailedEnrollmentListingSettings listingSettings = detailedEnrollmentListingSettings.get();
+        Map<String, DetailedEnrollment> detailedEnrollments =
+                listingSettings == null ?
+                        Collections.emptyMap() :
+                        detailedEnrollmentRepository.get(
+                                enrollments,
+                                listingSettings
+                        );
+
+        return Observable.fromIterable(enrollments)
                 .map(enrollment -> {
                     Program program = d2.programModule().programs().byUid().eq(enrollment.program()).one().blockingGet();
-                    OrganisationUnit orgUnit = d2.organisationUnitModule().organisationUnits().byUid().eq(enrollment.organisationUnit()).one().blockingGet();
+                    DetailedEnrollment detailedEnrollment = detailedEnrollments.get(enrollment.uid());
+                    String orgUnitName;
+                    if (detailedEnrollment != null) {
+                        orgUnitName = detailedEnrollment.getSite() == null ? "" : detailedEnrollment.getSite();
+                    } else {
+                        OrganisationUnit orgUnit = d2.organisationUnitModule().organisationUnits().byUid().eq(enrollment.organisationUnit()).one().blockingGet();
+                        orgUnitName = orgUnit.displayName();
+                    }
+
                     return new EnrollmentViewModel(
                             enrollment.uid(),
                             DateUtils.getInstance().formatDate(enrollment.enrollmentDate()),
                             metadataIconProvider.invoke(program.style()),
                             program.displayName(),
-                            orgUnit.displayName(),
+                            orgUnitName,
                             enrollment.followUp() != null ? enrollment.followUp() : false,
-                            program.uid()
+                            program.uid(),
+                            formatDetailedEnrollment(detailedEnrollment)
                     );
                 })
                 .toList()
                 .toObservable();
+    }
+
+    @Nullable
+    private String formatDetailedEnrollment(@Nullable DetailedEnrollment enrollment) {
+        if (enrollment == null) {
+            return null;
+        }
+
+        List<String> details = new ArrayList<>();
+        if (enrollment.getAdmitted() != null) {
+            details.add(
+                    resourceManager.getString(R.string.simprints_ramp_admitted) + ": " +
+                            DateUtils.getInstance().formatDate(enrollment.getAdmitted())
+            );
+        }
+        if (enrollment.getDischarge() != null) {
+            details.add(
+                    resourceManager.getString(R.string.simprints_ramp_discharged) + ": " +
+                            DateUtils.getInstance().formatDate(enrollment.getDischarge())
+            );
+        }
+        if (enrollment.getOutcome() != null && !enrollment.getOutcome().trim().isEmpty()) {
+            details.add(
+                    resourceManager.getString(R.string.simprints_ramp_outcome) + ": " +
+                            enrollment.getOutcome()
+            );
+        }
+        if (enrollment.getSite() != null && !enrollment.getSite().trim().isEmpty()) {
+            details.add(
+                    resourceManager.getString(R.string.simprints_ramp_site) + ": " +
+                            enrollment.getSite()
+            );
+        }
+
+        return String.join(", ", details);
     }
 
     @NonNull

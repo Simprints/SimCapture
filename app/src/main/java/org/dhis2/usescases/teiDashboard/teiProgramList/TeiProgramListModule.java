@@ -2,10 +2,15 @@ package org.dhis2.usescases.teiDashboard.teiProgramList;
 
 import androidx.annotation.NonNull;
 
+import com.google.gson.Gson;
+
 import org.dhis2.commons.di.dagger.PerActivity;
 import org.dhis2.commons.prefs.PreferenceProvider;
 import org.dhis2.commons.resources.MetadataIconProvider;
+import org.dhis2.commons.resources.ResourceManager;
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository;
 import org.dhis2.mobile.sync.domain.SyncStatusController;
+import org.dhis2.simprints.ramp.data.DetailedEnrollmentRepository;
 import org.dhis2.usescases.main.program.ProgramViewModelMapper;
 import org.dhis2.utils.analytics.AnalyticsHelper;
 import org.hisp.dhis.android.core.D2;
@@ -19,12 +24,15 @@ public class TeiProgramListModule {
 
     private final TeiProgramListContract.View view;
     private final String teiUid;
+    private final String currentProgramUid;
 
     private final SyncStatusController syncStatusController;
 
-    TeiProgramListModule(TeiProgramListContract.View view, String teiUid, SyncStatusController syncStatusController) {
+    TeiProgramListModule(TeiProgramListContract.View view, String teiUid, String currentProgramUid,
+                         SyncStatusController syncStatusController) {
         this.view = view;
         this.teiUid = teiUid;
+        this.currentProgramUid = currentProgramUid;
         this.syncStatusController = syncStatusController;
     }
 
@@ -58,13 +66,32 @@ public class TeiProgramListModule {
 
     @Provides
     @PerActivity
+    RampDatastoreRepository provideRampDatastoreRepository(D2 d2) {
+        return new RampDatastoreRepository(d2, new Gson());
+    }
+
+    @Provides
+    @PerActivity
+    DetailedEnrollmentRepository provideDetailedEnrollmentRepository(D2 d2) {
+        return new DetailedEnrollmentRepository(d2);
+    }
+
+    @Provides
+    @PerActivity
     TeiProgramListRepository eventDetailRepository(
             D2 d2,
-            MetadataIconProvider metadataIconProvider) {
+            MetadataIconProvider metadataIconProvider,
+            ResourceManager resourceManager,
+            RampDatastoreRepository rampDatastoreRepository,
+            DetailedEnrollmentRepository detailedEnrollmentRepository) {
         return new TeiProgramListRepositoryImpl(
                 d2,
                 new ProgramViewModelMapper(),
-                metadataIconProvider
+                metadataIconProvider,
+                detailedEnrollmentRepository,
+                () -> rampDatastoreRepository
+                        .detailedEnrollmentListingSettings(currentProgramUid),
+                resourceManager
         );
     }
 }

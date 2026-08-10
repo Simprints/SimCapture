@@ -3,9 +3,8 @@ package org.dhis2.simprints.ramp.data
 import org.dhis2.bindings.userFriendlyValue
 import org.dhis2.commons.simprints.ramp.model.DetailedEnrollmentListingSettings
 import org.dhis2.simprints.ramp.model.DetailedEnrollment
-import org.dhis2.tracker.search.model.DomainEnrollment
-import org.dhis2.tracker.search.model.DomainProgram
 import org.hisp.dhis.android.core.D2
+import org.hisp.dhis.android.core.enrollment.Enrollment
 import org.hisp.dhis.android.core.event.Event
 import java.util.Date
 
@@ -13,36 +12,30 @@ internal class DetailedEnrollmentRepository(
     private val d2: D2,
 ) {
     fun get(
-        enrollments: List<DomainEnrollment>?,
-        programs: List<DomainProgram>?,
+        enrollments: List<Enrollment>,
         settings: DetailedEnrollmentListingSettings,
-        excludedProgramUid: String? = null,
-    ): List<DetailedEnrollment> {
-        val includedEnrollments = enrollments?.filter { it.program != excludedProgramUid }.orEmpty()
-        if (includedEnrollments.isEmpty() || programs.isNullOrEmpty()) return emptyList()
+    ): Map<String, DetailedEnrollment> {
+        val includedEnrollments = enrollments.filter { !it.uid().isNullOrBlank() }
+        if (includedEnrollments.isEmpty()) return emptyMap()
 
-        val programNames = programs.associate { it.uid to it.displayName }
         val siteNames = getSiteNames(includedEnrollments)
         val eventDetails = getEventDetails(includedEnrollments, settings)
 
-        return includedEnrollments.mapNotNull { enrollment ->
-            programNames[enrollment.program]
-                ?.takeIf { it.isNotBlank() }
-                ?.let { programName ->
-                    val details = eventDetails[enrollment.uid]
-                    DetailedEnrollment(
-                        programName = programName,
-                        admitted = details?.admitted,
-                        discharge = details?.discharge,
-                        outcome = details?.outcome,
-                        site = siteNames[enrollment.orgUnit],
-                    )
-                }
+        return includedEnrollments.associate { enrollment ->
+            val enrollmentUid = enrollment.uid()
+            val details = eventDetails[enrollmentUid]
+            enrollmentUid to
+                DetailedEnrollment(
+                    admitted = details?.admitted,
+                    discharge = details?.discharge,
+                    outcome = details?.outcome,
+                    site = siteNames[enrollment.organisationUnit()],
+                )
         }
     }
 
-    private fun getSiteNames(enrollments: List<DomainEnrollment>): Map<String, String> {
-        val orgUnitIds = enrollments.mapNotNull { it.orgUnit }.distinct()
+    private fun getSiteNames(enrollments: List<Enrollment>): Map<String, String> {
+        val orgUnitIds = enrollments.mapNotNull { it.organisationUnit() }.distinct()
         if (orgUnitIds.isEmpty()) return emptyMap()
 
         return d2
@@ -59,7 +52,7 @@ internal class DetailedEnrollmentRepository(
     }
 
     private fun getEventDetails(
-        enrollments: List<DomainEnrollment>,
+        enrollments: List<Enrollment>,
         settings: DetailedEnrollmentListingSettings,
     ): Map<String, EnrollmentEventDetails> {
         if (
@@ -69,7 +62,7 @@ internal class DetailedEnrollmentRepository(
             return emptyMap()
         }
 
-        val enrollmentIds = enrollments.map { it.uid }.distinct()
+        val enrollmentIds = enrollments.map { it.uid() }.distinct()
         if (enrollmentIds.isEmpty()) return emptyMap()
 
         return d2
