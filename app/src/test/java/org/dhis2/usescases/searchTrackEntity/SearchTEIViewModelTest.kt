@@ -186,7 +186,7 @@ class SearchTEIViewModelTest {
     }
 
     @Test
-    fun `Should display localized no match in Simprints biometric search parameter`() {
+    fun `Should display localized no match and close search form after Simprints biometric search`() {
         whenever(resourceManager.getString(R.string.simprints_biometric_no_match)) doReturn "(no match)"
         whenever(resourceManager.getString(R.string.simprints_biometric_search)) doReturn "Biometric search"
         viewModel.searchParametersUiState =
@@ -196,6 +196,7 @@ class SearchTEIViewModelTest {
 
         assertTrue(viewModel.searchParametersUiState.items.single().value == "(no match)")
         assertTrue(viewModel.searchParametersUiState.items.single().displayName == "Biometric search")
+        assertTrue((viewModel.screenState.value as SearchList).searchForm.isOpened.not())
     }
 
     @Test

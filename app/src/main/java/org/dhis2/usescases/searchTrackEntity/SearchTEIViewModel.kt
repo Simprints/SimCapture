@@ -1154,7 +1154,6 @@ class SearchTEIViewModel(
     }
 
     fun onSimprintsBiometricNoMatches(uid: String) {
-        keepSearchScreenOpenForSimprintsBiometricFallback = true
         updateQuery(uid, listOf(SIMPRINTS_BIOMETRIC_NO_MATCH_QUERY_VALUE))
         updateSimprintsBiometricNoMatchesParameter(uid)
         searchParametersUiState =
