@@ -45,6 +45,7 @@
     <string name="search_add_new_te_type">Search / Add new %s</string>
     <string name="search_te_type">Search for %s</string>
     <string name="simprints_biometric_search">Biometric search</string>
+    <string name="simprints_biometric_no_match">(no match)</string>
     <string name="simprints_possible_duplicates">Possible duplicates</string>
     <string name="simprints_biometric_search_fallback_action">No biometric match?\nSearch by name instead</string>
     <string name="simprints_biometric_search_no_matches">No biometric search matches. Try searching by name, etc.</string>

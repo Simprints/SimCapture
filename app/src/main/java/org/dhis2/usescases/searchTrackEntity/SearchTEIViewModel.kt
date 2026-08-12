@@ -1181,7 +1181,7 @@ class SearchTEIViewModel(
             searchParametersUiState.items.map {
                 if (it.uid == uid) {
                     it.copy(
-                        value = SIMPRINTS_BIOMETRIC_NO_MATCH_QUERY_VALUE,
+                        value = resourceManager.getString(R.string.simprints_biometric_no_match),
                         displayName = resourceManager.getString(R.string.simprints_biometric_search),
                     )
                 } else {

@@ -186,6 +186,19 @@ class SearchTEIViewModelTest {
     }
 
     @Test
+    fun `Should display localized no match in Simprints biometric search parameter`() {
+        whenever(resourceManager.getString(R.string.simprints_biometric_no_match)) doReturn "(no match)"
+        whenever(resourceManager.getString(R.string.simprints_biometric_search)) doReturn "Biometric search"
+        viewModel.searchParametersUiState =
+            viewModel.searchParametersUiState.copy(items = customIntentFieldUIModels())
+
+        viewModel.onSimprintsBiometricNoMatches("fieldUid")
+
+        assertTrue(viewModel.searchParametersUiState.items.single().value == "(no match)")
+        assertTrue(viewModel.searchParametersUiState.items.single().displayName == "Biometric search")
+    }
+
+    @Test
     fun `Should set Map screen`() {
         viewModel.setMapScreen()
 
