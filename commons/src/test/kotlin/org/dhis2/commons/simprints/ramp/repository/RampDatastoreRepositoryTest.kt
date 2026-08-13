@@ -31,6 +31,7 @@ class RampDatastoreRepositoryTest {
                   "dataElementId": "weight",
                   "xAxisVisitNumberDataElementId": "visit-number",
                   "followUpVisitMaxNumber": 12,
+                  "isYAxisInverted": true,
                   "displayMaxDecimalPlaces": 1
                 },
                 {
@@ -70,6 +71,7 @@ class RampDatastoreRepositoryTest {
             assertEquals("weight", chart.dataElementId)
             assertEquals("visit-number", chart.xAxisVisitNumberDataElementId)
             assertEquals(12, chart.followUpVisitMaxNumber)
+            assertEquals(true, chart.isYAxisInverted)
             assertEquals(1, chart.displayMaxDecimalPlaces)
         }
         assertEquals(1, config.programStageHistoryTables.size)
@@ -136,6 +138,7 @@ class RampDatastoreRepositoryTest {
             assertEquals("follow-stage", chart.followUpVisitProgramStageId)
             assertEquals("weight", chart.dataElementId)
             assertEquals("visit-number", chart.xAxisVisitNumberDataElementId)
+            assertEquals(false, chart.isYAxisInverted)
         }
         config.programStageHistoryTables.single().let { table ->
             assertEquals("program", table.programId)

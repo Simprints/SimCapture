@@ -28,6 +28,8 @@ data class DataElementHistoryChartConfig(
     val followUpVisitMaxNumber: Int? = null,
     @SerializedName("displayMaxDecimalPlaces")
     val displayMaxDecimalPlaces: Int? = null,
+    @SerializedName("isYAxisInverted")
+    val isYAxisInverted: Boolean = false,
 ) {
     fun isValid(): Boolean =
         !programId.isNullOrBlank() &&

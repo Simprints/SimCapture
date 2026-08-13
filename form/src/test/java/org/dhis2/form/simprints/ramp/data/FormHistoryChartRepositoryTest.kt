@@ -5,10 +5,13 @@ import org.dhis2.form.model.FieldUiModelImpl
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.BooleanFilterConnector
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.StringFilterConnector
+import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope
 import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.event.Event
 import org.hisp.dhis.android.core.event.EventCollectionRepository
 import org.hisp.dhis.android.core.event.EventObjectRepository
+import org.hisp.dhis.android.core.option.Option
+import org.hisp.dhis.android.core.option.OptionCollectionRepository
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityDataValue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -32,6 +35,10 @@ class FormHistoryChartRepositoryTest {
     private val followUpEvents: EventCollectionRepository = mock()
     private val deletedFilter: BooleanFilterConnector<EventCollectionRepository> = mock()
     private val activeFollowUpEvents: EventCollectionRepository = mock()
+    private val optionCollection: OptionCollectionRepository = mock()
+    private val optionSetFilter: StringFilterConnector<OptionCollectionRepository> = mock()
+    private val optionsByOptionSet: OptionCollectionRepository = mock()
+    private val orderedOptions: OptionCollectionRepository = mock()
     private val repository = FormHistoryChartRepository(CURRENT_EVENT_UID, d2)
 
     @Test
@@ -82,13 +89,14 @@ class FormHistoryChartRepositoryTest {
                         optionSetConfiguration = null,
                         autocompleteList = null,
                     ),
-                configs = listOf(getConfig()),
+                configs = listOf(getConfig(isYAxisInverted = true)),
             )
 
         assertEquals("Weight", chart?.title)
         assertEquals(listOf("0", "1", "2", "3"), chart?.labels)
         assertEquals(listOf(8f, 9.5f, null, null), chart?.values)
         assertEquals(1, chart?.currentValueIndex)
+        assertEquals(true, chart?.isYAxisInverted)
         assertEquals(1, chart?.displayMaxDecimalPlaces)
     }
 
@@ -135,6 +143,62 @@ class FormHistoryChartRepositoryTest {
 
         assertEquals(listOf(8f, 9.5f, null, null), chart?.values)
         assertEquals(1, chart?.currentValueIndex)
+    }
+
+    @Test
+    fun `getChart should plot option set values in metadata order`() {
+        val currentEvent =
+            getEvent(
+                uid = CURRENT_EVENT_UID,
+                eventDate = Date(2_000),
+                dataValues =
+                    listOf(
+                        dataValue(VISIT_NUMBER_UID, "1"),
+                        dataValue(DATA_ELEMENT_UID, "mam"),
+                    ),
+            )
+        stubCurrentEvent(currentEvent)
+        stubFollowUpEvents(
+            listOf(
+                getEvent(
+                    uid = "previous",
+                    eventDate = Date(1_000),
+                    dataValues =
+                        listOf(
+                            dataValue(VISIT_NUMBER_UID, "0"),
+                            dataValue(DATA_ELEMENT_UID, "sam"),
+                        ),
+                ),
+                currentEvent,
+            ),
+        )
+        stubOptions(
+            option(code = "ok", displayName = "Ok", sortOrder = 0),
+            option(code = "mam", displayName = "MAM", sortOrder = 1),
+            option(code = "sam", displayName = "SAM", sortOrder = 2),
+        )
+
+        val chart =
+            repository.getChart(
+                fieldUiModel =
+                    FieldUiModelImpl(
+                        uid = DATA_ELEMENT_UID,
+                        value = "Ok",
+                        label = "Nutrition Status",
+                        valueType = ValueType.TEXT,
+                        optionSet = OPTION_SET_UID,
+                        optionSetConfiguration = null,
+                        autocompleteList = null,
+                    ),
+                configs = listOf(getConfig()),
+            )
+
+        assertEquals(listOf("Ok", "MAM", "SAM"), chart?.categories?.map { it.displayName })
+        assertEquals(listOf(2f, 0f, null, null), chart?.values)
+        assertEquals(listOf(2f, 1f, null, null), chart?.withCurrentValue("mam")?.values)
+        assertEquals(listOf(2f, 2f, null, null), chart?.withCurrentValue("SAM")?.values)
+        assertEquals(listOf(2f, null, null, null), chart?.withCurrentValue(null)?.values)
+        assertEquals(listOf(2f, null, null, null), chart?.withCurrentValue("unknown")?.values)
     }
 
     @Test
@@ -277,13 +341,14 @@ class FormHistoryChartRepositoryTest {
         verify(activeFollowUpEvents, times(1)).blockingGet()
     }
 
-    private fun getConfig() =
+    private fun getConfig(isYAxisInverted: Boolean = false) =
         DataElementHistoryChartConfig(
             programId = PROGRAM_UID,
             followUpVisitProgramStageId = PROGRAM_STAGE_UID,
             dataElementId = DATA_ELEMENT_UID,
             xAxisVisitNumberDataElementId = VISIT_NUMBER_UID,
             followUpVisitMaxNumber = 3,
+            isYAxisInverted = isYAxisInverted,
             displayMaxDecimalPlaces = 1,
         )
 
@@ -308,6 +373,30 @@ class FormHistoryChartRepositoryTest {
         whenever(deletedFilter.isFalse) doReturn activeFollowUpEvents
         whenever(activeFollowUpEvents.blockingGet()) doReturn eventsToReturn
     }
+
+    private fun stubOptions(vararg options: Option) {
+        whenever(d2.optionModule().options()) doReturn optionCollection
+        whenever(optionCollection.byOptionSetUid()) doReturn optionSetFilter
+        whenever(optionSetFilter.eq(OPTION_SET_UID)) doReturn optionsByOptionSet
+        whenever(
+            optionsByOptionSet.orderBySortOrder(RepositoryScope.OrderByDirection.ASC),
+        ) doReturn orderedOptions
+        whenever(orderedOptions.blockingGet()) doReturn options.toList()
+    }
+
+    private fun option(
+        code: String,
+        displayName: String,
+        sortOrder: Int,
+    ): Option =
+        Option
+            .builder()
+            .uid("$code-option")
+            .code(code)
+            .name(displayName)
+            .displayName(displayName)
+            .sortOrder(sortOrder)
+            .build()
 
     private fun getEvent(
         uid: String,
@@ -342,5 +431,6 @@ class FormHistoryChartRepositoryTest {
         const val PROGRAM_STAGE_UID = "follow-stage"
         const val DATA_ELEMENT_UID = "weight"
         const val VISIT_NUMBER_UID = "visit-number"
+        const val OPTION_SET_UID = "nutrition-status-options"
     }
 }
