@@ -14,6 +14,7 @@ import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.EventResourcesProvider
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.simprints.usecases.SimprintsResolvePendingEnrollmentActionUseCase
@@ -151,7 +152,18 @@ class EnrollmentModule(
 
     @Provides
     @PerActivity
-    fun provideCustomIntentProvider(d2: D2): CustomIntentRepository = CustomIntentRepositoryImpl(d2)
+    fun provideRampDatastoreRepository(d2: D2): RampDatastoreRepository =
+        RampDatastoreRepository(d2)
+
+    @Provides
+    @PerActivity
+    fun provideCustomIntentProvider(
+        d2: D2,
+        rampDatastoreRepository: RampDatastoreRepository,
+    ): CustomIntentRepository =
+        CustomIntentRepositoryImpl(d2) {
+            rampDatastoreRepository.isOneLevelUpOrgUnitForBiometricsModuleId(programUid)
+        }
 
     @Provides
     @PerActivity

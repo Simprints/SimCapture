@@ -150,6 +150,7 @@ class FormView : Fragment() {
             repositoryRecords =
                 arguments?.serializable(RECORDS)
                     ?: throw RepositoryRecordsException(),
+            programUid = arguments?.getString(PROGRAM_UID),
             openErrorLocation = openErrorLocation,
             useCompose = useCompose,
         )
@@ -741,6 +742,7 @@ class FormView : Fragment() {
             val bundle =
                 Bundle().apply {
                     putSerializable(RECORDS, records)
+                    putString(PROGRAM_UID, programUid)
                 }
             fragment.arguments = bundle
             return fragment
@@ -749,6 +751,7 @@ class FormView : Fragment() {
 
     companion object {
         const val RECORDS = "RECORDS"
+        private const val PROGRAM_UID = "PROGRAM_UID"
         const val TEMP_FILE = "tempFile.png"
     }
 }

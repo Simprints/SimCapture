@@ -46,6 +46,20 @@ class RampDatastoreRepository(
     fun isShowingUnfilteredList(programId: String?): Boolean =
         isProgramOptionEnabled(programId) { isShowingUnfilteredList }
 
+    fun isOneLevelUpOrgUnitForBiometricsModuleId(programId: String?): Boolean {
+        val normalizedProgramId = programId.trimToValue() ?: return false
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull { it.programId == normalizedProgramId }
+                ?.isOneLevelUpOrgUnitForBiometricsModuleId == true
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            false
+        }
+    }
+
     private fun isProgramOptionEnabled(
         programId: String?,
         option: ProgramSpecificSetting.() -> Boolean?,

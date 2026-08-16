@@ -293,8 +293,15 @@ public class SearchTEModule {
 
     @Provides
     @PerActivity
-    CustomIntentRepository provideCustomIntentRepository(D2 d2) {
-        return new CustomIntentRepositoryImpl(d2);
+    CustomIntentRepository provideCustomIntentRepository(
+            D2 d2,
+            RampDatastoreRepository rampDatastoreRepository
+    ) {
+        return new CustomIntentRepositoryImpl(
+                d2,
+                () -> rampDatastoreRepository
+                        .isOneLevelUpOrgUnitForBiometricsModuleId(initialProgram)
+        );
     }
 
     @Provides

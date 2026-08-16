@@ -110,6 +110,7 @@ class RampDatastoreRepositoryTest {
               "programSpecificSettings": [
                 {
                   "programId": " disabledProgram ",
+                  "isOneLevelUpOrgUnitForBiometricsModuleId": true,
                   "isSearchEnabled": false,
                   "isShowingUnfilteredList": false,
                   "hasDetailedEnrollmentListing": true,
@@ -147,6 +148,11 @@ class RampDatastoreRepositoryTest {
             assertEquals(listOf("excluded"), table.excludedFollowUpVisitDataElementIds)
         }
         assertEquals("disabledProgram", config.programSpecificSettings.single().programId)
+        assertEquals(
+            true,
+            config.programSpecificSettings.single()
+                .isOneLevelUpOrgUnitForBiometricsModuleId,
+        )
         assertEquals(false, config.programSpecificSettings.single().isShowingUnfilteredList)
         assertEquals(true, config.programSpecificSettings.single().hasDetailedEnrollmentListing)
         assertEquals(
@@ -229,6 +235,42 @@ class RampDatastoreRepositoryTest {
         assertEquals(true, repository.isShowingUnfilteredList("missingProgram"))
         assertEquals(true, repository.isShowingUnfilteredList(null))
         assertEquals(true, repository.isShowingUnfilteredList(" "))
+    }
+
+    @Test
+    fun `one level up biometrics module id should be enabled only when program opts in`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "programSpecificSettings": [
+                {
+                  "programId": " enabledProgram ",
+                  "isOneLevelUpOrgUnitForBiometricsModuleId": true
+                },
+                {
+                  "programId": "disabledProgram",
+                  "isOneLevelUpOrgUnitForBiometricsModuleId": false
+                },
+                {
+                  "programId": "defaultProgram"
+                },
+                {
+                  "programId": "nullProgram",
+                  "isOneLevelUpOrgUnitForBiometricsModuleId": null
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(true, repository.isOneLevelUpOrgUnitForBiometricsModuleId("enabledProgram"))
+        assertEquals(true, repository.isOneLevelUpOrgUnitForBiometricsModuleId(" enabledProgram "))
+        assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId("disabledProgram"))
+        assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId("defaultProgram"))
+        assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId("nullProgram"))
+        assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId("missingProgram"))
+        assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId(null))
+        assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId(" "))
     }
 
     @Test
@@ -364,6 +406,7 @@ class RampDatastoreRepositoryTest {
 
         assertEquals(0, config.dataElementHistoryCharts.size)
         assertEquals(0, config.programStageHistoryTables.size)
+        assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId("program"))
     }
 
     @Test

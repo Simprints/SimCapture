@@ -61,6 +61,8 @@ data class ProgramStageHistoryTableConfig(
 data class ProgramSpecificSetting(
     @SerializedName("programId")
     val programId: String? = null,
+    @SerializedName("isOneLevelUpOrgUnitForBiometricsModuleId")
+    val isOneLevelUpOrgUnitForBiometricsModuleId: Boolean? = null,
     @SerializedName("isSearchEnabled")
     val isSearchEnabled: Boolean? = null,
     @SerializedName("isShowingUnfilteredList")
