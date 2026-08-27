@@ -25,6 +25,7 @@ class ConfigureEventReportDate(
     private val periodUtils: DhisPeriodUtils,
     private val enrollmentId: String? = null,
     private val scheduleInterval: Int = 0,
+    private val anchoredScheduleVisitNumberDataElementId: String? = null,
 ) {
     operator fun invoke(selectedDate: Date? = null): Flow<EventDate> =
         flowOf(
@@ -108,6 +109,8 @@ class ConfigureEventReportDate(
     }
 
     fun getNextScheduleDate(): Date {
+        getAnchoredScheduleDate()?.let { return it }
+
         val scheduleDate =
             repository.getStageLastDate(enrollmentId)?.let {
                 val lastStageDate = DateUtils.getInstance().getCalendarByDate(it)
@@ -132,6 +135,20 @@ class ConfigureEventReportDate(
                 return date.time
             }
         return DateUtils.getInstance().getNextPeriod(periodType, scheduleDate.time, if (periodType != null) 1 else 0)
+    }
+
+    private fun getAnchoredScheduleDate(): Date? {
+        if (creationType != SCHEDULE) return null
+        val visitNumberDataElementId = anchoredScheduleVisitNumberDataElementId ?: return null
+        if (scheduleInterval <= 0) return null
+        val context =
+            repository.getAnchoredScheduleContext(
+                enrollmentUid = enrollmentId,
+                visitNumberDataElementUid = visitNumberDataElementId,
+            ) ?: return null
+        val scheduleDate = DateUtils.getInstance().getCalendarByDate(context.initialVisitDate)
+        scheduleDate.add(DAY_OF_YEAR, scheduleInterval * (context.currentVisitNumber + 1))
+        return scheduleDate.time
     }
 
     private fun getCurrentDay() = DateUtils.getInstance().getStartOfDay(Date())

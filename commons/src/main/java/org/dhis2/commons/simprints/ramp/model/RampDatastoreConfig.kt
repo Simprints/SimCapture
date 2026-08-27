@@ -96,6 +96,8 @@ data class ProgramStageSpecificSetting(
     val isScheduleOptionEnabled: Boolean? = null,
     @SerializedName("isReferOptionEnabled")
     val isReferOptionEnabled: Boolean? = null,
+    @SerializedName("isScheduleAnchoredToInitialVisit")
+    val isScheduleAnchoredToInitialVisit: Boolean = false,
 ) {
     fun isValid(): Boolean = !programStageId.isNullOrBlank()
 }

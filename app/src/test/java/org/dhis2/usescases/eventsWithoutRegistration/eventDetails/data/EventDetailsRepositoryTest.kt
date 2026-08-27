@@ -3,10 +3,15 @@ package org.dhis2.usescases.eventsWithoutRegistration.eventDetails.data
 import org.dhis2.commons.data.EventCreationType
 import org.dhis2.form.ui.FieldViewModelFactory
 import org.hisp.dhis.android.core.D2
+import org.hisp.dhis.android.core.arch.repositories.filters.internal.BooleanFilterConnector
+import org.hisp.dhis.android.core.arch.repositories.filters.internal.StringFilterConnector
 import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope.OrderByDirection.DESC
 import org.hisp.dhis.android.core.event.Event
+import org.hisp.dhis.android.core.event.EventCollectionRepository
+import org.hisp.dhis.android.core.event.EventStatus
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit
 import org.hisp.dhis.android.core.program.ProgramStage
+import org.hisp.dhis.android.core.trackedentity.TrackedEntityDataValue
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -215,6 +220,51 @@ class EventDetailsRepositoryTest {
     }
 
     @Test
+    fun `Simprints RAMP anchored schedule context should advance for skipped visits after latest factual visit`() {
+        val initialVisitDate = Date(1_000)
+        val visit0 = stageEvent("visit0", Date(10), EventStatus.COMPLETED, initialVisitDate, 0)
+        val oldSkippedVisit = stageEvent("oldSkip", Date(15), EventStatus.SKIPPED)
+        val visit1 = stageEvent("visit1", Date(20), EventStatus.COMPLETED, Date(2_000), 1)
+        val skippedVisit2 = stageEvent("skip2", Date(30), EventStatus.SKIPPED)
+        val skippedVisit3 = stageEvent("skip3", Date(40), EventStatus.SKIPPED)
+        stubAnchoredScheduleEvents(
+            listOf(
+                skippedVisit3,
+                visit0,
+                oldSkippedVisit,
+                skippedVisit2,
+                visit1,
+            ),
+        )
+
+        val context =
+            repository.getAnchoredScheduleContext(
+                ENROLLMENT_UID,
+                VISIT_NUMBER_DATA_ELEMENT_UID,
+            )
+
+        assertEquals(initialVisitDate, context?.initialVisitDate)
+        assertEquals(3, context?.currentVisitNumber)
+    }
+
+    @Test
+    fun `Simprints RAMP anchored schedule context should require factual visit zero`() {
+        stubAnchoredScheduleEvents(
+            listOf(
+                stageEvent("visit1", Date(20), EventStatus.COMPLETED, Date(2_000), 1),
+            ),
+        )
+
+        val context =
+            repository.getAnchoredScheduleContext(
+                ENROLLMENT_UID,
+                VISIT_NUMBER_DATA_ELEMENT_UID,
+            )
+
+        assertEquals(null, context)
+    }
+
+    @Test
     fun `should use search scope in referral`() {
         whenever(
             d2
@@ -279,10 +329,58 @@ class EventDetailsRepositoryTest {
         ).byOrganisationUnitScope(OrganisationUnit.Scope.SCOPE_DATA_CAPTURE)
     }
 
+    private fun stubAnchoredScheduleEvents(events: List<Event>) {
+        val eventRepository: EventCollectionRepository = mock()
+        val eventsWithDataValues: EventCollectionRepository = mock()
+        val enrollmentFilter: StringFilterConnector<EventCollectionRepository> = mock()
+        val enrollmentEvents: EventCollectionRepository = mock()
+        val programStageFilter: StringFilterConnector<EventCollectionRepository> = mock()
+        val programStageEvents: EventCollectionRepository = mock()
+        val deletedFilter: BooleanFilterConnector<EventCollectionRepository> = mock()
+        val activeEvents: EventCollectionRepository = mock()
+
+        whenever(d2.eventModule().events()) doReturn eventRepository
+        whenever(eventRepository.withTrackedEntityDataValues()) doReturn eventsWithDataValues
+        whenever(eventsWithDataValues.byEnrollmentUid()) doReturn enrollmentFilter
+        whenever(enrollmentFilter.eq(ENROLLMENT_UID)) doReturn enrollmentEvents
+        whenever(enrollmentEvents.byProgramStageUid()) doReturn programStageFilter
+        whenever(programStageFilter.eq(PROGRAM_STAGE_UID)) doReturn programStageEvents
+        whenever(programStageEvents.byDeleted()) doReturn deletedFilter
+        whenever(deletedFilter.isFalse) doReturn activeEvents
+        whenever(activeEvents.blockingGet()) doReturn events
+    }
+
+    private fun stageEvent(
+        uid: String,
+        createdAtClient: Date,
+        status: EventStatus,
+        eventDate: Date? = null,
+        visitNumber: Int? = null,
+    ): Event {
+        val event: Event = mock()
+        val dataValues =
+            visitNumber?.let { visitNumber ->
+                val visitNumberValue = visitNumber.toString()
+                listOf(
+                    mock<TrackedEntityDataValue> {
+                        on { dataElement() } doReturn VISIT_NUMBER_DATA_ELEMENT_UID
+                        on { value() } doReturn visitNumberValue
+                    },
+                )
+            }.orEmpty()
+        whenever(event.uid()) doReturn uid
+        whenever(event.createdAtClient()) doReturn createdAtClient
+        whenever(event.status()) doReturn status
+        whenever(event.eventDate()) doReturn eventDate
+        whenever(event.trackedEntityDataValues()) doReturn dataValues
+        return event
+    }
+
     companion object {
         const val PROGRAM_UID = "programUid"
         const val EVENT_UID = "eventUid"
         const val PROGRAM_STAGE_UID = "programStageUid"
         const val ENROLLMENT_UID = "enrollmentUid"
+        const val VISIT_NUMBER_DATA_ELEMENT_UID = "visitNumberDataElementUid"
     }
 }

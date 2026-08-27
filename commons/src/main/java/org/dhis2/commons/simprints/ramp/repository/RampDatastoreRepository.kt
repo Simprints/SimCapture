@@ -112,6 +112,22 @@ class RampDatastoreRepository(
 
     fun isReferOptionEnabled(programStageId: String?): Boolean = isProgramStageOptionEnabled(programStageId) { isReferOptionEnabled }
 
+    fun anchoredScheduleVisitNumberDataElementId(programStageId: String?): String? {
+        val normalizedProgramStageId = programStageId.trimToValue() ?: return null
+
+        return try {
+            getConfig()
+                .programStageSpecificSettings
+                .firstOrNull {
+                    it.programStageId == normalizedProgramStageId &&
+                        it.isScheduleAnchoredToInitialVisit
+                }?.visitNumberDataElementId
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
+        }
+    }
+
     private fun isProgramStageOptionEnabled(
         programStageId: String?,
         option: ProgramStageSpecificSetting.() -> Boolean?,

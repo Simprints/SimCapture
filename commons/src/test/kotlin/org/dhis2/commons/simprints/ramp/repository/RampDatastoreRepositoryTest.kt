@@ -125,7 +125,8 @@ class RampDatastoreRepositoryTest {
                   "hasVisitNumberPrefixForDateInList": true,
                   "visitNumberDataElementId": " visit-number ",
                   "isScheduleOptionEnabled": false,
-                  "isReferOptionEnabled": false
+                  "isReferOptionEnabled": false,
+                  "isScheduleAnchoredToInitialVisit": true
                 }
               ]
             }
@@ -173,6 +174,7 @@ class RampDatastoreRepositoryTest {
         assertEquals("disabledStage", config.programStageSpecificSettings.single().programStageId)
         assertEquals(true, config.programStageSpecificSettings.single().hasVisitNumberPrefixForDateInList)
         assertEquals("visit-number", config.programStageSpecificSettings.single().visitNumberDataElementId)
+        assertEquals(true, config.programStageSpecificSettings.single().isScheduleAnchoredToInitialVisit)
     }
 
     @Test
@@ -366,6 +368,47 @@ class RampDatastoreRepositoryTest {
         assertEquals(true, repository.isReferOptionEnabled(null))
         assertEquals(true, repository.isScheduleOptionEnabled(" "))
         assertEquals(true, repository.isReferOptionEnabled(" "))
+    }
+
+    @Test
+    fun `anchored schedule should return visit number data element only for enabled stage`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "programStageSpecificSettings": [
+                {
+                  "programStageId": "anchoredStage",
+                  "visitNumberDataElementId": "visit-number",
+                  "isScheduleAnchoredToInitialVisit": true
+                },
+                {
+                  "programStageId": "disabledStage",
+                  "visitNumberDataElementId": "visit-number",
+                  "isScheduleAnchoredToInitialVisit": false
+                },
+                {
+                  "programStageId": "defaultStage",
+                  "visitNumberDataElementId": "visit-number"
+                },
+                {
+                  "programStageId": "missingVisitNumber",
+                  "isScheduleAnchoredToInitialVisit": true
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            "visit-number",
+            repository.anchoredScheduleVisitNumberDataElementId(" anchoredStage "),
+        )
+        assertEquals(null, repository.anchoredScheduleVisitNumberDataElementId("disabledStage"))
+        assertEquals(null, repository.anchoredScheduleVisitNumberDataElementId("defaultStage"))
+        assertEquals(null, repository.anchoredScheduleVisitNumberDataElementId("missingVisitNumber"))
+        assertEquals(null, repository.anchoredScheduleVisitNumberDataElementId("missingStage"))
+        assertEquals(null, repository.anchoredScheduleVisitNumberDataElementId(null))
+        assertEquals(null, repository.anchoredScheduleVisitNumberDataElementId(" "))
     }
 
     @Test

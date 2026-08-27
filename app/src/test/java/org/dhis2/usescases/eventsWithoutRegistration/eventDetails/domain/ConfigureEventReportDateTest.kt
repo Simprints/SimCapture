@@ -6,6 +6,7 @@ import org.dhis2.commons.data.EventCreationType
 import org.dhis2.commons.date.DateUtils
 import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.usescases.eventsWithoutRegistration.eventDetails.data.EventDetailsRepository
+import org.dhis2.usescases.eventsWithoutRegistration.eventDetails.models.AnchoredScheduleContext
 import org.dhis2.usescases.eventsWithoutRegistration.eventDetails.providers.EventDetailResourcesProvider
 import org.hisp.dhis.android.core.event.Event
 import org.hisp.dhis.android.core.period.PeriodType
@@ -129,6 +130,55 @@ class ConfigureEventReportDateTest {
 
             // Then date should be next period
             assert(eventDate.dateValue == nextEventDate)
+        }
+
+    @Test
+    fun `Get Simprints RAMP anchored schedule date from initial visit and current visit number`() {
+        val initialVisitDate = DateUtils.uiDateFormat().parse("01/01/2026")!!
+        configureEventReportDate =
+            ConfigureEventReportDate(
+                creationType = EventCreationType.SCHEDULE,
+                resourceProvider = resourcesProvider,
+                repository = repository,
+                periodUtils = periodUtils,
+                enrollmentId = ENROLLMENT_ID,
+                scheduleInterval = 28,
+                anchoredScheduleVisitNumberDataElementId = VISIT_NUMBER_DATA_ELEMENT_ID,
+            )
+        whenever(
+            repository.getAnchoredScheduleContext(
+                ENROLLMENT_ID,
+                VISIT_NUMBER_DATA_ELEMENT_ID,
+            ),
+        ) doReturn
+            AnchoredScheduleContext(
+                initialVisitDate = initialVisitDate,
+                currentVisitNumber = 1,
+            )
+
+        val nextScheduleDate = configureEventReportDate.getNextScheduleDate()
+
+        assertEquals("26/02/2026", DateUtils.uiDateFormat().format(nextScheduleDate)) // for visit 2
+    }
+
+    @Test
+    fun `Selected schedule date in Simprints RAMP should override anchored suggestion`() =
+        runBlocking {
+            val selectedDate = DateUtils.uiDateFormat().parse("10/02/2026")!!
+            configureEventReportDate =
+                ConfigureEventReportDate(
+                    creationType = EventCreationType.SCHEDULE,
+                    resourceProvider = resourcesProvider,
+                    repository = repository,
+                    periodUtils = periodUtils,
+                    enrollmentId = ENROLLMENT_ID,
+                    scheduleInterval = 28,
+                    anchoredScheduleVisitNumberDataElementId = VISIT_NUMBER_DATA_ELEMENT_ID,
+                )
+
+            val eventDate = configureEventReportDate(selectedDate).first()
+
+            assertEquals(selectedDate, eventDate.currentDate)
         }
 
     @Test
@@ -261,5 +311,6 @@ class ConfigureEventReportDateTest {
         const val DUE_DATE = "Due date"
         const val EVENT_DATE = "Event date"
         const val NEXT_EVENT = "Next event"
+        const val VISIT_NUMBER_DATA_ELEMENT_ID = "visitNumberDataElementId"
     }
 }
