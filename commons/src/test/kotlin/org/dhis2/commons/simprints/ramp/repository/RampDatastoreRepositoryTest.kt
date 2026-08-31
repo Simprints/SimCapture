@@ -111,6 +111,7 @@ class RampDatastoreRepositoryTest {
                 {
                   "programId": " disabledProgram ",
                   "isOneLevelUpOrgUnitForBiometricsModuleId": true,
+                  "isBiometricsCaptureOnlyButtonEnabledForAttributeId": " biometrics ",
                   "isSearchEnabled": false,
                   "isShowingUnfilteredList": false,
                   "hasDetailedEnrollmentListing": true,
@@ -153,6 +154,11 @@ class RampDatastoreRepositoryTest {
             true,
             config.programSpecificSettings.single()
                 .isOneLevelUpOrgUnitForBiometricsModuleId,
+        )
+        assertEquals(
+            "biometrics",
+            config.programSpecificSettings.single()
+                .isBiometricsCaptureOnlyButtonEnabledForAttributeId,
         )
         assertEquals(false, config.programSpecificSettings.single().isShowingUnfilteredList)
         assertEquals(true, config.programSpecificSettings.single().hasDetailedEnrollmentListing)
@@ -273,6 +279,37 @@ class RampDatastoreRepositoryTest {
         assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId("missingProgram"))
         assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId(null))
         assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId(" "))
+    }
+
+    @Test
+    fun `biometrics capture only attribute should be returned only for configured program`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "programSpecificSettings": [
+                {
+                  "programId": " enabledProgram ",
+                  "isBiometricsCaptureOnlyButtonEnabledForAttributeId": " biometrics "
+                },
+                {
+                  "programId": "blankAttributeProgram",
+                  "isBiometricsCaptureOnlyButtonEnabledForAttributeId": " "
+                },
+                {
+                  "programId": "defaultProgram"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals("biometrics", repository.biometricsCaptureOnlyAttributeId("enabledProgram"))
+        assertEquals("biometrics", repository.biometricsCaptureOnlyAttributeId(" enabledProgram "))
+        assertEquals(null, repository.biometricsCaptureOnlyAttributeId("blankAttributeProgram"))
+        assertEquals(null, repository.biometricsCaptureOnlyAttributeId("defaultProgram"))
+        assertEquals(null, repository.biometricsCaptureOnlyAttributeId("missingProgram"))
+        assertEquals(null, repository.biometricsCaptureOnlyAttributeId(null))
+        assertEquals(null, repository.biometricsCaptureOnlyAttributeId(" "))
     }
 
     @Test
@@ -450,6 +487,7 @@ class RampDatastoreRepositoryTest {
         assertEquals(0, config.dataElementHistoryCharts.size)
         assertEquals(0, config.programStageHistoryTables.size)
         assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId("program"))
+        assertEquals(null, repository.biometricsCaptureOnlyAttributeId("program"))
     }
 
     @Test

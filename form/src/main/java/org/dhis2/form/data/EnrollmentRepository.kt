@@ -44,6 +44,7 @@ class EnrollmentRepository(
     private val enrollmentFormLabelsProvider: EnrollmentFormLabelsProvider,
     private val customIntentRepository: CustomIntentRepository,
     metadataIconProvider: MetadataIconProvider,
+    private val biometricsCaptureOnlyAttributeIdProvider: () -> String? = { null },
 ) : DataEntryBaseRepository(conf, fieldFactory, metadataIconProvider) {
     override val programUid by lazy {
         conf.program()?.uid()
@@ -146,19 +147,25 @@ class EnrollmentRepository(
 
     private fun getFieldsForSingleSection(): Single<List<FieldUiModel>> =
         Single.fromCallable {
-            conf.programAttributes().map { programTrackedEntityAttribute ->
-                transform(programTrackedEntityAttribute)
-            }
+            val captureOnlyFieldUid = biometricsCaptureOnlyField()?.uid
+            conf
+                .programAttributes()
+                .filterNot { it.trackedEntityAttribute()?.uid() == captureOnlyFieldUid }
+                .map { programTrackedEntityAttribute ->
+                    transform(programTrackedEntityAttribute)
+                }
         }
 
     private fun getFieldsForMultipleSections(): Single<List<FieldUiModel>> {
         return Single.fromCallable {
             val fields = mutableListOf<FieldUiModel>()
+            val captureOnlyFieldUid = biometricsCaptureOnlyField()?.uid
             programSections.forEach { section ->
                 fields.add(
                     transformSection(section.uid(), section.displayName(), section.description()),
                 )
                 section.attributes()?.forEachIndexed { _, attribute ->
+                    if (attribute.uid() == captureOnlyFieldUid) return@forEach
                     conf.programAttribute(attribute.uid())?.let { programTrackedEntityAttribute ->
                         fields.add(transform(programTrackedEntityAttribute, section.uid()))
                     }
@@ -167,6 +174,12 @@ class EnrollmentRepository(
             return@fromCallable fields
         }
     }
+
+    private fun biometricsCaptureOnlyField(): FieldUiModel? =
+        biometricsCaptureOnlyAttributeIdProvider()
+            ?.let(conf::programAttribute)
+            ?.let { transform(it, ENROLLMENT_DATA_SECTION_UID) }
+            ?.takeIf { it.customIntent != null }
 
     private fun transform(
         programTrackedEntityAttribute: ProgramTrackedEntityAttribute,
@@ -348,6 +361,9 @@ class EnrollmentRepository(
                 conf.program()?.description(),
             ),
         )
+        biometricsCaptureOnlyField()
+            ?.takeIf { it.value.isNullOrEmpty() }
+            ?.let(enrollmentDataList::add)
 
         enrollmentDataList.add(
             getEnrollmentDateField(

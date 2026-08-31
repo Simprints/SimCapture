@@ -96,18 +96,7 @@ class FormRepositoryImplTest {
                 )
             }
 
-            repository =
-                FormRepositoryImpl(
-                    formValueStore,
-                    fieldErrorMessageProvider,
-                    displayNameProvider,
-                    dataEntryRepository,
-                    ruleEngineHelper,
-                    rulesUtilsProvider,
-                    legendValueProvider,
-                    false,
-                    preferenceProvider,
-                )
+            repository = createRepository()
             repository.fetchFormItems()
         }
 
@@ -274,6 +263,49 @@ class FormRepositoryImplTest {
                 any(),
                 any(),
                 any(),
+            )
+        }
+
+    @Test
+    fun `Should show capture only biometrics until a value is captured`() =
+        runBlocking {
+            whenever(dataEntryRepository.list()) doReturn
+                Flowable.just(provideBiometricsCaptureOnlyItemList())
+            repository = createRepository(biometricsCaptureOnlyAttributeId = "biometrics")
+
+            val initialList = repository.fetchFormItems()
+
+            assertEquals(
+                listOf("section1", "biometrics", "uid001"),
+                initialList.map { it.uid },
+            )
+            assertEquals(2, initialList.section("section1").totalFields)
+
+            repository.updateValueOnList("biometrics", "captured-guid", ValueType.TEXT)
+            val capturedList = repository.composeList()
+
+            assertFalse(capturedList.any { it.uid == "biometrics" })
+            assertEquals(1, capturedList.section("section1").totalFields)
+        }
+
+    @Test
+    fun `Should force show empty capture only biometrics when program rules hide it`() =
+        runBlocking {
+            whenever(dataEntryRepository.list()) doReturn
+                Flowable.just(provideBiometricsCaptureOnlyItemList())
+            whenever(
+                rulesUtilsProvider.applyRuleEffects(any(), any(), any(), any()),
+            ).thenAnswer { invocation ->
+                invocation.getArgument<MutableMap<String, FieldUiModel>>(1).remove("biometrics")
+                null
+            }
+            repository = createRepository(biometricsCaptureOnlyAttributeId = "biometrics")
+
+            val result = repository.fetchFormItems()
+
+            assertEquals(
+                listOf("section1", "biometrics", "uid001"),
+                result.map { it.uid },
             )
         }
 
@@ -667,6 +699,22 @@ class FormRepositoryImplTest {
             sectionField("field2", "section2"),
         )
 
+    private fun provideBiometricsCaptureOnlyItemList() =
+        listOf(
+            section1(),
+            FieldUiModelImpl(
+                uid = "biometrics",
+                value = null,
+                label = "Biometrics",
+                valueType = ValueType.TEXT,
+                programStageSection = "section1",
+                optionSetConfiguration = null,
+                autocompleteList = null,
+                customIntent = registerLastIntent(),
+            ),
+            sectionField("uid001", "section1"),
+        )
+
     private fun sectionField(
         uid: String,
         sectionUid: String,
@@ -814,6 +862,20 @@ class FormRepositoryImplTest {
                         key = null,
                     ),
                 ),
+        )
+
+    private fun createRepository(biometricsCaptureOnlyAttributeId: String? = null) =
+        FormRepositoryImpl(
+            formValueStore,
+            fieldErrorMessageProvider,
+            displayNameProvider,
+            dataEntryRepository,
+            ruleEngineHelper,
+            rulesUtilsProvider,
+            legendValueProvider,
+            false,
+            preferenceProvider,
+            { biometricsCaptureOnlyAttributeId },
         )
 
     @Test

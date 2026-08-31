@@ -108,8 +108,17 @@ object Injector {
         repositoryRecords: FormRepositoryRecords,
         programUid: String?,
         useCompose: Boolean,
-    ): FormRepository =
-        FormRepositoryImpl(
+    ): FormRepository {
+        val biometricsCaptureOnlyAttributeId by lazy {
+            if (repositoryRecords.entryMode == EntryMode.ATTR) {
+                SimprintsRampDatastoreRepository(provideD2())
+                    .biometricsCaptureOnlyAttributeId(programUid)
+            } else {
+                null
+            }
+        }
+        val biometricsCaptureOnlyAttributeIdProvider = { biometricsCaptureOnlyAttributeId }
+        return FormRepositoryImpl(
             formValueStore =
                 provideFormValueStore(
                     context = context,
@@ -125,6 +134,7 @@ object Injector {
                     repositoryRecords = repositoryRecords,
                     metadataIconProvider = provideMetadataIconProvider(),
                     customIntentRepository = provideCustomIntentProvider(programUid),
+                    biometricsCaptureOnlyAttributeIdProvider = biometricsCaptureOnlyAttributeIdProvider,
                 ),
             ruleEngineRepository =
                 provideRuleEngineRepository(
@@ -135,7 +145,9 @@ object Injector {
             legendValueProvider = provideLegendValueProvider(context),
             useCompose = useCompose,
             preferenceProvider = providePreferenceProvider(context),
+            biometricsCaptureOnlyAttributeIdProvider = biometricsCaptureOnlyAttributeIdProvider,
         )
+    }
 
     private fun provideDataEntryRepository(
         entryMode: EntryMode?,
@@ -143,6 +155,7 @@ object Injector {
         repositoryRecords: FormRepositoryRecords,
         metadataIconProvider: MetadataIconProvider,
         customIntentRepository: CustomIntentRepository,
+        biometricsCaptureOnlyAttributeIdProvider: () -> String?,
     ): DataEntryRepository =
         when (entryMode) {
             EntryMode.ATTR ->
@@ -151,6 +164,7 @@ object Injector {
                     repositoryRecords as EnrollmentRecords,
                     metadataIconProvider,
                     customIntentRepository,
+                    biometricsCaptureOnlyAttributeIdProvider,
                 )
 
             else ->
@@ -166,6 +180,7 @@ object Injector {
         enrollmentRecords: EnrollmentRecords,
         metadataIconProvider: MetadataIconProvider,
         customIntentRepository: CustomIntentRepository,
+        biometricsCaptureOnlyAttributeIdProvider: () -> String?,
     ): DataEntryRepository =
         EnrollmentRepository(
             fieldFactory = provideFieldFactory(context),
@@ -179,6 +194,7 @@ object Injector {
             enrollmentFormLabelsProvider = provideEnrollmentFormLabelsProvider(context),
             metadataIconProvider = metadataIconProvider,
             customIntentRepository = customIntentRepository,
+            biometricsCaptureOnlyAttributeIdProvider = biometricsCaptureOnlyAttributeIdProvider,
         )
 
     private fun provideEventRepository(

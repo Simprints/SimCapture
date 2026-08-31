@@ -60,6 +60,20 @@ class RampDatastoreRepository(
         }
     }
 
+    fun biometricsCaptureOnlyAttributeId(programId: String?): String? {
+        val normalizedProgramId = programId.trimToValue() ?: return null
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull { it.programId == normalizedProgramId }
+                ?.isBiometricsCaptureOnlyButtonEnabledForAttributeId
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
+        }
+    }
+
     private fun isProgramOptionEnabled(
         programId: String?,
         option: ProgramSpecificSetting.() -> Boolean?,
@@ -268,6 +282,8 @@ class RampDatastoreRepository(
     private fun ProgramSpecificSetting.normalized(): ProgramSpecificSetting =
         copy(
             programId = programId.trimToValue(),
+            isBiometricsCaptureOnlyButtonEnabledForAttributeId =
+                isBiometricsCaptureOnlyButtonEnabledForAttributeId.trimToValue(),
             detailedEnrollmentListingDischargeOutcomeDataElementIds =
                 detailedEnrollmentListingDischargeOutcomeDataElementIds
                     ?.mapNotNull { it.trimToValue() },

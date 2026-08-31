@@ -615,8 +615,6 @@ class FormView : Fragment() {
                 intentHandler(intent)
             }
             is CustomIntentResult.Success -> {
-                val loadingIntent = FormIntent.OnFieldFinishedLoadingData(result.fieldUid)
-                intentHandler(loadingIntent)
                 val intent =
                     FormIntent.OnSaveCustomIntent(
                         result.fieldUid,
@@ -624,6 +622,9 @@ class FormView : Fragment() {
                         false,
                     )
                 intentHandler(intent)
+                // deferred clearing of loading state to prevent old UI state from flickering to visibility
+                val loadingIntent = FormIntent.OnFieldFinishedLoadingData(result.fieldUid)
+                intentHandler(loadingIntent)
             }
             is CustomIntentResult.PossibleDuplicates -> {
                 val loadingIntent = FormIntent.OnFieldFinishedLoadingData(result.fieldUid)

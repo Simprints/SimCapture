@@ -37,6 +37,7 @@ class FormRepositoryImpl(
     private val legendValueProvider: LegendValueProvider,
     private val useCompose: Boolean,
     private val preferenceProvider: PreferenceProvider,
+    private val biometricsCaptureOnlyAttributeIdProvider: () -> String? = { null },
 ) : FormRepository {
     private var completionPercentage: Float = 0f
     private val itemsWithError: MutableList<RowAction> = mutableListOf()
@@ -71,12 +72,31 @@ class FormRepositoryImpl(
     override suspend fun composeList(skipProgramRules: Boolean): List<FieldUiModel> {
         return itemList
             .applyRuleEffects(skipProgramRules)
+            .applyBiometricsCaptureOnlyVisibility()
             .mergeListWithErrorFields(itemsWithError)
             .also {
                 calculateCompletionPercentage(it)
             }.setSectionStates()
             .setFocusedItem()
             .setLastItem()
+    }
+
+    private fun List<FieldUiModel>.applyBiometricsCaptureOnlyVisibility(): List<FieldUiModel> {
+        val attributeId = biometricsCaptureOnlyAttributeIdProvider() ?: return this
+        val sourceField = itemList.firstOrNull { it.uid == attributeId } ?: return this
+        if (sourceField.customIntent == null) return this
+        if (sourceField.isLoadingData || !sourceField.value.isNullOrEmpty()) {
+            return filterNot { it.uid == attributeId }
+        }
+        if (any { it.uid == attributeId }) return this
+
+        val insertionIndex =
+            itemList
+                .takeWhile { it.uid != attributeId }
+                .count { sourceItem -> any { it.uid == sourceItem.uid } }
+        return toMutableList().apply {
+            add(insertionIndex, sourceField)
+        }
     }
 
     override fun completeEvent() {

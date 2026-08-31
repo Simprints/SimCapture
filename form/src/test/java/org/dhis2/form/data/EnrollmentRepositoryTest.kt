@@ -8,17 +8,41 @@ import org.dhis2.form.model.EnrollmentMode
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.SectionUiModelImpl.Companion.SINGLE_SECTION_UID
 import org.dhis2.form.ui.FieldViewModelFactory
+import org.dhis2.form.ui.FieldViewModelFactoryImpl
+import org.dhis2.form.ui.provider.AutoCompleteProvider
+import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.form.ui.provider.EnrollmentFormLabelsProvider
+import org.dhis2.form.ui.provider.HintProvider
+import org.dhis2.form.ui.provider.KeyboardActionProvider
+import org.dhis2.form.ui.provider.LegendValueProvider
+import org.dhis2.form.ui.provider.UiEventTypesProvider
 import org.dhis2.mobile.commons.customintents.CustomIntentRepository
+import org.dhis2.mobile.commons.model.CustomIntentActionTypeModel
+import org.dhis2.mobile.commons.model.CustomIntentModel
+import org.hisp.dhis.android.core.common.ObjectStyle
+import org.hisp.dhis.android.core.common.ObjectWithUid
+import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.program.ProgramSection
+import org.hisp.dhis.android.core.program.ProgramTrackedEntityAttribute
+import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttribute
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
-import org.mockito.Mockito.mock
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
 class EnrollmentRepositoryTest {
-    private val fieldFactory: FieldViewModelFactory = mock()
+    private val fieldFactory: FieldViewModelFactory =
+        FieldViewModelFactoryImpl(
+            hintProvider = mock<HintProvider>(),
+            displayNameProvider = mock<DisplayNameProvider>(),
+            uiEventTypesProvider = mock<UiEventTypesProvider>(),
+            keyboardActionProvider = mock<KeyboardActionProvider>(),
+            legendValueProvider = mock<LegendValueProvider>(),
+            autoCompleteProvider = mock<AutoCompleteProvider>(),
+        )
     private val conf: EnrollmentConfiguration = mock()
     private val enrollmentMode: EnrollmentMode = mock()
     private val enrolmentFormLabelsProvider: EnrollmentFormLabelsProvider = mock()
@@ -60,6 +84,7 @@ class EnrollmentRepositoryTest {
 
         whenever(conf.program()?.displayEnrollmentDateLabel()) doReturn "Enrollment Date"
         whenever(enrolmentFormLabelsProvider.provideEnrollmentDateDefaultLabel("Program_UID")) doReturn "Enrollment Date"
+        whenever(enrolmentFormLabelsProvider.provideEnrollmentOrgUnitLabel()) doReturn "Organisation unit"
 
         whenever(
             conf
@@ -126,5 +151,79 @@ class EnrollmentRepositoryTest {
         whenever(conf.sections()) doReturn emptyList()
         whenever(enrolmentFormLabelsProvider.provideSingleSectionLabel()) doReturn "enrollment label"
         assertTrue(repository.list().blockingFirst().count() == 5)
+    }
+
+    @Test
+    fun `should add empty capture only biometrics`() {
+        configureBiometricsCaptureOnlyAttribute(value = null)
+        repository = createRepository(BIOMETRICS_ATTRIBUTE_UID)
+
+        val result = repository.list().blockingFirst()
+        val generalRegistrationIndex =
+            result.indexOfFirst { it.uid == EnrollmentRepository.ENROLLMENT_DATA_SECTION_UID }
+        val biometricsField = result[generalRegistrationIndex + 1]
+
+        assertEquals(BIOMETRICS_ATTRIBUTE_UID, biometricsField.uid)
+        assertEquals(EnrollmentRepository.ENROLLMENT_DATA_SECTION_UID, biometricsField.programStageSection)
+        assertEquals("Biometrics", biometricsField.label)
+        assertTrue(biometricsField.customIntent != null)
+    }
+
+    @Test
+    fun `should omit capture only biometrics when already captured`() {
+        configureBiometricsCaptureOnlyAttribute(value = "captured-guid")
+        repository = createRepository(BIOMETRICS_ATTRIBUTE_UID)
+
+        val result = repository.list().blockingFirst()
+
+        assertFalse(result.any { it.uid == BIOMETRICS_ATTRIBUTE_UID })
+    }
+
+    private fun configureBiometricsCaptureOnlyAttribute(value: String?) {
+        whenever(conf.sections()) doReturn listOf(programSection)
+        whenever(programSection.attributes()) doReturn emptyList()
+        whenever(conf.conflicts()) doReturn emptyList()
+
+        val programAttribute: ProgramTrackedEntityAttribute =
+            mock {
+                on { trackedEntityAttribute() } doReturn ObjectWithUid.create(BIOMETRICS_ATTRIBUTE_UID)
+                on { mandatory() } doReturn false
+                on { allowFutureDate() } doReturn false
+            }
+        whenever(conf.programAttribute(BIOMETRICS_ATTRIBUTE_UID)) doReturn programAttribute
+
+        val trackedEntityAttribute: TrackedEntityAttribute =
+            mock {
+                on { uid() } doReturn BIOMETRICS_ATTRIBUTE_UID
+                on { displayFormName() } doReturn "Biometrics"
+                on { valueType() } doReturn ValueType.TEXT
+                on { optionSet() } doReturn null
+                on { generated() } doReturn false
+                on { style() } doReturn ObjectStyle.builder().build()
+            }
+        whenever(conf.trackedEntityAttribute(BIOMETRICS_ATTRIBUTE_UID)) doReturn trackedEntityAttribute
+        whenever(conf.attributeValue(BIOMETRICS_ATTRIBUTE_UID)) doReturn value
+        whenever(
+            customIntentRepository.getCustomIntent(
+                BIOMETRICS_ATTRIBUTE_UID,
+                null,
+                CustomIntentActionTypeModel.DATA_ENTRY,
+            ),
+        ) doReturn mock<CustomIntentModel>()
+    }
+
+    private fun createRepository(biometricsCaptureOnlyAttributeId: String? = null): DataEntryRepository =
+        EnrollmentRepository(
+            fieldFactory = fieldFactory,
+            conf = conf,
+            enrollmentMode = enrollmentMode,
+            enrollmentFormLabelsProvider = enrolmentFormLabelsProvider,
+            metadataIconProvider = metadataIconProvider,
+            customIntentRepository = customIntentRepository,
+            biometricsCaptureOnlyAttributeIdProvider = { biometricsCaptureOnlyAttributeId },
+        )
+
+    private companion object {
+        const val BIOMETRICS_ATTRIBUTE_UID = "biometrics"
     }
 }
