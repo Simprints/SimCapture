@@ -120,6 +120,10 @@ class FilterResources(
 
     fun filterTransferredPatientLabel(): String = resourceManager.getString(R.string.filter_transferred_patient_label)
 
+    fun filterOverdueLabel(): String = resourceManager.getString(R.string.filter_event_status_overdue)
+
+    fun filterWithSyncErrorsLabel(): String = resourceManager.getString(R.string.filter_with_sync_errors)
+
     fun filterEventStatusLabel(programUid: String): String =
         eventResourcesProvider.formatWithProgramEventLabel(
             R.string.filters_title_event_label_status,

@@ -79,7 +79,14 @@ sealed class FilterItem(
     }
 
     fun displayExpandArrow(): Boolean {
-        val filters = listOf(Filters.FOLLOW_UP, Filters.TRANSFERRED, Filters.ASSIGNED_TO_ME)
+        val filters =
+            listOf(
+                Filters.FOLLOW_UP,
+                Filters.TRANSFERRED,
+                Filters.OVERDUE,
+                Filters.SYNC_ERROR,
+                Filters.ASSIGNED_TO_ME,
+            )
         return !filters.any { it == type }
     }
 }
@@ -343,4 +350,44 @@ data class TransferredFilter(
     fun observeTransferred(): ObservableField<Boolean> = FilterManager.getInstance().observeTransferred()
 
     override fun icon() = R.drawable.ic_transfer
+}
+
+data class OverdueFilter(
+    val eventStatusFilter: EventStatusFilter,
+    override val filterLabel: String,
+) : FilterItem(
+        Filters.OVERDUE,
+        eventStatusFilter.programType,
+        eventStatusFilter.sortingItem,
+        eventStatusFilter.openFilter,
+        filterLabel,
+    ) {
+    fun activate(setActive: Boolean) {
+        if (!FilterManager.getInstance().isFilterActiveForWorkingList(Filters.EVENT_STATUS)) {
+            eventStatusFilter.setEventStatus(setActive, EventStatus.OVERDUE)
+        }
+    }
+
+    fun observeEventStatus(): ObservableField<List<EventStatus>> = eventStatusFilter.observeEventStatus()
+
+    override fun icon() = R.drawable.ic_overdue_filter
+}
+
+data class SyncErrorFilter(
+    val syncStateFilter: SyncStateFilter,
+    override val filterLabel: String,
+) : FilterItem(
+        Filters.SYNC_ERROR,
+        syncStateFilter.programType,
+        syncStateFilter.sortingItem,
+        syncStateFilter.openFilter,
+        filterLabel,
+    ) {
+    fun activate(setActive: Boolean) {
+        syncStateFilter.setSyncStatus(setActive, State.ERROR, State.WARNING)
+    }
+
+    fun observeSyncError(): ObservableBoolean = syncStateFilter.observeSyncState(State.ERROR)
+
+    override fun icon() = R.drawable.ic_sync_problem_red
 }
