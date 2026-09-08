@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.simprints.usecases.SimprintsResolvePendingEnrollmentActionUseCase
+import org.dhis2.commons.simprints.utils.SimprintsExternalCredentialUtils
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
@@ -87,6 +88,19 @@ class SimprintsEnrollmentViewModel(
                     attributeUid = resolvedAction.fieldUid,
                     value = value,
                 )
+                val externalCredentialValue =
+                    SimprintsExternalCredentialUtils.enrollmentExternalCredentialValue(
+                        resolvedAction.callout.launchIntent.action,
+                        value,
+                        data?.extras,
+                    )
+                if (externalCredentialValue != null && enrollmentUid != null) {
+                    simprintsD2Repository.saveEnrollmentExternalCredential(
+                        enrollmentUid = enrollmentUid,
+                        biometricAttributeUid = resolvedAction.fieldUid,
+                        externalCredentialValue = externalCredentialValue,
+                    )
+                }
                 sessionRepository.clear()
                 RegisterLastResult.CONTINUE_FINISH
             }

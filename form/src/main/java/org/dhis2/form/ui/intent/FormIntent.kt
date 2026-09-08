@@ -30,6 +30,7 @@ sealed class FormIntent {
         val uid: String,
         val value: String?,
         val error: Boolean,
+        val simprintsExternalCredential: String? = null,
     ) : FormIntent()
 
     data class OnQrCodeScanned(

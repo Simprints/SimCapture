@@ -61,6 +61,7 @@ class SimprintsResolveConfirmIdentityCalloutUseCaseTest {
                 verify(launchIntent).putExtra("sessionId", "session-id")
                 verify(launchIntent).putExtra("selectedGuid", "selected-guid")
                 assertEquals(customIntent.customIntentResponse, result.responseData)
+                assertEquals("biometric", result.biometricAttributeUid)
             }
         }
 
@@ -130,6 +131,7 @@ class SimprintsResolveConfirmIdentityCalloutUseCaseTest {
                 verify(launchIntent).putExtra("sessionId", "session-id")
                 verify(launchIntent).putExtra("selectedGuid", "selected-guid")
                 assertEquals(customIntent.customIntentResponse, result.responseData)
+                assertEquals("biometric", result.biometricAttributeUid)
             }
         }
 

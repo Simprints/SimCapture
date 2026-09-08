@@ -2,14 +2,17 @@ package org.dhis2.simprints
 
 import android.app.Activity.RESULT_OK
 import android.content.Intent
+import android.os.Bundle
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase
+import org.dhis2.commons.simprints.utils.SimprintsExternalCredentialUtils
 import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
 import org.dhis2.form.model.FieldUiModel
@@ -22,6 +25,7 @@ class SimprintsSearchViewModel(
     private val resolveConfirmIdentityCallout: SimprintsResolveConfirmIdentityCalloutUseCase,
     private val sessionRepository: SimprintsSessionRepository,
     private val resolveSingleBiometricSearchNavigation: SimprintsResolveSingleBiometricSearchNavigationUseCase,
+    private val simprintsD2Repository: SimprintsD2Repository,
 ) : ViewModel() {
     private data class PendingSimprintsMfidBiometricIdentification(
         val uid: String,
@@ -33,6 +37,7 @@ class SimprintsSearchViewModel(
         val programUid: String?,
         val enrollmentUid: String?,
         val isOnline: Boolean = false,
+        val biometricAttributeUid: String? = null,
     )
 
     sealed class DashboardAction {
@@ -46,6 +51,7 @@ class SimprintsSearchViewModel(
     }
 
     private val pendingDashboardNavigation = AtomicReference<PendingDashboardNavigation?>(null)
+    private var confirmIdentityStateRestored = false
     private val pendingSimprintsMfidBiometricIdentification =
         AtomicReference<PendingSimprintsMfidBiometricIdentification?>(null)
     private var useLastBiometricsForSequentialSearch = false
@@ -71,14 +77,14 @@ class SimprintsSearchViewModel(
             sessionRepository
                 .get()
                 ?.takeIf { searchState.hasBiometricIdentificationQuery || useSequentialSearchLastBiometrics }
-        val confirmIdentityIntent =
+        val confirmIdentityCallout =
             sessionId?.let {
                 resolveConfirmIdentityCallout(
                     teiUid = teiUid,
                     searchFields = searchFields,
                     sessionId = it,
                     allowBlankSearchValue = useSequentialSearchLastBiometrics,
-                )?.launchIntent
+                )
             }
 
         val navigation =
@@ -86,8 +92,9 @@ class SimprintsSearchViewModel(
                 teiUid = teiUid,
                 programUid = programUid,
                 enrollmentUid = enrollmentUid,
+                biometricAttributeUid = confirmIdentityCallout?.biometricAttributeUid,
             )
-        if (confirmIdentityIntent == null) {
+        if (confirmIdentityCallout == null) {
             return DashboardAction.OpenDashboard(navigation)
         }
 
@@ -97,7 +104,7 @@ class SimprintsSearchViewModel(
             useLastBiometricsForSequentialSearch = false
             sessionRepository.clear()
         }
-        return DashboardAction.LaunchConfirmIdentity(confirmIdentityIntent)
+        return DashboardAction.LaunchConfirmIdentity(confirmIdentityCallout.launchIntent)
     }
 
     fun prepareEnrollmentQueryData(
@@ -124,10 +131,46 @@ class SimprintsSearchViewModel(
         sessionRepository.markPendingEnrollmentFromPossibleDuplicates()
     }
 
-    fun onConfirmIdentityResult(resultCode: Int): PendingDashboardNavigation? =
-        pendingDashboardNavigation
-            .exchange(null)
-            ?.takeIf { resultCode == RESULT_OK }
+    fun savePendingConfirmIdentity(outState: Bundle) {
+        val navigation = pendingDashboardNavigation.load()
+        outState.putString("simprints.confirmIdentity.teiUid", navigation?.teiUid)
+        outState.putString("simprints.confirmIdentity.programUid", navigation?.programUid)
+        outState.putString("simprints.confirmIdentity.enrollmentUid", navigation?.enrollmentUid)
+        outState.putString("simprints.confirmIdentity.biometricAttributeUid", navigation?.biometricAttributeUid)
+    }
+
+    fun restorePendingConfirmIdentity(savedState: Bundle?) {
+        if (confirmIdentityStateRestored) return
+        confirmIdentityStateRestored = true
+        val teiUid = savedState?.getString("simprints.confirmIdentity.teiUid")?.takeIf(String::isNotBlank) ?: return
+        pendingDashboardNavigation.compareAndSet(
+            null,
+            PendingDashboardNavigation(
+                teiUid = teiUid,
+                programUid = savedState.getString("simprints.confirmIdentity.programUid"),
+                enrollmentUid = savedState.getString("simprints.confirmIdentity.enrollmentUid"),
+                biometricAttributeUid = savedState.getString("simprints.confirmIdentity.biometricAttributeUid"),
+            ),
+        )
+    }
+
+    suspend fun onConfirmIdentityResult(
+        resultCode: Int,
+        data: Intent? = null,
+    ): PendingDashboardNavigation? {
+        val navigation = pendingDashboardNavigation.exchange(null) ?: return null
+        if (resultCode != RESULT_OK) return null
+
+        SimprintsExternalCredentialUtils.externalCredentialValue(data?.extras)?.let { externalCredentialValue ->
+            simprintsD2Repository.saveExternalCredential(
+                teiUid = navigation.teiUid,
+                programUid = navigation.programUid,
+                biometricAttributeUid = navigation.biometricAttributeUid,
+                externalCredentialValue = externalCredentialValue,
+            )
+        }
+        return navigation
+    }
 
     fun onConfirmIdentityLaunchFailed() {
         pendingDashboardNavigation.store(null)

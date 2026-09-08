@@ -7,6 +7,7 @@ import org.dhis2.commons.dialogs.bottomsheet.IssueType
 import org.dhis2.commons.periods.model.Period
 import org.dhis2.commons.prefs.Preference
 import org.dhis2.commons.prefs.PreferenceProvider
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.form.data.EnrollmentRepository.Companion.ENROLLMENT_DATE_UID
@@ -16,6 +17,7 @@ import org.dhis2.form.model.OptionSetConfiguration
 import org.dhis2.form.model.RowAction
 import org.dhis2.form.model.SectionUiModelImpl
 import org.dhis2.form.model.StoreResult
+import org.dhis2.form.model.ValueStoreResult
 import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.form.ui.provider.LegendValueProvider
 import org.dhis2.mobile.commons.model.CustomIntentRequestArgumentModel
@@ -38,6 +40,8 @@ class FormRepositoryImpl(
     private val useCompose: Boolean,
     private val preferenceProvider: PreferenceProvider,
     private val biometricsCaptureOnlyAttributeIdProvider: () -> String? = { null },
+    private val externalCredentialAttributeIdProvider: () -> String? = { null },
+    private val simprintsD2Repository: SimprintsD2Repository? = null,
 ) : FormRepository {
     private var completionPercentage: Float = 0f
     private val itemsWithError: MutableList<RowAction> = mutableListOf()
@@ -46,6 +50,7 @@ class FormRepositoryImpl(
     private var itemList: List<FieldUiModel> = emptyList()
     private var focusedItemId: String? = null
     private var ruleEffects: List<RuleEffect> = emptyList()
+    private var ruleEffectsNeedRefresh = false
     private var ruleEffectsResult: RuleUtilsProviderResult? = null
     private var runDataIntegrity: Boolean = false
     private var backupList: List<FieldUiModel> = emptyList()
@@ -70,8 +75,7 @@ class FormRepositoryImpl(
     }
 
     override suspend fun composeList(skipProgramRules: Boolean): List<FieldUiModel> {
-        return itemList
-            .applyRuleEffects(skipProgramRules)
+        return synchronized(this) { itemList.applyRuleEffects(skipProgramRules) }
             .applyBiometricsCaptureOnlyVisibility()
             .mergeListWithErrorFields(itemsWithError)
             .also {
@@ -79,6 +83,18 @@ class FormRepositoryImpl(
             }.setSectionStates()
             .setFocusedItem()
             .setLastItem()
+            .applyExternalCredentialReadOnly()
+    }
+
+    private fun List<FieldUiModel>.applyExternalCredentialReadOnly(): List<FieldUiModel> {
+        val attributeUid = externalCredentialAttributeIdProvider() ?: return this
+        return map { field ->
+            if (field.uid == attributeUid && field.valueType == ValueType.TEXT) {
+                field.setEditable(false)
+            } else {
+                field
+            }
+        }
     }
 
     private fun List<FieldUiModel>.applyBiometricsCaptureOnlyVisibility(): List<FieldUiModel> {
@@ -463,6 +479,8 @@ class FormRepositoryImpl(
         )
 
     override fun completedFieldsPercentage(value: List<FieldUiModel>): Float = completionPercentage
+
+    @Synchronized
     override fun backupOfChangedItems() = backupList.minus(itemList.applyRuleEffects())
 
     private suspend fun getFieldsWithError() =
@@ -496,9 +514,10 @@ class FormRepositoryImpl(
     @Synchronized
     private fun List<FieldUiModel>.applyRuleEffects(skipProgramRules: Boolean = false): List<FieldUiModel> {
         ruleEffects =
-            if (skipProgramRules) {
+            if (skipProgramRules && !ruleEffectsNeedRefresh) {
                 ruleEffects
             } else {
+                ruleEffectsNeedRefresh = false
                 ruleEffects()
             }
         val fieldMap = this.associateBy { it.uid }.toMutableMap()
@@ -831,6 +850,27 @@ class FormRepositoryImpl(
         val result = formValueStore.save(id, value, extraData)
         if (result.contextDataChanged()) ruleEngineRepository?.refreshContext()
         return result
+    }
+
+    @Synchronized
+    override fun saveSimprintsExternalCredential(
+        biometricAttributeUid: String,
+        value: String,
+    ): StoreResult? {
+        if (dataEntryRepository.isEvent()) return null
+        return try {
+            val attributeUid =
+                simprintsD2Repository?.blockingSaveEnrollmentExternalCredential(
+                    enrollmentUid = formValueStore.recordUid(),
+                    biometricAttributeUid = biometricAttributeUid,
+                    externalCredentialValue = value,
+                ) ?: return null
+            updateValueOnList(attributeUid, value, ValueType.TEXT)
+            ruleEffectsNeedRefresh = true
+            StoreResult(attributeUid, ValueStoreResult.VALUE_CHANGED)
+        } catch (_: Exception) {
+            StoreResult(biometricAttributeUid, ValueStoreResult.ERROR_UPDATING_VALUE)
+        }
     }
 
     override fun storeFile(

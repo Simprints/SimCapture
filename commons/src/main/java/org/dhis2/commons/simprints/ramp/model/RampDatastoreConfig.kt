@@ -65,6 +65,8 @@ data class ProgramSpecificSetting(
     val isOneLevelUpOrgUnitForBiometricsModuleId: Boolean? = null,
     @SerializedName("isBiometricsCaptureOnlyButtonEnabledForAttributeId")
     val isBiometricsCaptureOnlyButtonEnabledForAttributeId: String? = null,
+    @SerializedName("externalCredentialAttributeId")
+    val externalCredentialAttributeId: String? = null,
     @SerializedName("isSearchEnabled")
     val isSearchEnabled: Boolean? = null,
     @SerializedName("isShowingUnfilteredList")

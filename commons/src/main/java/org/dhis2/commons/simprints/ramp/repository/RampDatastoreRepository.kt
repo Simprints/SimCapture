@@ -74,6 +74,20 @@ class RampDatastoreRepository(
         }
     }
 
+    fun externalCredentialAttributeId(programId: String?): String? {
+        val normalizedProgramId = programId.trimToValue() ?: return null
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull { it.programId == normalizedProgramId }
+                ?.externalCredentialAttributeId
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
+        }
+    }
+
     private fun isProgramOptionEnabled(
         programId: String?,
         option: ProgramSpecificSetting.() -> Boolean?,
@@ -284,6 +298,7 @@ class RampDatastoreRepository(
             programId = programId.trimToValue(),
             isBiometricsCaptureOnlyButtonEnabledForAttributeId =
                 isBiometricsCaptureOnlyButtonEnabledForAttributeId.trimToValue(),
+            externalCredentialAttributeId = externalCredentialAttributeId.trimToValue(),
             detailedEnrollmentListingDischargeOutcomeDataElementIds =
                 detailedEnrollmentListingDischargeOutcomeDataElementIds
                     ?.mapNotNull { it.trimToValue() },

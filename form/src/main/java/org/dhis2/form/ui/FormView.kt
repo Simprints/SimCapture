@@ -42,6 +42,7 @@ import org.dhis2.commons.locationprovider.LocationProvider
 import org.dhis2.commons.orgunitselector.OUTreeFragment
 import org.dhis2.commons.periods.ui.PeriodSelectorContent
 import org.dhis2.commons.simprints.usecases.SimprintsResolvePossibleDuplicatesSearchUseCase.SimprintsPossibleDuplicatesSearch
+import org.dhis2.commons.simprints.utils.SimprintsExternalCredentialUtils
 import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.form.R
 import org.dhis2.form.data.RulesUtilsProviderConfigurationError
@@ -620,6 +621,12 @@ class FormView : Fragment() {
                         result.fieldUid,
                         result.value,
                         false,
+                        simprintsExternalCredential =
+                            SimprintsExternalCredentialUtils.enrollmentExternalCredentialValue(
+                                result.action,
+                                result.value,
+                                result.extras,
+                            ),
                     )
                 intentHandler(intent)
                 // deferred clearing of loading state to prevent old UI state from flickering to visibility

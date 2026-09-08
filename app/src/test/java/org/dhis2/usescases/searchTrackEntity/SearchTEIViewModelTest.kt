@@ -1,5 +1,7 @@
 package org.dhis2.usescases.searchTrackEntity
 
+import android.app.Activity.RESULT_OK
+import android.content.Intent
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -9,6 +11,7 @@ import androidx.compose.material.icons.outlined.Map
 import androidx.paging.PagingData
 import androidx.paging.testing.asSnapshot
 import app.cash.turbine.test
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -50,6 +53,7 @@ import org.hisp.dhis.android.core.trackedentity.TrackedEntityType
 import org.hisp.dhis.mobile.ui.designsystem.component.Orientation
 import org.hisp.dhis.mobile.ui.designsystem.component.navigationBar.NavigationBarItem
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -58,6 +62,7 @@ import org.maplibre.geojson.BoundingBox
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -1090,6 +1095,48 @@ class SearchTEIViewModelTest {
             viewModel.searchActions.test {
                 viewModel.launchCustomIntent("fieldUid", "customIntentUid")
                 assertTrue(awaitItem() is TrackerInputAction.LaunchCustomIntent)
+            }
+        }
+
+    @Test
+    fun `confirm identity should forward response and wait before opening dashboard`() =
+        runTest {
+            val data: Intent = mock()
+            val saveStarted = CompletableDeferred<Unit>()
+            val finishSaving = CompletableDeferred<Unit>()
+            whenever(simprintsSearchViewModel.onConfirmIdentityResult(RESULT_OK, data)) doSuspendableAnswer {
+                saveStarted.complete(Unit)
+                finishSaving.await()
+                SimprintsSearchViewModel.PendingDashboardNavigation("tei-uid", "program-uid", "enrollment-uid")
+            }
+
+            viewModel.simprintsNavigation.test {
+                viewModel.onConfirmIdentityResult(RESULT_OK, data)
+                saveStarted.await()
+                expectNoEvents()
+
+                finishSaving.complete(Unit)
+                assertEquals(
+                    SimprintsNavigationAction.OpenDashboard("tei-uid", "program-uid", "enrollment-uid"),
+                    awaitItem(),
+                )
+                verify(simprintsSearchViewModel).onConfirmIdentityResult(RESULT_OK, data)
+            }
+        }
+
+    @Test
+    fun `confirm identity save failure should show error instead of opening dashboard`() =
+        runTest {
+            val data: Intent = mock()
+            whenever(simprintsSearchViewModel.onConfirmIdentityResult(RESULT_OK, data))
+                .thenThrow(IllegalStateException("Unable to save"))
+            whenever(resourceManager.getString(R.string.custom_intent_error)) doReturn "Custom intent error message"
+
+            viewModel.simprintsNavigation.test {
+                viewModel.onConfirmIdentityResult(RESULT_OK, data)
+
+                assertEquals(SimprintsNavigationAction.ShowMessage("Custom intent error message"), awaitItem())
+                expectNoEvents()
             }
         }
 

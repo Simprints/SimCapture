@@ -26,7 +26,7 @@ class SimprintsResolveConfirmIdentityCalloutUseCase(
                         customIntent = customIntent,
                         sessionId = sessionId,
                         selectedGuid = selectedGuid,
-                    )
+                    ).copy(biometricAttributeUid = field.uid)
             }
         }
 }

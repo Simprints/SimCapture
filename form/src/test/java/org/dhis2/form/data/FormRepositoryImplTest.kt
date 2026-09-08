@@ -5,7 +5,9 @@ import io.reactivex.Flowable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.dhis2.commons.prefs.PreferenceProvider
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.form.model.ActionType
 import org.dhis2.form.model.EventCategory
 import org.dhis2.form.model.FieldUiModel
@@ -40,9 +42,12 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.atLeast
+import org.mockito.kotlin.clearInvocations
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doReturnConsecutively
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -55,6 +60,7 @@ class FormRepositoryImplTest {
     private val fieldErrorMessageProvider: FieldErrorMessageProvider = mock()
     private val displayNameProvider: DisplayNameProvider = mock()
     private val legendValueProvider: LegendValueProvider = mock()
+    private val simprintsD2Repository: SimprintsD2Repository = mock()
     private lateinit var repository: FormRepositoryImpl
 
     @Before
@@ -864,7 +870,10 @@ class FormRepositoryImplTest {
                 ),
         )
 
-    private fun createRepository(biometricsCaptureOnlyAttributeId: String? = null) =
+    private fun createRepository(
+        biometricsCaptureOnlyAttributeId: String? = null,
+        externalCredentialAttributeId: String? = null,
+    ) =
         FormRepositoryImpl(
             formValueStore,
             fieldErrorMessageProvider,
@@ -876,7 +885,73 @@ class FormRepositoryImplTest {
             false,
             preferenceProvider,
             { biometricsCaptureOnlyAttributeId },
+            { externalCredentialAttributeId },
+            simprintsD2Repository,
         )
+
+    @Test
+    fun `Configured external credential stays read only after form reload without program rule effects`() =
+        runTest {
+            repository = createRepository(externalCredentialAttributeId = "uid001")
+
+            repeat(2) {
+                val field = repository.fetchFormItems().first { it.uid == "uid001" }
+                assertFalse(field.editable)
+            }
+        }
+
+    @Test
+    fun `Saving Simprints external credential updates form value before program rules run`() =
+        runTest {
+            whenever(formValueStore.recordUid()) doReturn "enrollment"
+            whenever(
+                simprintsD2Repository.blockingSaveEnrollmentExternalCredential("enrollment", "biometrics", "new-credential"),
+            ) doReturn "uid001"
+
+            val result = repository.saveSimprintsExternalCredential("biometrics", "new-credential")
+
+            assertEquals(StoreResult("uid001", ValueStoreResult.VALUE_CHANGED), result)
+            assertEquals("new-credential", repository.composeList().first { it.uid == "uid001" }.value)
+        }
+
+    @Test
+    fun `Loading refresh after Simprints external credential save must not reuse the hide empty rule`() =
+        runTest {
+            val hideEmptyExternalCredential =
+                RuleEffect(
+                    "hide-credential",
+                    RuleAction(null, ProgramRuleActionType.HIDEFIELD.name, mapOf("field" to "uid001")),
+                    null,
+                )
+            whenever(ruleEngineHelper.evaluate()) doReturn listOf(hideEmptyExternalCredential)
+            repository.composeList()
+            whenever(formValueStore.recordUid()) doReturn "enrollment"
+            whenever(
+                simprintsD2Repository.blockingSaveEnrollmentExternalCredential("enrollment", "biometrics", "new-credential"),
+            ) doReturn "uid001"
+            whenever(ruleEngineHelper.evaluate()) doReturn emptyList()
+            clearInvocations(rulesUtilsProvider)
+
+            repository.saveSimprintsExternalCredential("biometrics", "new-credential")
+            repository.composeList(skipProgramRules = true)
+
+            verify(rulesUtilsProvider).applyRuleEffects(eq(false), any(), eq(emptyList()), eq(formValueStore))
+        }
+
+    @Test
+    fun `Simprints external credential save error is surfaced without changing form value`() =
+        runTest {
+            whenever(formValueStore.recordUid()) doReturn "enrollment"
+            whenever(
+                simprintsD2Repository.blockingSaveEnrollmentExternalCredential("enrollment", "biometrics", "new-credential"),
+            ).thenThrow(IllegalStateException("save failed"))
+            val previousValue = repository.composeList().first { it.uid == "uid001" }.value
+
+            val result = repository.saveSimprintsExternalCredential("biometrics", "new-credential")
+
+            assertEquals(ValueStoreResult.ERROR_UPDATING_VALUE, result?.valueStoreResult)
+            assertEquals(previousValue, repository.composeList().first { it.uid == "uid001" }.value)
+        }
 
     @Test
     fun `reEvaluateRequestParams should call dataEntryRepository and map results`() {

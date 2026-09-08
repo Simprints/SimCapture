@@ -112,6 +112,7 @@ class RampDatastoreRepositoryTest {
                   "programId": " disabledProgram ",
                   "isOneLevelUpOrgUnitForBiometricsModuleId": true,
                   "isBiometricsCaptureOnlyButtonEnabledForAttributeId": " biometrics ",
+                  "externalCredentialAttributeId": " external-credential-attribute ",
                   "isSearchEnabled": false,
                   "isShowingUnfilteredList": false,
                   "hasDetailedEnrollmentListing": true,
@@ -159,6 +160,10 @@ class RampDatastoreRepositoryTest {
             "biometrics",
             config.programSpecificSettings.single()
                 .isBiometricsCaptureOnlyButtonEnabledForAttributeId,
+        )
+        assertEquals(
+            "external-credential-attribute",
+            config.programSpecificSettings.single().externalCredentialAttributeId,
         )
         assertEquals(false, config.programSpecificSettings.single().isShowingUnfilteredList)
         assertEquals(true, config.programSpecificSettings.single().hasDetailedEnrollmentListing)
@@ -310,6 +315,77 @@ class RampDatastoreRepositoryTest {
         assertEquals(null, repository.biometricsCaptureOnlyAttributeId("missingProgram"))
         assertEquals(null, repository.biometricsCaptureOnlyAttributeId(null))
         assertEquals(null, repository.biometricsCaptureOnlyAttributeId(" "))
+    }
+
+    @Test
+    fun `external credential attribute should be returned only for configured program`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "programSpecificSettings": [
+                {
+                  "programId": " enabledProgram ",
+                  "externalCredentialAttributeId": " external-credential-attribute "
+                },
+                {
+                  "programId": "otherProgram",
+                  "externalCredentialAttributeId": "other-attribute"
+                },
+                {
+                  "programId": "blankAttributeProgram",
+                  "externalCredentialAttributeId": " "
+                },
+                {
+                  "programId": "nullAttributeProgram",
+                  "externalCredentialAttributeId": null
+                },
+                {
+                  "programId": "defaultProgram"
+                },
+                {
+                  "programId": " ",
+                  "externalCredentialAttributeId": "invalid-program-attribute"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals("external-credential-attribute", repository.externalCredentialAttributeId("enabledProgram"))
+        assertEquals("external-credential-attribute", repository.externalCredentialAttributeId(" enabledProgram "))
+        assertEquals("other-attribute", repository.externalCredentialAttributeId("otherProgram"))
+        assertEquals(null, repository.externalCredentialAttributeId("blankAttributeProgram"))
+        assertEquals(null, repository.externalCredentialAttributeId("nullAttributeProgram"))
+        assertEquals(null, repository.externalCredentialAttributeId("defaultProgram"))
+        assertEquals(null, repository.externalCredentialAttributeId("missingProgram"))
+        assertEquals(null, repository.externalCredentialAttributeId(null))
+        assertEquals(null, repository.externalCredentialAttributeId(" "))
+    }
+
+    @Test
+    fun `external credential attribute should be absent when datastore is missing`() {
+        whenever(
+            d2
+                .dataStoreModule()
+                .dataStore()
+                .value("simprints", "ramp")
+                .blockingGet(),
+        ).thenReturn(null)
+
+        assertEquals(null, repository.externalCredentialAttributeId("program"))
+    }
+
+    @Test
+    fun `external credential attribute should be absent when datastore read fails`() {
+        whenever(
+            d2
+                .dataStoreModule()
+                .dataStore()
+                .value("simprints", "ramp")
+                .blockingGet(),
+        ).thenThrow(RuntimeException("Datastore unavailable"))
+
+        assertEquals(null, repository.externalCredentialAttributeId("program"))
     }
 
     @Test
@@ -488,6 +564,7 @@ class RampDatastoreRepositoryTest {
         assertEquals(0, config.programStageHistoryTables.size)
         assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId("program"))
         assertEquals(null, repository.biometricsCaptureOnlyAttributeId("program"))
+        assertEquals(null, repository.externalCredentialAttributeId("program"))
     }
 
     @Test

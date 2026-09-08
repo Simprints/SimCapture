@@ -11,6 +11,7 @@ import org.dhis2.commons.resources.EventResourcesProvider
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository as SimprintsRampDatastoreRepository
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.data.DataEntryRepository
@@ -118,6 +119,13 @@ object Injector {
             }
         }
         val biometricsCaptureOnlyAttributeIdProvider = { biometricsCaptureOnlyAttributeId }
+        val externalCredentialAttributeId by lazy {
+            if (repositoryRecords.entryMode == EntryMode.ATTR) {
+                SimprintsRampDatastoreRepository(provideD2()).externalCredentialAttributeId(programUid)
+            } else {
+                null
+            }
+        }
         return FormRepositoryImpl(
             formValueStore =
                 provideFormValueStore(
@@ -146,6 +154,9 @@ object Injector {
             useCompose = useCompose,
             preferenceProvider = providePreferenceProvider(context),
             biometricsCaptureOnlyAttributeIdProvider = biometricsCaptureOnlyAttributeIdProvider,
+            externalCredentialAttributeIdProvider = { externalCredentialAttributeId },
+            simprintsD2Repository =
+                if (repositoryRecords.entryMode == EntryMode.ATTR) SimprintsD2Repository(provideD2()) else null,
         )
     }
 

@@ -17,6 +17,8 @@ import org.dhis2.form.model.ActionType
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.FieldUiModelImpl
 import org.dhis2.form.model.RowAction
+import org.dhis2.form.model.StoreResult
+import org.dhis2.form.model.ValueStoreResult
 import org.dhis2.form.simprints.ramp.model.FormHistoryChart
 import org.dhis2.form.ui.event.RecyclerViewUiEvents
 import org.dhis2.form.ui.intent.FormIntent
@@ -31,7 +33,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -235,6 +239,65 @@ class FormViewModelTest {
             advanceUntilIdle()
 
             verify(repository).save(fieldUid, value, null)
+        }
+
+    @Test
+    fun `Should save SID external credential after GUID and evaluate program rules`() =
+        runTest {
+            whenever(repository.save("biometrics", "guid", null)) doReturn
+                StoreResult("biometrics", ValueStoreResult.VALUE_HAS_NOT_CHANGED)
+            whenever(repository.saveSimprintsExternalCredential("biometrics", "credential-value")) doReturn
+                StoreResult("credential-attribute", ValueStoreResult.VALUE_CHANGED)
+
+            viewModel.submitIntent(
+                FormIntent.OnSaveCustomIntent("biometrics", "guid", false, "credential-value"),
+            )
+            advanceUntilIdle()
+
+            inOrder(repository) {
+                verify(repository).save("biometrics", "guid", null)
+                verify(repository).saveSimprintsExternalCredential("biometrics", "credential-value")
+                verify(repository).composeList(false)
+            }
+        }
+
+    @Test
+    fun `Should not save SID external credential when GUID save fails`() =
+        runTest {
+            whenever(repository.save("biometrics", "guid", null)) doReturn
+                StoreResult("biometrics", ValueStoreResult.ERROR_UPDATING_VALUE)
+
+            viewModel.submitIntent(
+                FormIntent.OnSaveCustomIntent("biometrics", "guid", false, "credential-value"),
+            )
+            advanceUntilIdle()
+
+            verify(repository, never()).saveSimprintsExternalCredential(any(), any())
+        }
+
+    @Test
+    fun `Should not save SID external credential from failed custom intent`() =
+        runTest {
+            viewModel.submitIntent(
+                FormIntent.OnSaveCustomIntent("biometrics", "guid", true, "credential-value"),
+            )
+            advanceUntilIdle()
+
+            verify(repository, never()).saveSimprintsExternalCredential(any(), any())
+        }
+
+    @Test
+    fun `Should display error when SID external credential cannot be saved`() =
+        runTest {
+            whenever(repository.saveSimprintsExternalCredential("biometrics", "credential-value")) doReturn
+                StoreResult("biometrics", ValueStoreResult.ERROR_UPDATING_VALUE)
+
+            viewModel.submitIntent(
+                FormIntent.OnSaveCustomIntent("biometrics", "guid", false, "credential-value"),
+            )
+            advanceUntilIdle()
+
+            assertEquals(org.dhis2.form.R.string.update_field_error, viewModel.showToast.value)
         }
 
     @Test

@@ -1,6 +1,7 @@
 package org.dhis2.usescases.searchTrackEntity
 
 import android.content.Intent
+import android.os.Bundle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.outlined.List
@@ -60,6 +61,7 @@ import org.dhis2.maps.layer.basemaps.BaseMapStyle
 import org.dhis2.maps.managers.MapManager
 import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.mobile.commons.coroutine.CoroutineTracker
+import org.dhis2.mobile.commons.extensions.launchUseCase
 import org.dhis2.mobile.commons.model.CustomIntentModel
 import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
 import org.dhis2.simprints.SimprintsLoadPossibleDuplicatesSearchResultsUseCase
@@ -1080,9 +1082,21 @@ class SearchTEIViewModel(
         }
     }
 
-    fun onConfirmIdentityResult(resultCode: Int) {
-        simprintsSearchViewModel.onConfirmIdentityResult(resultCode)?.let { navigation ->
-            viewModelScope.launch {
+    fun savePendingSimprintsConfirmIdentity(outState: Bundle) {
+        simprintsSearchViewModel.savePendingConfirmIdentity(outState)
+    }
+
+    fun restorePendingSimprintsConfirmIdentity(savedState: Bundle?) {
+        simprintsSearchViewModel.restorePendingConfirmIdentity(savedState)
+    }
+
+    fun onConfirmIdentityResult(
+        resultCode: Int,
+        data: Intent?,
+    ) {
+        launchUseCase {
+            try {
+                val navigation = simprintsSearchViewModel.onConfirmIdentityResult(resultCode, data) ?: return@launchUseCase
                 _simprintsNavigation.send(
                     SimprintsNavigationAction.OpenDashboard(
                         teiUid = navigation.teiUid,
@@ -1090,9 +1104,19 @@ class SearchTEIViewModel(
                         enrollmentUid = navigation.enrollmentUid,
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                Timber.e("Unable to save Simprints external credential after identity confirmation")
+                _simprintsNavigation.send(
+                    SimprintsNavigationAction.ShowMessage(
+                        resourceManager.getString(R.string.custom_intent_error),
+                    ),
+                )
+            } finally {
+                refreshSimprintsUiState()
             }
         }
-        refreshSimprintsUiState()
     }
 
     fun onConfirmIdentityLaunchFailed() {
