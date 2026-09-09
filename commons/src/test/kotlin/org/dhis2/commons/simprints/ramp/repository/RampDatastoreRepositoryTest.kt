@@ -126,6 +126,8 @@ class RampDatastoreRepositoryTest {
                   "programStageId": " disabledStage ",
                   "hasVisitNumberPrefixForDateInList": true,
                   "visitNumberDataElementId": " visit-number ",
+                  "hasAllVisitsExpanded": true,
+                  "hasVisitNumbersSortedAscending": true,
                   "isScheduleOptionEnabled": false,
                   "isReferOptionEnabled": false,
                   "isScheduleAnchoredToInitialVisit": true
@@ -185,6 +187,8 @@ class RampDatastoreRepositoryTest {
         assertEquals("disabledStage", config.programStageSpecificSettings.single().programStageId)
         assertEquals(true, config.programStageSpecificSettings.single().hasVisitNumberPrefixForDateInList)
         assertEquals("visit-number", config.programStageSpecificSettings.single().visitNumberDataElementId)
+        assertEquals(true, config.programStageSpecificSettings.single().hasAllVisitsExpanded)
+        assertEquals(true, config.programStageSpecificSettings.single().hasVisitNumbersSortedAscending)
         assertEquals(true, config.programStageSpecificSettings.single().isScheduleAnchoredToInitialVisit)
     }
 
@@ -481,6 +485,41 @@ class RampDatastoreRepositoryTest {
         assertEquals(true, repository.isReferOptionEnabled(null))
         assertEquals(true, repository.isScheduleOptionEnabled(" "))
         assertEquals(true, repository.isReferOptionEnabled(" "))
+    }
+
+    @Test
+    fun `getConfig should preserve optional visit list flags independently`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "programStageSpecificSettings": [
+                {
+                  "programStageId": "expandedStage",
+                  "hasAllVisitsExpanded": true,
+                  "hasVisitNumbersSortedAscending": false
+                },
+                {
+                  "programStageId": "sortedStage",
+                  "hasAllVisitsExpanded": false,
+                  "hasVisitNumbersSortedAscending": true
+                },
+                {
+                  "programStageId": "defaultStage"
+                },
+                {
+                  "programStageId": "nullStage",
+                  "hasAllVisitsExpanded": null,
+                  "hasVisitNumbersSortedAscending": null
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val settings = repository.getConfig().programStageSpecificSettings
+
+        assertEquals(listOf(true, false, null, null), settings.map { it.hasAllVisitsExpanded })
+        assertEquals(listOf(false, true, null, null), settings.map { it.hasVisitNumbersSortedAscending })
     }
 
     @Test

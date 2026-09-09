@@ -96,6 +96,10 @@ data class ProgramStageSpecificSetting(
     val hasVisitNumberPrefixForDateInList: Boolean? = null,
     @SerializedName("visitNumberDataElementId")
     val visitNumberDataElementId: String? = null,
+    @SerializedName("hasAllVisitsExpanded")
+    val hasAllVisitsExpanded: Boolean? = null,
+    @SerializedName("hasVisitNumbersSortedAscending")
+    val hasVisitNumbersSortedAscending: Boolean? = null,
     @SerializedName("isScheduleOptionEnabled")
     val isScheduleOptionEnabled: Boolean? = null,
     @SerializedName("isReferOptionEnabled")
