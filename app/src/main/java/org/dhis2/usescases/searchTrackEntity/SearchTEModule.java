@@ -300,7 +300,8 @@ public class SearchTEModule {
         return new CustomIntentRepositoryImpl(
                 d2,
                 () -> rampDatastoreRepository
-                        .isOneLevelUpOrgUnitForBiometricsModuleId(initialProgram)
+                        .isOneLevelUpOrgUnitForBiometricsModuleId(initialProgram),
+                () -> rampDatastoreRepository.moduleIdPrefix(initialProgram)
         );
     }
 

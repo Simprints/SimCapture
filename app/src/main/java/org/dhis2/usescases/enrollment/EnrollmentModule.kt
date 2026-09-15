@@ -161,9 +161,13 @@ class EnrollmentModule(
         d2: D2,
         rampDatastoreRepository: RampDatastoreRepository,
     ): CustomIntentRepository =
-        CustomIntentRepositoryImpl(d2) {
-            rampDatastoreRepository.isOneLevelUpOrgUnitForBiometricsModuleId(programUid)
-        }
+        CustomIntentRepositoryImpl(
+            d2 = d2,
+            isOneLevelUpOrgUnitForBiometricsModuleIdEnabled = {
+                rampDatastoreRepository.isOneLevelUpOrgUnitForBiometricsModuleId(programUid)
+            },
+            moduleIdPrefix = { rampDatastoreRepository.moduleIdPrefix(programUid) },
+        )
 
     @Provides
     @PerActivity

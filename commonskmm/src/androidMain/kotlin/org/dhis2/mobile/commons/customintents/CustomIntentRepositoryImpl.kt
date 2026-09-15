@@ -14,8 +14,9 @@ import org.hisp.dhis.android.core.settings.CustomIntentResponseExtraType as Extr
 class CustomIntentRepositoryImpl(
     private val d2: D2,
     private val isOneLevelUpOrgUnitForBiometricsModuleIdEnabled: () -> Boolean,
+    private val moduleIdPrefix: () -> String?,
 ) : CustomIntentRepository {
-    constructor(d2: D2) : this(d2, { false })
+    constructor(d2: D2) : this(d2, { false }, { null })
 
     private val customIntents: List<CustomIntent?> = d2.settingModule().customIntents().blockingGet()
 
@@ -104,6 +105,14 @@ class CustomIntentRepositoryImpl(
             .customIntentService()
             .blockingEvaluateRequestParams(customIntent, context)
             .overrideSimprintsModuleId(customIntent, context)
+            .prefixSimprintsModuleId(customIntent)
+
+    private fun Map<String, Any?>.prefixSimprintsModuleId(customIntent: CustomIntent): Map<String, Any?> {
+        if (customIntent.packageName()?.startsWith(SIMPRINTS_ACTION_PREFIX) != true) return this
+        val prefix = moduleIdPrefix()?.takeUnless(String::isEmpty) ?: return this
+        val moduleId = this[SIMPRINTS_MODULE_ID_KEY] as? String ?: return this
+        return this + (SIMPRINTS_MODULE_ID_KEY to prefix + moduleId)
+    }
 
     private fun Map<String, Any?>.overrideSimprintsModuleId(
         customIntent: CustomIntent,

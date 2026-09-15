@@ -99,9 +99,13 @@ object Injector {
     fun provideCustomIntentProvider(programUid: String?): CustomIntentRepository {
         val d2 = provideD2()
         val rampDatastoreRepository = SimprintsRampDatastoreRepository(d2)
-        return CustomIntentRepositoryImpl(d2) {
-            rampDatastoreRepository.isOneLevelUpOrgUnitForBiometricsModuleId(programUid)
-        }
+        return CustomIntentRepositoryImpl(
+            d2 = d2,
+            isOneLevelUpOrgUnitForBiometricsModuleIdEnabled = {
+                rampDatastoreRepository.isOneLevelUpOrgUnitForBiometricsModuleId(programUid)
+            },
+            moduleIdPrefix = { rampDatastoreRepository.moduleIdPrefix(programUid) },
+        )
     }
 
     private fun provideFormRepository(

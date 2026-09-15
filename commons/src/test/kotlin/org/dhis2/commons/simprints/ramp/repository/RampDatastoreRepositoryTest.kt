@@ -111,6 +111,7 @@ class RampDatastoreRepositoryTest {
                 {
                   "programId": " disabledProgram ",
                   "isOneLevelUpOrgUnitForBiometricsModuleId": true,
+                  "moduleIdPrefix": " prefix_ ",
                   "isBiometricsCaptureOnlyButtonEnabledForAttributeId": " biometrics ",
                   "externalCredentialAttributeId": " external-credential-attribute ",
                   "isSearchEnabled": false,
@@ -153,6 +154,7 @@ class RampDatastoreRepositoryTest {
             assertEquals(listOf("excluded"), table.excludedFollowUpVisitDataElementIds)
         }
         assertEquals("disabledProgram", config.programSpecificSettings.single().programId)
+        assertEquals("prefix_", config.programSpecificSettings.single().moduleIdPrefix)
         assertEquals(
             true,
             config.programSpecificSettings.single()
@@ -288,6 +290,82 @@ class RampDatastoreRepositoryTest {
         assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId("missingProgram"))
         assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId(null))
         assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId(" "))
+    }
+
+    @Test
+    fun `module id prefix should be returned only for configured program`() {
+        stubRampConfigRawValue(
+            """
+            {
+              "programSpecificSettings": [
+                {
+                  "programId": " prefixedProgram ",
+                  "moduleIdPrefix": " prefix_ "
+                },
+                {
+                  "programId": "otherPrefixedProgram",
+                  "moduleIdPrefix": "other_"
+                },
+                {
+                  "programId": "blankPrefixProgram",
+                  "moduleIdPrefix": " "
+                },
+                {
+                  "programId": "emptyPrefixProgram",
+                  "moduleIdPrefix": ""
+                },
+                {
+                  "programId": "nullPrefixProgram",
+                  "moduleIdPrefix": null
+                },
+                {
+                  "programId": "defaultProgram"
+                },
+                {
+                  "programId": " ",
+                  "moduleIdPrefix": "invalid_"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals("prefix_", repository.moduleIdPrefix("prefixedProgram"))
+        assertEquals("prefix_", repository.moduleIdPrefix(" prefixedProgram "))
+        assertEquals("other_", repository.moduleIdPrefix("otherPrefixedProgram"))
+        assertEquals(null, repository.moduleIdPrefix("blankPrefixProgram"))
+        assertEquals(null, repository.moduleIdPrefix("emptyPrefixProgram"))
+        assertEquals(null, repository.moduleIdPrefix("nullPrefixProgram"))
+        assertEquals(null, repository.moduleIdPrefix("defaultProgram"))
+        assertEquals(null, repository.moduleIdPrefix("missingProgram"))
+        assertEquals(null, repository.moduleIdPrefix(null))
+        assertEquals(null, repository.moduleIdPrefix(" "))
+    }
+
+    @Test
+    fun `module id prefix should be absent when datastore is missing`() {
+        whenever(
+            d2
+                .dataStoreModule()
+                .dataStore()
+                .value("simprints", "ramp")
+                .blockingGet(),
+        ).thenReturn(null)
+
+        assertEquals(null, repository.moduleIdPrefix("program"))
+    }
+
+    @Test
+    fun `module id prefix should be absent when datastore read fails`() {
+        whenever(
+            d2
+                .dataStoreModule()
+                .dataStore()
+                .value("simprints", "ramp")
+                .blockingGet(),
+        ).thenThrow(RuntimeException("Datastore unavailable"))
+
+        assertEquals(null, repository.moduleIdPrefix("program"))
     }
 
     @Test
@@ -602,6 +680,7 @@ class RampDatastoreRepositoryTest {
         assertEquals(0, config.dataElementHistoryCharts.size)
         assertEquals(0, config.programStageHistoryTables.size)
         assertEquals(false, repository.isOneLevelUpOrgUnitForBiometricsModuleId("program"))
+        assertEquals(null, repository.moduleIdPrefix("program"))
         assertEquals(null, repository.biometricsCaptureOnlyAttributeId("program"))
         assertEquals(null, repository.externalCredentialAttributeId("program"))
     }

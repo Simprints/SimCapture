@@ -60,6 +60,20 @@ class RampDatastoreRepository(
         }
     }
 
+    fun moduleIdPrefix(programId: String?): String? {
+        val normalizedProgramId = programId.trimToValue() ?: return null
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull { it.programId == normalizedProgramId }
+                ?.moduleIdPrefix
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
+        }
+    }
+
     fun biometricsCaptureOnlyAttributeId(programId: String?): String? {
         val normalizedProgramId = programId.trimToValue() ?: return null
 
@@ -296,6 +310,7 @@ class RampDatastoreRepository(
     private fun ProgramSpecificSetting.normalized(): ProgramSpecificSetting =
         copy(
             programId = programId.trimToValue(),
+            moduleIdPrefix = moduleIdPrefix.trimToValue(),
             isBiometricsCaptureOnlyButtonEnabledForAttributeId =
                 isBiometricsCaptureOnlyButtonEnabledForAttributeId.trimToValue(),
             externalCredentialAttributeId = externalCredentialAttributeId.trimToValue(),

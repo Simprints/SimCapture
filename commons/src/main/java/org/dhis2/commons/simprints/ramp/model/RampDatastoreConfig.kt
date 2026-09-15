@@ -79,6 +79,8 @@ data class ProgramSpecificSetting(
     val detailedEnrollmentListingAdmissionProgramStageIds: List<String>? = null,
     @SerializedName("detailedEnrollmentListingDischargeProgramStageIds")
     val detailedEnrollmentListingDischargeProgramStageIds: List<String>? = null,
+    @SerializedName("moduleIdPrefix")
+    val moduleIdPrefix: String? = null,
 ) {
     fun isValid(): Boolean = !programId.isNullOrBlank()
 }
