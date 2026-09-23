@@ -44,8 +44,12 @@ data class ProgramStageHistoryTableConfig(
     val programId: String? = null,
     @SerializedName("followUpVisitProgramStageId")
     val followUpVisitProgramStageId: String? = null,
+    @SerializedName("followUpVisitMinNumber")
+    val followUpVisitMinNumber: Int? = null,
     @SerializedName("followUpVisitMaxNumber")
     val followUpVisitMaxNumber: Int? = null,
+    @SerializedName("followUpVisitLabel")
+    val followUpVisitLabel: String? = null,
     @SerializedName("headerVisitNumberDataElementId")
     val headerVisitNumberDataElementId: String? = null,
     @SerializedName("excludedFollowUpVisitDataElementIds")
@@ -55,7 +59,7 @@ data class ProgramStageHistoryTableConfig(
         !programId.isNullOrBlank() &&
             !followUpVisitProgramStageId.isNullOrBlank() &&
             !headerVisitNumberDataElementId.isNullOrBlank() &&
-            (followUpVisitMaxNumber ?: -1) >= 0
+            (followUpVisitMinNumber ?: 0) in 0..(followUpVisitMaxNumber ?: -1)
 }
 
 data class ProgramSpecificSetting(

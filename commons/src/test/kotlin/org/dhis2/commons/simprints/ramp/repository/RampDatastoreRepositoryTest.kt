@@ -48,7 +48,9 @@ class RampDatastoreRepositoryTest {
                 {
                   "programId": "program",
                   "followUpVisitProgramStageId": "follow-stage",
+                  "followUpVisitMinNumber": 1,
                   "followUpVisitMaxNumber": 12,
+                  "followUpVisitLabel": "Custom",
                   "headerVisitNumberDataElementId": "visit-number",
                   "excludedFollowUpVisitDataElementIds": ["excluded"]
                 },
@@ -56,6 +58,13 @@ class RampDatastoreRepositoryTest {
                   "programId": "program",
                   "followUpVisitProgramStageId": "follow-stage",
                   "followUpVisitMaxNumber": 12
+                },
+                {
+                  "programId": "program",
+                  "followUpVisitProgramStageId": "follow-stage",
+                  "followUpVisitMinNumber": 13,
+                  "followUpVisitMaxNumber": 12,
+                  "headerVisitNumberDataElementId": "visit-number"
                 }
               ]
             }
@@ -78,7 +87,9 @@ class RampDatastoreRepositoryTest {
         config.programStageHistoryTables.first().let { table ->
             assertEquals("program", table.programId)
             assertEquals("follow-stage", table.followUpVisitProgramStageId)
+            assertEquals(1, table.followUpVisitMinNumber)
             assertEquals(12, table.followUpVisitMaxNumber)
+            assertEquals("Custom", table.followUpVisitLabel)
             assertEquals("visit-number", table.headerVisitNumberDataElementId)
             assertEquals(listOf("excluded"), table.excludedFollowUpVisitDataElementIds)
         }
@@ -103,6 +114,7 @@ class RampDatastoreRepositoryTest {
                   "programId": " program ",
                   "followUpVisitProgramStageId": " follow-stage ",
                   "followUpVisitMaxNumber": 12,
+                  "followUpVisitLabel": " Custom ",
                   "headerVisitNumberDataElementId": " visit-number ",
                   "excludedFollowUpVisitDataElementIds": [" excluded ", " "]
                 }
@@ -150,6 +162,7 @@ class RampDatastoreRepositoryTest {
         config.programStageHistoryTables.single().let { table ->
             assertEquals("program", table.programId)
             assertEquals("follow-stage", table.followUpVisitProgramStageId)
+            assertEquals("Custom", table.followUpVisitLabel)
             assertEquals("visit-number", table.headerVisitNumberDataElementId)
             assertEquals(listOf("excluded"), table.excludedFollowUpVisitDataElementIds)
         }

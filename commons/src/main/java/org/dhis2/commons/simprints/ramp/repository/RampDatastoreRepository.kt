@@ -301,6 +301,7 @@ class RampDatastoreRepository(
         copy(
             programId = programId.trimToValue(),
             followUpVisitProgramStageId = followUpVisitProgramStageId.trimToValue(),
+            followUpVisitLabel = followUpVisitLabel.trimToValue(),
             headerVisitNumberDataElementId = headerVisitNumberDataElementId.trimToValue(),
             excludedFollowUpVisitDataElementIds =
                 excludedFollowUpVisitDataElementIds
