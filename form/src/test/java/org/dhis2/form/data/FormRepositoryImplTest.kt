@@ -903,7 +903,7 @@ class FormRepositoryImplTest {
     @Test
     fun `Saving Simprints external credential updates form value before program rules run`() =
         runTest {
-            whenever(formValueStore.recordUid()) doReturn "enrollment"
+            whenever(formValueStore.enrollmentUid()) doReturn "enrollment"
             whenever(
                 simprintsD2Repository.blockingSaveEnrollmentExternalCredential("enrollment", "biometrics", "new-credential"),
             ) doReturn "uid001"
@@ -925,7 +925,7 @@ class FormRepositoryImplTest {
                 )
             whenever(ruleEngineHelper.evaluate()) doReturn listOf(hideEmptyExternalCredential)
             repository.composeList()
-            whenever(formValueStore.recordUid()) doReturn "enrollment"
+            whenever(formValueStore.enrollmentUid()) doReturn "enrollment"
             whenever(
                 simprintsD2Repository.blockingSaveEnrollmentExternalCredential("enrollment", "biometrics", "new-credential"),
             ) doReturn "uid001"
@@ -941,7 +941,7 @@ class FormRepositoryImplTest {
     @Test
     fun `Simprints external credential save error is surfaced without changing form value`() =
         runTest {
-            whenever(formValueStore.recordUid()) doReturn "enrollment"
+            whenever(formValueStore.enrollmentUid()) doReturn "enrollment"
             whenever(
                 simprintsD2Repository.blockingSaveEnrollmentExternalCredential("enrollment", "biometrics", "new-credential"),
             ).thenThrow(IllegalStateException("save failed"))
@@ -951,6 +951,17 @@ class FormRepositoryImplTest {
 
             assertEquals(ValueStoreResult.ERROR_UPDATING_VALUE, result?.valueStoreResult)
             assertEquals(previousValue, repository.composeList().first { it.uid == "uid001" }.value)
+        }
+
+    @Test
+    fun `Simprints external credential is not saved without an enrollment uid`() =
+        runTest {
+            whenever(formValueStore.enrollmentUid()) doReturn null
+
+            val result = repository.saveSimprintsExternalCredential("biometrics", "new-credential")
+
+            assertNull(result)
+            verify(simprintsD2Repository, times(0)).blockingSaveEnrollmentExternalCredential(any(), any(), any())
         }
 
     @Test

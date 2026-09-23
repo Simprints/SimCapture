@@ -861,7 +861,7 @@ class FormRepositoryImpl(
         return try {
             val attributeUid =
                 simprintsD2Repository?.blockingSaveEnrollmentExternalCredential(
-                    enrollmentUid = formValueStore.recordUid(),
+                    enrollmentUid = formValueStore.enrollmentUid() ?: return null,
                     biometricAttributeUid = biometricAttributeUid,
                     externalCredentialValue = value,
                 ) ?: return null
