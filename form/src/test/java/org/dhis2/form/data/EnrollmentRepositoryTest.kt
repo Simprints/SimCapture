@@ -179,30 +179,23 @@ class EnrollmentRepositoryTest {
         assertFalse(result.any { it.uid == BIOMETRICS_ATTRIBUTE_UID })
     }
 
-    private fun configureBiometricsCaptureOnlyAttribute(value: String?) {
+    @Test
+    fun `should keep attributes following capture only biometrics in their section`() {
+        val biometrics = configureBiometricsCaptureOnlyAttribute(value = null)
+        val following = stubProgramAttribute(FOLLOWING_ATTRIBUTE_UID, "Following")
+        whenever(programSection.attributes()) doReturn listOf(biometrics, following)
+        repository = createRepository(BIOMETRICS_ATTRIBUTE_UID)
+
+        val result = repository.list().blockingFirst()
+        val sectionIndex = result.indexOfFirst { it.uid == programSection.uid() }
+
+        assertEquals(FOLLOWING_ATTRIBUTE_UID, result[sectionIndex + 1].uid)
+    }
+
+    private fun configureBiometricsCaptureOnlyAttribute(value: String?): TrackedEntityAttribute {
         whenever(conf.sections()) doReturn listOf(programSection)
         whenever(programSection.attributes()) doReturn emptyList()
         whenever(conf.conflicts()) doReturn emptyList()
-
-        val programAttribute: ProgramTrackedEntityAttribute =
-            mock {
-                on { trackedEntityAttribute() } doReturn ObjectWithUid.create(BIOMETRICS_ATTRIBUTE_UID)
-                on { mandatory() } doReturn false
-                on { allowFutureDate() } doReturn false
-            }
-        whenever(conf.programAttribute(BIOMETRICS_ATTRIBUTE_UID)) doReturn programAttribute
-
-        val trackedEntityAttribute: TrackedEntityAttribute =
-            mock {
-                on { uid() } doReturn BIOMETRICS_ATTRIBUTE_UID
-                on { displayFormName() } doReturn "Biometrics"
-                on { valueType() } doReturn ValueType.TEXT
-                on { optionSet() } doReturn null
-                on { generated() } doReturn false
-                on { style() } doReturn ObjectStyle.builder().build()
-            }
-        whenever(conf.trackedEntityAttribute(BIOMETRICS_ATTRIBUTE_UID)) doReturn trackedEntityAttribute
-        whenever(conf.attributeValue(BIOMETRICS_ATTRIBUTE_UID)) doReturn value
         whenever(
             customIntentRepository.getCustomIntent(
                 BIOMETRICS_ATTRIBUTE_UID,
@@ -210,6 +203,34 @@ class EnrollmentRepositoryTest {
                 CustomIntentActionTypeModel.DATA_ENTRY,
             ),
         ) doReturn mock<CustomIntentModel>()
+        return stubProgramAttribute(BIOMETRICS_ATTRIBUTE_UID, "Biometrics", value)
+    }
+
+    private fun stubProgramAttribute(
+        attributeUid: String,
+        label: String,
+        value: String? = null,
+    ): TrackedEntityAttribute {
+        val programAttribute: ProgramTrackedEntityAttribute =
+            mock {
+                on { trackedEntityAttribute() } doReturn ObjectWithUid.create(attributeUid)
+                on { mandatory() } doReturn false
+                on { allowFutureDate() } doReturn false
+            }
+        whenever(conf.programAttribute(attributeUid)) doReturn programAttribute
+
+        val trackedEntityAttribute: TrackedEntityAttribute =
+            mock {
+                on { uid() } doReturn attributeUid
+                on { displayFormName() } doReturn label
+                on { valueType() } doReturn ValueType.TEXT
+                on { optionSet() } doReturn null
+                on { generated() } doReturn false
+                on { style() } doReturn ObjectStyle.builder().build()
+            }
+        whenever(conf.trackedEntityAttribute(attributeUid)) doReturn trackedEntityAttribute
+        whenever(conf.attributeValue(attributeUid)) doReturn value
+        return trackedEntityAttribute
     }
 
     private fun createRepository(biometricsCaptureOnlyAttributeId: String? = null): DataEntryRepository =
@@ -225,5 +246,6 @@ class EnrollmentRepositoryTest {
 
     private companion object {
         const val BIOMETRICS_ATTRIBUTE_UID = "biometrics"
+        const val FOLLOWING_ATTRIBUTE_UID = "following-attribute"
     }
 }

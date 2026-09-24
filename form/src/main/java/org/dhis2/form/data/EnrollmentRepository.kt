@@ -165,7 +165,7 @@ class EnrollmentRepository(
                     transformSection(section.uid(), section.displayName(), section.description()),
                 )
                 section.attributes()?.forEachIndexed { _, attribute ->
-                    if (attribute.uid() == captureOnlyFieldUid) return@forEach
+                    if (attribute.uid() == captureOnlyFieldUid) return@forEachIndexed
                     conf.programAttribute(attribute.uid())?.let { programTrackedEntityAttribute ->
                         fields.add(transform(programTrackedEntityAttribute, section.uid()))
                     }
