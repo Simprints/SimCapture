@@ -3,7 +3,10 @@ package org.dhis2.form.simprints.ramp.data
 import org.dhis2.commons.simprints.ramp.model.DataElementHistoryChartConfig
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.simprints.ramp.model.FormHistoryChart
+import org.dhis2.form.simprints.ramp.model.FormHistoryChartCategory
+import org.dhis2.form.simprints.ramp.model.toHistoryChartValue
 import org.hisp.dhis.android.core.D2
+import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope
 import org.hisp.dhis.android.core.event.Event
 import java.util.Date
 
@@ -47,6 +50,7 @@ class FormHistoryChartRepository(
         val dataElementUid = chartConfig.dataElementId.trimToValue() ?: return null
         val labels = (0..followUpVisitMaxNumber).map(Int::toString)
         val values = MutableList<Float?>(labels.size) { null }
+        val categories = getCategories(fieldUiModel.optionSet)
         var currentValueIndex: Int? = null
 
         getFollowUpVisitEvents(currentEvent, followUpVisitProgramStageUid).forEach { event ->
@@ -59,9 +63,9 @@ class FormHistoryChartRepository(
             val value =
                 if (event.uid() == eventUid) {
                     currentValueIndex = visitNumber
-                    fieldUiModel.value?.toFloatOrNull()
+                    fieldUiModel.value.toHistoryChartValue(categories)
                 } else {
-                    dataValuesByDataElement[dataElementUid]?.toFloatOrNull()
+                    dataValuesByDataElement[dataElementUid].toHistoryChartValue(categories)
                 }
 
             values[visitNumber] = value
@@ -71,10 +75,31 @@ class FormHistoryChartRepository(
             title = fieldUiModel.label,
             labels = labels,
             values = values,
+            categories = categories,
             currentValueIndex = currentValueIndex,
+            isYAxisInverted = chartConfig.isYAxisInverted,
             displayMaxDecimalPlaces = chartConfig.displayMaxDecimalPlaces,
         )
     }
+
+    private fun getCategories(optionSetUid: String?): List<FormHistoryChartCategory>? =
+        optionSetUid.trimToValue()?.let { uid ->
+            d2
+                .optionModule()
+                .options()
+                .byOptionSetUid()
+                .eq(uid)
+                .orderBySortOrder(RepositoryScope.OrderByDirection.ASC)
+                .blockingGet()
+                .map { option ->
+                    val storedValue = option.code().trimToValue() ?: option.uid()
+                    FormHistoryChartCategory(
+                        storedValue = storedValue,
+                        name = option.name(),
+                        displayName = option.displayName().trimToValue() ?: option.name().trimToValue() ?: storedValue,
+                    )
+                }
+        }
 
     private fun loadCurrentEvent(): Event? =
         d2

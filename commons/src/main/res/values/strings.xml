@@ -144,6 +144,7 @@
     <string name="filter_sync_synced">Synced</string>
     <string name="filter_sync_not_synced">Not Synced</string>
     <string name="filter_sync_error">Sync Error</string>
+    <string name="filter_with_sync_errors">With sync errors</string>
     <string name="filter_sync_sms">SMS Synced</string>
 
     <!-- Intervals -->

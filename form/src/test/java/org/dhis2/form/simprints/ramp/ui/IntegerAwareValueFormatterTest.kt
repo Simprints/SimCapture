@@ -24,4 +24,16 @@ class IntegerAwareValueFormatterTest {
 
         assertEquals("9", formatter.getFormattedValue(9f))
     }
+
+    @Test
+    fun `category formatter should use labels only for exact category positions`() {
+        val formatter = HistoryChartCategoryFormatter(listOf("Value1", "Value2", "Value3"))
+
+        assertEquals("Value1", formatter.getFormattedValue(0f))
+        assertEquals("Value2", formatter.getFormattedValue(1f))
+        assertEquals("Value3", formatter.getFormattedValue(2f))
+        assertEquals("", formatter.getFormattedValue(1.5f))
+        assertEquals("", formatter.getFormattedValue(-1f))
+        assertEquals("", formatter.getFormattedValue(3f))
+    }
 }

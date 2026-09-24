@@ -28,6 +28,8 @@ data class DataElementHistoryChartConfig(
     val followUpVisitMaxNumber: Int? = null,
     @SerializedName("displayMaxDecimalPlaces")
     val displayMaxDecimalPlaces: Int? = null,
+    @SerializedName("isYAxisInverted")
+    val isYAxisInverted: Boolean = false,
 ) {
     fun isValid(): Boolean =
         !programId.isNullOrBlank() &&
@@ -42,8 +44,12 @@ data class ProgramStageHistoryTableConfig(
     val programId: String? = null,
     @SerializedName("followUpVisitProgramStageId")
     val followUpVisitProgramStageId: String? = null,
+    @SerializedName("followUpVisitMinNumber")
+    val followUpVisitMinNumber: Int? = null,
     @SerializedName("followUpVisitMaxNumber")
     val followUpVisitMaxNumber: Int? = null,
+    @SerializedName("followUpVisitLabel")
+    val followUpVisitLabel: String? = null,
     @SerializedName("headerVisitNumberDataElementId")
     val headerVisitNumberDataElementId: String? = null,
     @SerializedName("excludedFollowUpVisitDataElementIds")
@@ -53,14 +59,22 @@ data class ProgramStageHistoryTableConfig(
         !programId.isNullOrBlank() &&
             !followUpVisitProgramStageId.isNullOrBlank() &&
             !headerVisitNumberDataElementId.isNullOrBlank() &&
-            (followUpVisitMaxNumber ?: -1) >= 0
+            (followUpVisitMinNumber ?: 0) in 0..(followUpVisitMaxNumber ?: -1)
 }
 
 data class ProgramSpecificSetting(
     @SerializedName("programId")
     val programId: String? = null,
+    @SerializedName("isOneLevelUpOrgUnitForBiometricsModuleId")
+    val isOneLevelUpOrgUnitForBiometricsModuleId: Boolean? = null,
+    @SerializedName("isBiometricsCaptureOnlyButtonEnabledForAttributeId")
+    val isBiometricsCaptureOnlyButtonEnabledForAttributeId: String? = null,
+    @SerializedName("externalCredentialAttributeId")
+    val externalCredentialAttributeId: String? = null,
     @SerializedName("isSearchEnabled")
     val isSearchEnabled: Boolean? = null,
+    @SerializedName("isShowingUnfilteredList")
+    val isShowingUnfilteredList: Boolean? = null,
     @SerializedName("hasDetailedEnrollmentListing")
     val hasDetailedEnrollmentListing: Boolean? = null,
     @SerializedName("detailedEnrollmentListingDischargeOutcomeDataElementIds")
@@ -69,6 +83,8 @@ data class ProgramSpecificSetting(
     val detailedEnrollmentListingAdmissionProgramStageIds: List<String>? = null,
     @SerializedName("detailedEnrollmentListingDischargeProgramStageIds")
     val detailedEnrollmentListingDischargeProgramStageIds: List<String>? = null,
+    @SerializedName("moduleIdPrefix")
+    val moduleIdPrefix: String? = null,
 ) {
     fun isValid(): Boolean = !programId.isNullOrBlank()
 }
@@ -86,10 +102,16 @@ data class ProgramStageSpecificSetting(
     val hasVisitNumberPrefixForDateInList: Boolean? = null,
     @SerializedName("visitNumberDataElementId")
     val visitNumberDataElementId: String? = null,
+    @SerializedName("hasAllVisitsExpanded")
+    val hasAllVisitsExpanded: Boolean? = null,
+    @SerializedName("hasVisitNumbersSortedAscending")
+    val hasVisitNumbersSortedAscending: Boolean? = null,
     @SerializedName("isScheduleOptionEnabled")
     val isScheduleOptionEnabled: Boolean? = null,
     @SerializedName("isReferOptionEnabled")
     val isReferOptionEnabled: Boolean? = null,
+    @SerializedName("isScheduleAnchoredToInitialVisit")
+    val isScheduleAnchoredToInitialVisit: Boolean = false,
 ) {
     fun isValid(): Boolean = !programStageId.isNullOrBlank()
 }

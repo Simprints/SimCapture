@@ -2,9 +2,13 @@ package org.dhis2.simprints
 
 import android.app.Activity.RESULT_OK
 import android.content.Intent
+import android.os.Bundle
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import app.cash.turbine.test
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase
 import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
@@ -21,11 +25,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 
 class SimprintsSearchViewModelTest {
@@ -35,6 +43,7 @@ class SimprintsSearchViewModelTest {
     private val resolveConfirmIdentityCallout: SimprintsResolveConfirmIdentityCalloutUseCase =
         mock()
     private val sessionRepository: SimprintsSessionRepository = mock()
+    private val simprintsD2Repository: SimprintsD2Repository = mock()
     private val resolveSingleBiometricSearchNavigation: SimprintsResolveSingleBiometricSearchNavigationUseCase =
         mock()
 
@@ -53,6 +62,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
 
             val action =
@@ -75,6 +85,7 @@ class SimprintsSearchViewModelTest {
             assertEquals("program-uid", navigation?.programUid)
             assertEquals("enrollment-uid", navigation?.enrollmentUid)
             assertNull(viewModel.onConfirmIdentityResult(RESULT_OK))
+            verifyNoInteractions(simprintsD2Repository)
         }
 
     @Test
@@ -92,6 +103,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
 
             val action =
@@ -121,6 +133,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
 
             val firstAction =
@@ -153,6 +166,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
 
             val action =
@@ -183,6 +197,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
             val queryData =
                 mutableMapOf<String, List<String>?>(
@@ -225,6 +240,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
 
         val filteredQueryData =
@@ -253,6 +269,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
 
         val filteredQueryData =
@@ -273,6 +290,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
         val queryData =
             mutableMapOf<String, List<String>?>(
@@ -308,6 +326,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
         val queryData =
             mutableMapOf<String, List<String>?>(
@@ -338,6 +357,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
 
         viewModel.clearPendingSessionIfNeeded(
@@ -355,6 +375,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
         val queryData =
             mutableMapOf<String, List<String>?>(
@@ -384,6 +405,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
 
         val shouldUseLastBiometricsLabel =
@@ -403,6 +425,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
 
         val shouldUseLastBiometricsLabel =
@@ -427,6 +450,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
 
             viewModel.onDashboardRequested(
@@ -436,8 +460,166 @@ class SimprintsSearchViewModelTest {
                 enrollmentUid = "enrollment-uid",
             )
 
-            assertNull(viewModel.onConfirmIdentityResult(resultCode = 0))
+            assertNull(viewModel.onConfirmIdentityResult(resultCode = 0, data = externalCredentialResult()))
             assertNull(viewModel.onConfirmIdentityResult(RESULT_OK))
+            verifyNoInteractions(simprintsD2Repository)
+        }
+
+    @Test
+    fun `successful confirm identity should save external credential for the selected patient`() =
+        runTest {
+            val viewModel = pendingConfirmIdentityViewModel()
+            val data = externalCredentialResult()
+
+            val navigation = viewModel.onConfirmIdentityResult(RESULT_OK, data)
+
+            assertEquals("tei-uid", navigation?.teiUid)
+            verify(simprintsD2Repository).saveExternalCredential(
+                teiUid = "tei-uid",
+                programUid = "program-uid",
+                biometricAttributeUid = "selected-biometric",
+                externalCredentialValue = "new-external-credential",
+            )
+            assertNull(viewModel.onConfirmIdentityResult(RESULT_OK, data))
+        }
+
+    @Test
+    fun `recreated viewmodel should restore confirmation context and save returned external credential`() =
+        runTest {
+            val savedState = savedStateBundle()
+            pendingConfirmIdentityViewModel().savePendingConfirmIdentity(savedState)
+            val restored = restoredConfirmIdentityViewModel(savedState)
+
+            val navigation = restored.onConfirmIdentityResult(RESULT_OK, externalCredentialResult())
+
+            assertEquals("tei-uid", navigation?.teiUid)
+            assertEquals("program-uid", navigation?.programUid)
+            assertEquals("enrollment-uid", navigation?.enrollmentUid)
+            verify(simprintsD2Repository).saveExternalCredential(
+                "tei-uid", "program-uid", "selected-biometric", "new-external-credential",
+            )
+            restored.savePendingConfirmIdentity(savedState)
+            assertNull(restoredConfirmIdentityViewModel(savedState).onConfirmIdentityResult(RESULT_OK, externalCredentialResult()))
+        }
+
+    @Test
+    fun `cancellation and launch failure should clear restored confirmation state`() =
+        runTest {
+            val savedState = savedStateBundle()
+            pendingConfirmIdentityViewModel().savePendingConfirmIdentity(savedState)
+            listOf(true, false).forEach { cancelled ->
+                val restored = restoredConfirmIdentityViewModel(savedState)
+                if (cancelled) {
+                    assertNull(restored.onConfirmIdentityResult(0, externalCredentialResult()))
+                } else {
+                    restored.onConfirmIdentityLaunchFailed()
+                }
+                val clearedState = savedStateBundle()
+                restored.savePendingConfirmIdentity(clearedState)
+                assertNull(restoredConfirmIdentityViewModel(clearedState).onConfirmIdentityResult(RESULT_OK, externalCredentialResult()))
+            }
+            verifyNoInteractions(simprintsD2Repository)
+        }
+
+    @Test
+    fun `absent or blank saved patient should not accept confirmation external credential`() =
+        runTest {
+            val blankPatient = savedStateBundle().apply { putString("simprints.confirmIdentity.teiUid", " ") }
+            listOf(null, savedStateBundle(), blankPatient).forEach { savedState ->
+                assertNull(restoredConfirmIdentityViewModel(savedState).onConfirmIdentityResult(RESULT_OK, externalCredentialResult()))
+            }
+            verifyNoInteractions(simprintsD2Repository)
+        }
+
+    @Test
+    fun `confirm identity without pending patient should not read or save external credential`() =
+        runTest {
+            val viewModel =
+                SimprintsSearchViewModel(
+                    resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+                    sessionRepository = sessionRepository,
+                    resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
+                )
+            val data: Intent = mock()
+
+            assertNull(viewModel.onConfirmIdentityResult(RESULT_OK, data))
+
+            verifyNoInteractions(data, simprintsD2Repository)
+        }
+
+    @Test
+    fun `successful confirm identity without external credential should keep navigation and not save`() =
+        runTest {
+            val viewModel = pendingConfirmIdentityViewModel()
+            val data: Intent = mock()
+
+            val navigation = viewModel.onConfirmIdentityResult(RESULT_OK, data)
+
+            assertEquals("tei-uid", navigation?.teiUid)
+            verifyNoInteractions(simprintsD2Repository)
+        }
+
+    @Test
+    fun `successful confirm identity with non QRCode external credential should not save`() =
+        runTest {
+            val viewModel = pendingConfirmIdentityViewModel()
+
+            val navigation =
+                viewModel.onConfirmIdentityResult(
+                    RESULT_OK,
+                    externalCredentialResult("""{"type":"Other","value":"other-credential"}"""),
+                )
+
+            assertEquals("tei-uid", navigation?.teiUid)
+            verifyNoInteractions(simprintsD2Repository)
+        }
+
+    @Test
+    fun `confirm identity should wait for external credential persistence before returning navigation`() =
+        runTest {
+            val viewModel = pendingConfirmIdentityViewModel()
+            val saveStarted = CompletableDeferred<Unit>()
+            val finishSaving = CompletableDeferred<Unit>()
+            whenever(
+                simprintsD2Repository.saveExternalCredential(
+                    "tei-uid",
+                    "program-uid",
+                    "selected-biometric",
+                    "new-external-credential",
+                ),
+            ) doSuspendableAnswer {
+                saveStarted.complete(Unit)
+                finishSaving.await()
+                "external-credential-attribute"
+            }
+
+            val navigation = async { viewModel.onConfirmIdentityResult(RESULT_OK, externalCredentialResult()) }
+            saveStarted.await()
+            assertFalse(navigation.isCompleted)
+
+            finishSaving.complete(Unit)
+            assertEquals("tei-uid", navigation.await()?.teiUid)
+        }
+
+    @Test
+    fun `confirm identity save failure should propagate without retaining pending patient`() =
+        runTest {
+            val viewModel = pendingConfirmIdentityViewModel()
+            val error = IllegalStateException("Unable to save")
+            whenever(
+                simprintsD2Repository.saveExternalCredential(
+                    "tei-uid",
+                    "program-uid",
+                    "selected-biometric",
+                    "new-external-credential",
+                ),
+            ).thenThrow(error)
+
+            val result = runCatching { viewModel.onConfirmIdentityResult(RESULT_OK, externalCredentialResult()) }
+
+            assertSame(error, result.exceptionOrNull())
+            assertNull(viewModel.onConfirmIdentityResult(RESULT_OK, externalCredentialResult()))
         }
 
     @Test
@@ -454,6 +636,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
 
             viewModel.onDashboardRequested(
@@ -475,6 +658,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
 
         viewModel.refreshSimprintsUiState(
@@ -493,6 +677,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
 
             viewModel.simprintsBiometricSearchNavigation.test {
@@ -532,6 +717,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
 
             viewModel.simprintsBiometricSearchNavigation.test {
@@ -571,6 +757,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
             viewModel.onSimprintsBiometricIdentificationResult(
                 uid = "biometric",
@@ -621,6 +808,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
             viewModel.onSimprintsBiometricIdentificationResult(
                 uid = "biometric",
@@ -664,6 +852,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
             viewModel.onSimprintsBiometricIdentificationResult(
                 uid = "biometric",
@@ -695,6 +884,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
         val queryData =
             mutableMapOf<String, List<String>?>(
@@ -730,6 +920,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
         val queryData = mutableMapOf<String, List<String>?>("name" to listOf("Name"))
 
@@ -752,6 +943,7 @@ class SimprintsSearchViewModelTest {
                 resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                 sessionRepository = sessionRepository,
                 resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                simprintsD2Repository = simprintsD2Repository,
             )
         val queryData =
             mutableMapOf<String, List<String>?>(
@@ -788,6 +980,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
             viewModel.onSimprintsBiometricIdentificationResult(
                 uid = "biometric",
@@ -819,6 +1012,7 @@ class SimprintsSearchViewModelTest {
                     resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
                     sessionRepository = sessionRepository,
                     resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+                    simprintsD2Repository = simprintsD2Repository,
                 )
             viewModel.onSimprintsBiometricIdentificationResult(
                 uid = "biometric",
@@ -841,6 +1035,59 @@ class SimprintsSearchViewModelTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
+
+    private suspend fun pendingConfirmIdentityViewModel(): SimprintsSearchViewModel {
+        whenever(sessionRepository.get()) doReturn "session-id"
+        whenever(resolveConfirmIdentityCallout.invoke(any(), any(), any(), any())) doReturn
+            SimprintsIntentUtils.PreparedCallout(
+                launchIntent = mock(),
+                responseData = emptyList(),
+                biometricAttributeUid = "selected-biometric",
+            )
+        return SimprintsSearchViewModel(
+            resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+            sessionRepository = sessionRepository,
+            resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+            simprintsD2Repository = simprintsD2Repository,
+        ).also { viewModel ->
+            viewModel.restorePendingConfirmIdentity(null)
+            viewModel.onDashboardRequested(
+                searchItems = listOf(identifyField(value = "guid-1")),
+                teiUid = "tei-uid",
+                programUid = "program-uid",
+                enrollmentUid = "enrollment-uid",
+            )
+        }
+    }
+
+    private fun restoredConfirmIdentityViewModel(savedState: Bundle?) =
+        SimprintsSearchViewModel(
+            resolveConfirmIdentityCallout = resolveConfirmIdentityCallout,
+            sessionRepository = sessionRepository,
+            resolveSingleBiometricSearchNavigation = resolveSingleBiometricSearchNavigation,
+            simprintsD2Repository = simprintsD2Repository,
+        ).also { it.restorePendingConfirmIdentity(savedState) }
+
+    private fun savedStateBundle(): Bundle {
+        val values = mutableMapOf<String, String?>()
+        val bundle: Bundle = mock()
+        whenever(bundle.getString(any())).thenAnswer { values[it.getArgument(0)] }
+        doAnswer {
+            values[it.getArgument(0)] = it.getArgument<String?>(1)
+            null
+        }.whenever(bundle).putString(any(), anyOrNull())
+        return bundle
+    }
+
+    private fun externalCredentialResult(credentialJson: String = """{"type":"QRCode","value":"new-external-credential"}"""): Intent {
+        val extras: Bundle =
+            mock {
+                on { getString("scannedCredential") } doReturn credentialJson
+            }
+        return mock {
+            on { getExtras() } doReturn extras
+        }
+    }
 
     private fun identifyField(value: String?) =
         FieldUiModelImpl(

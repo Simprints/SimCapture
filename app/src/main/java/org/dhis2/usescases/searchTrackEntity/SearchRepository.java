@@ -74,6 +74,8 @@ public interface SearchRepository {
 
     boolean isSearchEnabled();
 
+    boolean isShowingUnfilteredList();
+
     void setCurrentTheme(@org.jetbrains.annotations.Nullable ProgramSpinnerModel selectedProgram);
 
     List<String> trackedEntityTypeFields();

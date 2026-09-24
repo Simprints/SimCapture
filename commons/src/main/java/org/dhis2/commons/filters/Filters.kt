@@ -17,5 +17,7 @@ enum class Filters(
     WORKING_LIST(R.layout.item_filter_working_list),
     FOLLOW_UP(R.layout.item_filter_followup),
     TRANSFERRED(R.layout.item_filter_transferred),
+    OVERDUE(R.layout.item_filter_overdue),
+    SYNC_ERROR(R.layout.item_filter_sync_error),
     NON(-1),
 }

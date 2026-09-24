@@ -1,5 +1,7 @@
 package org.dhis2.usescases.searchTrackEntity
 
+import android.app.Activity.RESULT_OK
+import android.content.Intent
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -9,6 +11,7 @@ import androidx.compose.material.icons.outlined.Map
 import androidx.paging.PagingData
 import androidx.paging.testing.asSnapshot
 import app.cash.turbine.test
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,6 +23,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.dhis2.R
 import org.dhis2.commons.filters.FilterManager
+import org.dhis2.commons.filters.Filters
+import org.dhis2.commons.filters.sorting.SortingItem
+import org.dhis2.commons.filters.sorting.SortingStatus
 import org.dhis2.commons.network.NetworkUtils
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.commons.viewmodel.DispatcherProvider
@@ -37,6 +43,7 @@ import org.dhis2.tracker.input.ui.state.TrackerInputUiState
 import org.dhis2.tracker.search.domain.FetchOptionSetOptions
 import org.dhis2.tracker.search.domain.FetchSearchParameters
 import org.dhis2.tracker.search.domain.SearchTrackedEntities
+import org.dhis2.tracker.search.model.SearchParameterModel
 import org.dhis2.tracker.search.model.SearchTrackedEntitiesInput
 import org.dhis2.usescases.searchTrackEntity.listView.SearchResult.SearchResultType
 import org.dhis2.utils.customviews.navigationbar.NavigationPage
@@ -46,6 +53,7 @@ import org.hisp.dhis.android.core.trackedentity.TrackedEntityType
 import org.hisp.dhis.mobile.ui.designsystem.component.Orientation
 import org.hisp.dhis.mobile.ui.designsystem.component.navigationBar.NavigationBarItem
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -54,6 +62,7 @@ import org.maplibre.geojson.BoundingBox
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -99,11 +108,16 @@ class SearchTEIViewModelTest {
         setCurrentProgram(testingProgram())
         whenever(repository.canCreateInProgramWithoutSearch()) doReturn true
         whenever(repository.isSearchEnabled()) doReturn true
+        whenever(repository.isShowingUnfilteredList()) doReturn true
         whenever(repository.getTrackedEntityType()) doReturn testingTrackedEntityType()
         whenever(repository.filtersApplyOnGlobalSearch()) doReturn true
         whenever(repositoryKt.getExcludeValues()) doReturn HashSet<String>()
         whenever(repositoryKt.saveSearchValuesAndGetAllowCache(any(), any())) doReturn true
-        viewModel =
+        viewModel = createViewModel()
+        testingDispatcher.scheduler.advanceUntilIdle()
+    }
+
+    private fun createViewModel() =
             SearchTEIViewModel(
                 initialProgram,
                 initialQuery,
@@ -130,8 +144,6 @@ class SearchTEIViewModelTest {
                 loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
                 mapSimprintsBiometricSearchResult = mapSimprintsBiometricSearchResult,
             )
-        testingDispatcher.scheduler.advanceUntilIdle()
-    }
 
     @ExperimentalCoroutinesApi
     @After
@@ -179,6 +191,20 @@ class SearchTEIViewModelTest {
     }
 
     @Test
+    fun `Should display localized no match and close search form after Simprints biometric search`() {
+        whenever(resourceManager.getString(R.string.simprints_biometric_no_match)) doReturn "(no match)"
+        whenever(resourceManager.getString(R.string.simprints_biometric_search)) doReturn "Biometric search"
+        viewModel.searchParametersUiState =
+            viewModel.searchParametersUiState.copy(items = customIntentFieldUIModels())
+
+        viewModel.onSimprintsBiometricNoMatches("fieldUid")
+
+        assertTrue(viewModel.searchParametersUiState.items.single().value == "(no match)")
+        assertTrue(viewModel.searchParametersUiState.items.single().displayName == "Biometric search")
+        assertTrue((viewModel.screenState.value as SearchList).searchForm.isOpened.not())
+    }
+
+    @Test
     fun `Should set Map screen`() {
         viewModel.setMapScreen()
 
@@ -210,6 +236,74 @@ class SearchTEIViewModelTest {
         val screenState = viewModel.screenState.value
         assertTrue(screenState is SearchList)
     }
+
+    @Test
+    fun `Should keep search form closed and launch Simprints identification when direct search is eligible`() =
+        runTest {
+            val identifyIntent =
+                CustomIntentModel(
+                    uid = "identify-intent",
+                    name = "Identify",
+                    packageName = "com.simprints.id.IDENTIFY",
+                    customIntentRequest = emptyList(),
+                    customIntentResponse = emptyList(),
+                )
+            whenever(fetchSearchParameters.invoke(any())) doReturn
+                Result.success(
+                    listOf(
+                        SearchParameterModel(
+                            uid = "biometric",
+                            label = "Biometrics",
+                            inputType = TrackerInputType.CUSTOM_INTENT,
+                            optionSet = null,
+                            customIntentUid = identifyIntent.uid,
+                            minCharactersToSearch = null,
+                            searchOperator = null,
+                            isUnique = false,
+                        ),
+                    ),
+                )
+            whenever(repositoryKt.getCustomIntent("biometric")) doReturn identifyIntent
+
+            viewModel.fetchSearchParameters(initialProgram, "teiTypeUid")
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(viewModel.shouldLaunchSimprintsBiometricIdentification.value == true)
+            viewModel.setSimprintsPossibleDuplicatesSearch(true)
+            assertTrue(viewModel.shouldLaunchSimprintsBiometricIdentification.value == false)
+            viewModel.setSimprintsPossibleDuplicatesSearch(false)
+            assertTrue(viewModel.shouldLaunchSimprintsBiometricIdentification.value == true)
+
+            viewModel.setListScreen()
+            viewModel.onFiltersClick(isLandscape = true)
+            assertTrue((viewModel.screenState.value as SearchList).searchFilters.isOpened)
+
+            viewModel.updateActiveFilters(true)
+            viewModel.onFiltersClick(isLandscape = true)
+            (viewModel.screenState.value as SearchList).let { screenState ->
+                assertTrue(screenState.searchFilters.isOpened.not())
+                assertTrue(screenState.searchForm.isOpened.not())
+            }
+
+            viewModel.searchActions.test {
+                viewModel.onSearchFormRequested()
+                testingDispatcher.scheduler.advanceUntilIdle()
+
+                assertTrue(
+                    awaitItem() ==
+                        TrackerInputAction.LaunchCustomIntent(
+                            fieldUid = "biometric",
+                            customIntentModel = identifyIntent,
+                        ),
+                )
+                assertTrue((viewModel.screenState.value as SearchList).searchForm.isOpened.not())
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.onValueChange("name", "User")
+
+            assertTrue(viewModel.shouldLaunchSimprintsBiometricIdentification.value == false)
+        }
 
     @Test
     fun `Should set previous screen`() {
@@ -319,6 +413,80 @@ class SearchTEIViewModelTest {
                 awaitItem()
                 verify(searchTrackedEntities, never()).invoke(any())
             }
+        }
+
+    @Test
+    fun `Should hide unfiltered list when disabled by Simprints RAMP config`() =
+        runTest {
+            whenever(repository.isShowingUnfilteredList()) doReturn false
+            viewModel = createViewModel()
+            testingDispatcher.scheduler.advanceUntilIdle()
+
+            val result = viewModel.searchPagingData.take(1).asSnapshot()
+
+            assertTrue(result.isEmpty())
+            assertTrue(!viewModel.shouldShowListContent())
+            verify(searchTrackedEntities, never()).invoke(any())
+        }
+
+    @Test
+    fun `Should show list when a non-sorting filter is active`() =
+        runTest {
+            val testingProgram = testingProgram()
+            setCurrentProgram(testingProgram)
+            whenever(repository.isShowingUnfilteredList()) doReturn false
+            whenever(filterManager.totalFilters) doReturn 1
+            viewModel = createViewModel()
+            testingDispatcher.scheduler.advanceUntilIdle()
+            viewModel.updateActiveFilters(true)
+
+            viewModel.searchPagingData.take(1).asSnapshot()
+
+            assertTrue(viewModel.shouldShowListContent())
+            verify(searchTrackedEntities).invoke(
+                eq(
+                    SearchTrackedEntitiesInput(
+                        selectedProgram = testingProgram.uid(),
+                        queryDataList = mutableListOf(),
+                        allowCache = true,
+                        excludeValues = emptySet(),
+                        hasStateFilters = false,
+                        isOnline = false,
+                    ),
+                ),
+            )
+        }
+
+    @Test
+    fun `Should keep list hidden when sorting is the only active filter`() =
+        runTest {
+            whenever(repository.isShowingUnfilteredList()) doReturn false
+            whenever(filterManager.totalFilters) doReturn 1
+            whenever(filterManager.sortingItem) doReturn
+                SortingItem(Filters.ORG_UNIT, SortingStatus.ASC)
+            viewModel = createViewModel()
+            testingDispatcher.scheduler.advanceUntilIdle()
+            viewModel.updateActiveFilters(true)
+
+            val result = viewModel.searchPagingData.take(1).asSnapshot()
+
+            assertTrue(result.isEmpty())
+            assertTrue(!viewModel.shouldShowListContent())
+            verify(searchTrackedEntities, never()).invoke(any())
+        }
+
+    @Test
+    fun `Should show search results when unfiltered list is hidden`() =
+        runTest {
+            whenever(repository.isShowingUnfilteredList()) doReturn false
+            viewModel = createViewModel()
+            testingDispatcher.scheduler.advanceUntilIdle()
+            performSearch()
+
+            viewModel.searchPagingData.take(1).asSnapshot()
+
+            assertTrue(viewModel.shouldShowListContent())
+            verify(searchTrackedEntities).invoke(any())
         }
 
     @Test
@@ -587,6 +755,33 @@ class SearchTEIViewModelTest {
             assertTrue(isNotEmpty())
             assertTrue(size == 1)
             assertTrue(first().type == SearchResultType.SEARCH)
+        }
+    }
+
+    @Test
+    fun `Should hide result footer when unfiltered list is hidden`() {
+        whenever(repository.isShowingUnfilteredList()) doReturn false
+        viewModel = createViewModel()
+        testingDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onDataLoaded(0, null)
+
+        assertTrue(viewModel.dataResult.value?.isEmpty() == true)
+    }
+
+    @Test
+    fun `Should show result footer for an active filter with no matches`() {
+        whenever(repository.isShowingUnfilteredList()) doReturn false
+        whenever(filterManager.totalFilters) doReturn 1
+        viewModel = createViewModel()
+        testingDispatcher.scheduler.advanceUntilIdle()
+        viewModel.updateActiveFilters(true)
+
+        viewModel.onDataLoaded(0, null)
+
+        viewModel.dataResult.value?.apply {
+            assertTrue(size == 1)
+            assertTrue(first().type == SearchResultType.SEARCH_OR_CREATE)
         }
     }
 
@@ -900,6 +1095,48 @@ class SearchTEIViewModelTest {
             viewModel.searchActions.test {
                 viewModel.launchCustomIntent("fieldUid", "customIntentUid")
                 assertTrue(awaitItem() is TrackerInputAction.LaunchCustomIntent)
+            }
+        }
+
+    @Test
+    fun `confirm identity should forward response and wait before opening dashboard`() =
+        runTest {
+            val data: Intent = mock()
+            val saveStarted = CompletableDeferred<Unit>()
+            val finishSaving = CompletableDeferred<Unit>()
+            whenever(simprintsSearchViewModel.onConfirmIdentityResult(RESULT_OK, data)) doSuspendableAnswer {
+                saveStarted.complete(Unit)
+                finishSaving.await()
+                SimprintsSearchViewModel.PendingDashboardNavigation("tei-uid", "program-uid", "enrollment-uid")
+            }
+
+            viewModel.simprintsNavigation.test {
+                viewModel.onConfirmIdentityResult(RESULT_OK, data)
+                saveStarted.await()
+                expectNoEvents()
+
+                finishSaving.complete(Unit)
+                assertEquals(
+                    SimprintsNavigationAction.OpenDashboard("tei-uid", "program-uid", "enrollment-uid"),
+                    awaitItem(),
+                )
+                verify(simprintsSearchViewModel).onConfirmIdentityResult(RESULT_OK, data)
+            }
+        }
+
+    @Test
+    fun `confirm identity save failure should show error instead of opening dashboard`() =
+        runTest {
+            val data: Intent = mock()
+            whenever(simprintsSearchViewModel.onConfirmIdentityResult(RESULT_OK, data))
+                .thenThrow(IllegalStateException("Unable to save"))
+            whenever(resourceManager.getString(R.string.custom_intent_error)) doReturn "Custom intent error message"
+
+            viewModel.simprintsNavigation.test {
+                viewModel.onConfirmIdentityResult(RESULT_OK, data)
+
+                assertEquals(SimprintsNavigationAction.ShowMessage("Custom intent error message"), awaitItem())
+                expectNoEvents()
             }
         }
 

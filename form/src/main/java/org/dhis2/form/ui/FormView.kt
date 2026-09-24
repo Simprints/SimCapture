@@ -42,6 +42,7 @@ import org.dhis2.commons.locationprovider.LocationProvider
 import org.dhis2.commons.orgunitselector.OUTreeFragment
 import org.dhis2.commons.periods.ui.PeriodSelectorContent
 import org.dhis2.commons.simprints.usecases.SimprintsResolvePossibleDuplicatesSearchUseCase.SimprintsPossibleDuplicatesSearch
+import org.dhis2.commons.simprints.utils.SimprintsExternalCredentialUtils
 import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.form.R
 import org.dhis2.form.data.RulesUtilsProviderConfigurationError
@@ -150,6 +151,7 @@ class FormView : Fragment() {
             repositoryRecords =
                 arguments?.serializable(RECORDS)
                     ?: throw RepositoryRecordsException(),
+            programUid = arguments?.getString(PROGRAM_UID),
             openErrorLocation = openErrorLocation,
             useCompose = useCompose,
         )
@@ -614,15 +616,22 @@ class FormView : Fragment() {
                 intentHandler(intent)
             }
             is CustomIntentResult.Success -> {
-                val loadingIntent = FormIntent.OnFieldFinishedLoadingData(result.fieldUid)
-                intentHandler(loadingIntent)
                 val intent =
                     FormIntent.OnSaveCustomIntent(
                         result.fieldUid,
                         result.value,
                         false,
+                        simprintsExternalCredential =
+                            SimprintsExternalCredentialUtils.enrollmentExternalCredentialValue(
+                                result.action,
+                                result.value,
+                                result.extras,
+                            ),
                     )
                 intentHandler(intent)
+                // deferred clearing of loading state to prevent old UI state from flickering to visibility
+                val loadingIntent = FormIntent.OnFieldFinishedLoadingData(result.fieldUid)
+                intentHandler(loadingIntent)
             }
             is CustomIntentResult.PossibleDuplicates -> {
                 val loadingIntent = FormIntent.OnFieldFinishedLoadingData(result.fieldUid)
@@ -741,6 +750,7 @@ class FormView : Fragment() {
             val bundle =
                 Bundle().apply {
                     putSerializable(RECORDS, records)
+                    putString(PROGRAM_UID, programUid)
                 }
             fragment.arguments = bundle
             return fragment
@@ -749,6 +759,7 @@ class FormView : Fragment() {
 
     companion object {
         const val RECORDS = "RECORDS"
+        private const val PROGRAM_UID = "PROGRAM_UID"
         const val TEMP_FILE = "tempFile.png"
     }
 }

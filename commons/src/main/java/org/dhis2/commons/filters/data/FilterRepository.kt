@@ -12,8 +12,10 @@ import org.dhis2.commons.filters.FilterResources
 import org.dhis2.commons.filters.Filters
 import org.dhis2.commons.filters.FollowUpFilter
 import org.dhis2.commons.filters.OrgUnitFilter
+import org.dhis2.commons.filters.OverdueFilter
 import org.dhis2.commons.filters.PeriodFilter
 import org.dhis2.commons.filters.ProgramType
+import org.dhis2.commons.filters.SyncErrorFilter
 import org.dhis2.commons.filters.SyncStateFilter
 import org.dhis2.commons.filters.TransferredFilter
 import org.dhis2.commons.filters.WorkingListFilter
@@ -587,6 +589,21 @@ constructor(
             filtersToShow.add(followUpFilter)
             filtersToShow.add(transferredFilter)
         }
+
+        val quickFilters =
+            listOfNotNull(
+                filtersToShow.filterIsInstance<EventStatusFilter>().singleOrNull()?.let {
+                    OverdueFilter(it, resources.filterOverdueLabel())
+                },
+                filtersToShow.filterIsInstance<SyncStateFilter>().singleOrNull()?.let {
+                    SyncErrorFilter(it, resources.filterWithSyncErrorsLabel())
+                },
+            )
+        val insertionIndex =
+            filtersToShow
+                .indexOfFirst { it.type == Filters.ASSIGNED_TO_ME }
+                .takeIf { it >= 0 } ?: filtersToShow.size
+        filtersToShow.addAll(insertionIndex, quickFilters)
         return filtersToShow.toList()
     }
 

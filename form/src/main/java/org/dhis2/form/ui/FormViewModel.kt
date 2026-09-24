@@ -245,6 +245,19 @@ class FormViewModel(
         }
 
         val result = processUserAction(rowAction)
+        if (
+            it is FormIntent.OnSaveCustomIntent &&
+            !it.error &&
+            !it.value.isNullOrBlank() &&
+            it.simprintsExternalCredential != null &&
+            result.valueStoreResult in
+            listOf(ValueStoreResult.VALUE_CHANGED, ValueStoreResult.VALUE_HAS_NOT_CHANGED)
+        ) {
+            val credentialResult = repository.saveSimprintsExternalCredential(it.uid, it.simprintsExternalCredential)
+            if (credentialResult != null) {
+                return Pair(rowAction, credentialResult)
+            }
+        }
         return Pair(rowAction, result)
     }
 

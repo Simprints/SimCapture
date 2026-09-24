@@ -7,6 +7,8 @@
 
         <import type="android.view.View" />
 
+        <import type="android.text.TextUtils" />
+
         <variable
             name="presenter"
             type="org.dhis2.usescases.teiDashboard.teiProgramList.TeiProgramListContract.Presenter" />
@@ -72,7 +74,8 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:visibility='@{enrollment.enrollmentDetails == null ? View.VISIBLE : View.GONE}'>
 
                     <TextView
                         android:id="@+id/org_unit"
@@ -100,6 +103,16 @@
                         android:text='@{ enrollment.enrollmentDate }'
                         tools:text="DD/MM/YYYY" />
                 </LinearLayout>
+
+                <TextView
+                    android:id="@+id/enrollment_details"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text='@{enrollment.enrollmentDetails}'
+                    android:textColor="@color/text_black_333"
+                    android:textSize="14sp"
+                    android:visibility='@{!TextUtils.isEmpty(enrollment.enrollmentDetails) ? View.VISIBLE : View.GONE}' />
             </LinearLayout>
 
             <ImageView

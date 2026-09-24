@@ -232,10 +232,16 @@ fun SearchButtonWithQuery(
 @Composable
 fun WrappedSearchButton(
     teTypeName: String,
+    fillWidth: Boolean = false,
     onClick: () -> Unit,
 ) {
     SearchButton(
-        modifier = Modifier.wrapContentWidth(align = Alignment.CenterHorizontally),
+        modifier =
+            if (fillWidth) {
+                Modifier.fillMaxWidth()
+            } else {
+                Modifier.wrapContentWidth(align = Alignment.CenterHorizontally)
+            },
         onClick = onClick,
         teTypeName = teTypeName,
     )

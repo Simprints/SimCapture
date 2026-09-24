@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.dhis2.commons.data.EventCreationType
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.arch.helpers.DateUtils
@@ -78,6 +79,7 @@ class SchedulingViewModelTest {
                         ownerOrgUnitUid = OWNER_ORG_UNIT_UID,
                     ),
                 getEventPeriods = mock(),
+                rampDatastoreRepository = mock<RampDatastoreRepository>(),
             )
     }
 

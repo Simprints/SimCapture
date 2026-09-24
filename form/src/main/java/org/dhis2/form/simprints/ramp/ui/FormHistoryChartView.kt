@@ -88,8 +88,11 @@ private fun LineChart.configureHistoryChart(
     historyChart: FormHistoryChart,
     graph: Graph,
 ) {
-    val axisValueFormatter = IntegerAwareValueFormatter()
-    val pointValueFormatter = IntegerAwareValueFormatter(historyChart.displayMaxDecimalPlaces)
+    val categoryLabels = historyChart.categories?.map { category -> category.displayName }
+    val axisValueFormatter = categoryLabels?.let(::HistoryChartCategoryFormatter) ?: IntegerAwareValueFormatter()
+    val pointValueFormatter =
+        categoryLabels?.let(::HistoryChartCategoryFormatter)
+            ?: IntegerAwareValueFormatter(historyChart.displayMaxDecimalPlaces)
 
     setHighlightPerTapEnabled(false)
     setHighlightPerDragEnabled(false)
@@ -105,7 +108,6 @@ private fun LineChart.configureHistoryChart(
     }
     axisLeft.apply {
         this.valueFormatter = axisValueFormatter
-        setLabelCount(HISTORY_CHART_Y_AXIS_LABEL_COUNT, false)
         textSize = HISTORY_CHART_TEXT_SIZE
     }
     configureHistoryYAxis(historyChart)
@@ -115,6 +117,13 @@ private fun LineChart.configureHistoryChart(
 }
 
 private fun LineChart.configureHistoryYAxis(historyChart: FormHistoryChart) {
+    axisLeft.isInverted = historyChart.isYAxisInverted
+    historyChart.categories?.let { categories ->
+        configureCategoricalHistoryYAxis(categories.size)
+        return
+    }
+
+    axisLeft.setLabelCount(HISTORY_CHART_Y_AXIS_LABEL_COUNT, false)
     val plottedValues = historyChart.values.filterNotNull()
     if (plottedValues.isEmpty()) {
         axisLeft.apply {
@@ -136,6 +145,26 @@ private fun LineChart.configureHistoryYAxis(historyChart: FormHistoryChart) {
     }
 
     applyHistoryYAxisRange(minValue, maxValue)
+}
+
+private fun LineChart.configureCategoricalHistoryYAxis(categoryCount: Int) {
+    axisLeft.apply {
+        isGranularityEnabled = true
+        granularity = HISTORY_CHART_INTEGER_GRANULARITY
+        when (categoryCount) {
+            0 -> {
+                setLabelCount(HISTORY_CHART_Y_AXIS_LABEL_COUNT, false)
+                resetAxisMinimum()
+                resetAxisMaximum()
+            }
+
+            else -> {
+                setLabelCount(categoryCount + 2, true)
+                axisMinimum = -1f
+                axisMaximum = categoryCount.toFloat()
+            }
+        }
+    }
 }
 
 private fun LineChart.applyHistoryYAxisRange(
@@ -205,6 +234,28 @@ internal class IntegerAwareValueFormatter(
 
     private companion object {
         const val INTEGER_VALUE_EPSILON = 0.0001f
+    }
+}
+
+internal class HistoryChartCategoryFormatter(
+    private val labels: List<String>,
+) : ValueFormatter() {
+    override fun getFormattedValue(value: Float): String {
+        val index = value.roundToInt()
+        return if (abs(value - index) < CATEGORY_INDEX_EPSILON) {
+            labels.getOrNull(index).orEmpty()
+        } else {
+            ""
+        }
+    }
+
+    override fun getAxisLabel(
+        value: Float,
+        axis: AxisBase?,
+    ): String = getFormattedValue(value)
+
+    private companion object {
+        const val CATEGORY_INDEX_EPSILON = 0.0001f
     }
 }
 

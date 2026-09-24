@@ -126,7 +126,7 @@ class SearchTEActivity :
 
     private val simprintsConfirmIdentityLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            viewModel.onConfirmIdentityResult(result.resultCode)
+            viewModel.onConfirmIdentityResult(result.resultCode, result.data)
         }
 
     private var simprintsKeepSessionOnFinish = false
@@ -165,6 +165,7 @@ class SearchTEActivity :
             themeManager.setProgramTheme(initialProgram!!)
         }
         super.onCreate(savedInstanceState)
+        viewModel.restorePendingSimprintsConfirmIdentity(savedInstanceState)
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_search)
         postponeInitialLandscapeDraw() // prevents jitter depending on if search panel set to visible or not
@@ -324,6 +325,7 @@ class SearchTEActivity :
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        viewModel.savePendingSimprintsConfirmIdentity(outState)
         super.onSaveInstanceState(outState)
         outState.putString(Constants.QUERY_DATA, JSONObject(viewModel.queryDataAsMap()).toString())
         outState.putString(CURRENT_SCREEN, currentContent?.name)
@@ -396,6 +398,7 @@ class SearchTEActivity :
             DHIS2Theme {
                 val uiState by viewModel.navigationBarUIState
                 val isBackdropActive by viewModel.backdropActive.observeAsState(false)
+                val screenState by viewModel.screenState.observeAsState()
                 var selectedItemIndex by remember(uiState) {
                     mutableIntStateOf(
                         uiState.items.indexOfFirst {
@@ -414,7 +417,10 @@ class SearchTEActivity :
                 }
 
                 AnimatedVisibility(
-                    visible = (isBackdropActive.not() && uiState.items.isNotEmpty()) || isLandscape(),
+                    visible =
+                        screenState != null &&
+                            (uiState.selectedItem != NavigationPage.LIST_VIEW || viewModel.shouldShowListContent()) &&
+                            ((isBackdropActive.not() && uiState.items.isNotEmpty()) || isLandscape()),
                     enter = slideInVertically(animationSpec = tween(200)) { it },
                     exit = slideOutVertically(animationSpec = tween(200)) { it },
                 ) {
@@ -539,12 +545,20 @@ class SearchTEActivity :
     }
 
     private fun observeScreenState() {
-        viewModel.screenState.observe(this) { screenState ->
-            searchScreenConfigurator.configure(screenState)
-            initialLandscapeDrawReady = true
-            binding.root.invalidate()
+        viewModel.screenState.observe(this, ::configureSearchScreen)
+        viewModel.shouldLaunchSimprintsBiometricIdentification.observe(this) {
+            viewModel.screenState.value?.let(::configureSearchScreen)
         }
         viewModel.screenState.observe(this, viewModel::updateBackdrop)
+    }
+
+    private fun configureSearchScreen(screenState: SearchTEScreenState) {
+        searchScreenConfigurator.configure(
+            screenState,
+            viewModel.shouldLaunchSimprintsBiometricIdentification.value == true,
+        )
+        initialLandscapeDrawReady = true
+        binding.root.invalidate()
     }
 
     private fun postponeInitialLandscapeDraw() {

@@ -1,6 +1,7 @@
 package org.dhis2.usescases.searchTrackEntity
 
 import android.content.Intent
+import android.os.Bundle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.outlined.List
@@ -31,10 +32,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -60,6 +61,7 @@ import org.dhis2.maps.layer.basemaps.BaseMapStyle
 import org.dhis2.maps.managers.MapManager
 import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.mobile.commons.coroutine.CoroutineTracker
+import org.dhis2.mobile.commons.extensions.launchUseCase
 import org.dhis2.mobile.commons.model.CustomIntentModel
 import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
 import org.dhis2.simprints.SimprintsLoadPossibleDuplicatesSearchResultsUseCase
@@ -180,9 +182,13 @@ class SearchTEIViewModel(
         simprintsSearchViewModel.isSimprintsUseLastBiometricsLabel
     private val _isSimprintsPossibleDuplicatesSearch = MutableLiveData(false)
     val isSimprintsPossibleDuplicatesSearch: LiveData<Boolean> = _isSimprintsPossibleDuplicatesSearch
+    private val _shouldLaunchSimprintsBiometricIdentification = MutableLiveData(false)
+    val shouldLaunchSimprintsBiometricIdentification: LiveData<Boolean> =
+        _shouldLaunchSimprintsBiometricIdentification
 
     private var searching: Boolean = false
     private val filtersActive = MutableLiveData(false)
+    private var isShowingUnfilteredList = false
 
     private val _downloadResult = MutableLiveData<TeiDownloadResult>()
     val downloadResult: LiveData<TeiDownloadResult> = _downloadResult
@@ -236,8 +242,8 @@ class SearchTEIViewModel(
                     emitAll(
                         when {
                             searching -> loadSearchResults()
-                            shouldDisplayFrontPageList() -> loadDisplayInListResults()
-                            else -> emptyFlow()
+                            shouldLoadListResults() -> loadDisplayInListResults()
+                            else -> flowOf(PagingData.empty())
                         },
                     )
                     CoroutineTracker.decrement()
@@ -249,6 +255,8 @@ class SearchTEIViewModel(
     init {
         viewModelScope.launch(dispatchers.io()) {
             val isSearchEnabled = searchRepository.isSearchEnabled()
+            isShowingUnfilteredList = searchRepository.isShowingUnfilteredList()
+            onNewSearch.emit(Unit)
             withContext(dispatchers.ui()) {
                 _isSearchEnabled.value = isSearchEnabled
                 updateSearchEnabledInCurrentScreen(isSearchEnabled)
@@ -271,6 +279,7 @@ class SearchTEIViewModel(
 
     fun setSimprintsPossibleDuplicatesSearch(isSimprintsPossibleDuplicatesSearch: Boolean) {
         _isSimprintsPossibleDuplicatesSearch.value = isSimprintsPossibleDuplicatesSearch
+        updateShouldLaunchSimprintsBiometricIdentification()
     }
 
     /**
@@ -511,7 +520,7 @@ class SearchTEIViewModel(
     fun onSearchFormRequested() {
         if (!isSearchEnabled()) return
 
-        if (shouldLaunchSimprintsBiometricIdentification()) {
+        if (shouldLaunchSimprintsBiometricIdentification.value == true) {
             simprintsSearchViewModel.clearPendingSession()
             launchSimprintsBiometricIdentification()
         } else {
@@ -519,12 +528,17 @@ class SearchTEIViewModel(
         }
     }
 
-    private fun shouldLaunchSimprintsBiometricIdentification(): Boolean =
-        queryDataList.isEmpty() &&
+    private fun updateShouldLaunchSimprintsBiometricIdentification() {
+        val shouldLaunch =
+            queryDataList.isEmpty() &&
             _isSimprintsPossibleDuplicatesSearch.value != true &&
             searchParametersUiState.items.any { field ->
                 SimprintsIntentUtils.isIdentifyCallout(customIntentByFieldUid[field.uid])
             }
+        if (_shouldLaunchSimprintsBiometricIdentification.value != shouldLaunch) {
+            _shouldLaunchSimprintsBiometricIdentification.value = shouldLaunch
+        }
+    }
 
     private fun launchSimprintsBiometricIdentification() {
         val identifyCallout =
@@ -687,6 +701,7 @@ class SearchTEIViewModel(
     }
 
     private fun updateSearch() {
+        updateShouldLaunchSimprintsBiometricIdentification()
         if (_screenState.value is SearchList) {
             val currentSearchList = _screenState.value as SearchList
             _screenState.postValue(
@@ -971,6 +986,15 @@ class SearchTEIViewModel(
     private fun shouldDisplayFrontPageList(): Boolean =
         displayFrontPageListSettingIsConfigured()
 
+    private fun shouldLoadListResults(): Boolean =
+        shouldDisplayFrontPageList() &&
+            (hasNarrowingFilters() || isShowingUnfilteredList)
+
+    fun shouldShowListContent(): Boolean = searching || shouldLoadListResults()
+
+    private fun hasNarrowingFilters(): Boolean =
+        filterManager.totalFilters > if (filterManager.sortingItem != null) 1 else 0
+
     private fun canPerformSearch(): Boolean =
         (_isSimprintsPossibleDuplicatesSearch.value == true && queryDataList.isNotEmpty()) ||
             isSimprintsBiometricNoMatchesSearch() ||
@@ -1058,9 +1082,21 @@ class SearchTEIViewModel(
         }
     }
 
-    fun onConfirmIdentityResult(resultCode: Int) {
-        simprintsSearchViewModel.onConfirmIdentityResult(resultCode)?.let { navigation ->
-            viewModelScope.launch {
+    fun savePendingSimprintsConfirmIdentity(outState: Bundle) {
+        simprintsSearchViewModel.savePendingConfirmIdentity(outState)
+    }
+
+    fun restorePendingSimprintsConfirmIdentity(savedState: Bundle?) {
+        simprintsSearchViewModel.restorePendingConfirmIdentity(savedState)
+    }
+
+    fun onConfirmIdentityResult(
+        resultCode: Int,
+        data: Intent?,
+    ) {
+        launchUseCase {
+            try {
+                val navigation = simprintsSearchViewModel.onConfirmIdentityResult(resultCode, data) ?: return@launchUseCase
                 _simprintsNavigation.send(
                     SimprintsNavigationAction.OpenDashboard(
                         teiUid = navigation.teiUid,
@@ -1068,9 +1104,19 @@ class SearchTEIViewModel(
                         enrollmentUid = navigation.enrollmentUid,
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                Timber.e("Unable to save Simprints external credential after identity confirmation")
+                _simprintsNavigation.send(
+                    SimprintsNavigationAction.ShowMessage(
+                        resourceManager.getString(R.string.custom_intent_error),
+                    ),
+                )
+            } finally {
+                refreshSimprintsUiState()
             }
         }
-        refreshSimprintsUiState()
     }
 
     fun onConfirmIdentityLaunchFailed() {
@@ -1132,7 +1178,6 @@ class SearchTEIViewModel(
     }
 
     fun onSimprintsBiometricNoMatches(uid: String) {
-        keepSearchScreenOpenForSimprintsBiometricFallback = true
         updateQuery(uid, listOf(SIMPRINTS_BIOMETRIC_NO_MATCH_QUERY_VALUE))
         updateSimprintsBiometricNoMatchesParameter(uid)
         searchParametersUiState =
@@ -1159,7 +1204,7 @@ class SearchTEIViewModel(
             searchParametersUiState.items.map {
                 if (it.uid == uid) {
                     it.copy(
-                        value = SIMPRINTS_BIOMETRIC_NO_MATCH_QUERY_VALUE,
+                        value = resourceManager.getString(R.string.simprints_biometric_no_match),
                         displayName = resourceManager.getString(R.string.simprints_biometric_search),
                     )
                 } else {
@@ -1269,8 +1314,10 @@ class SearchTEIViewModel(
                 hasProgramResults,
                 hasGlobalResults,
             )
-        } else if (shouldDisplayFrontPageList()) {
+        } else if (shouldLoadListResults()) {
             handleDisplayInListResult(hasProgramResults)
+        } else if (shouldDisplayFrontPageList()) {
+            _dataResult.postValue(emptyList())
         } else {
             handleInitWithoutData()
         }
@@ -1471,7 +1518,9 @@ class SearchTEIViewModel(
                                 if (filterFieldsVisible) {
                                     false
                                 } else {
-                                    isLandscape
+                                    isLandscape &&
+                                        (shouldLaunchSimprintsBiometricIdentification.value != true ||
+                                            keepSearchScreenOpenForSimprintsBiometricFallback)
                                 },
                         ),
                     searchFilters =
@@ -1540,6 +1589,7 @@ class SearchTEIViewModel(
                                         hydrateInitialQueryInFields(newItems),
                                     ),
                                 )
+                            updateShouldLaunchSimprintsBiometricIdentification()
 
                             queryDataList.forEachIndexed { index, entry ->
                                 val searchOperator =

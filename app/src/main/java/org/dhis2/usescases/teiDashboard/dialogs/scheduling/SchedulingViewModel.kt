@@ -21,6 +21,7 @@ import org.dhis2.commons.periods.model.Period
 import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.EventResourcesProvider
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.usescases.eventsWithoutRegistration.eventDetails.data.EventDetailsRepository
 import org.dhis2.usescases.eventsWithoutRegistration.eventDetails.domain.ConfigureEventCatCombo
@@ -50,6 +51,7 @@ class SchedulingViewModel(
     private val launchMode: LaunchMode,
     private val dateUtils: DateUtils,
     private val getEventPeriods: GetEventPeriods,
+    private val rampDatastoreRepository: RampDatastoreRepository,
 ) : ViewModel() {
     lateinit var repository: EventDetailsRepository
     lateinit var configureEventReportDate: ConfigureEventReportDate
@@ -163,6 +165,10 @@ class SchedulingViewModel(
                 periodUtils = periodUtils,
                 enrollmentId = enrollmentId,
                 scheduleInterval = programStage.value?.standardInterval() ?: 0,
+                anchoredScheduleVisitNumberDataElementId =
+                    rampDatastoreRepository.anchoredScheduleVisitNumberDataElementId(
+                        programStage.value?.uid(),
+                    ),
             )
         configureEventCatCombo = ConfigureEventCatCombo(repository = repository)
 

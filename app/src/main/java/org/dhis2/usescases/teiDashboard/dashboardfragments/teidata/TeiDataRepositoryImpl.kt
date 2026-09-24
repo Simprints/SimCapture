@@ -223,6 +223,26 @@ class TeiDataRepositoryImpl(
                         eventRepo
                             .orderByTimeline(RepositoryScope.OrderByDirection.DESC)
                             .blockingGet()
+                    val stageSettings =
+                        rampDatastoreConfig.programStageSpecificSettings.firstOrNull {
+                            it.programStageId == programStage.uid()
+                        }
+                    val visitNumbers =
+                        stageSettings
+                            ?.takeIf { it.hasVisitNumbersSortedAscending == true }
+                            ?.visitNumberDataElementId
+                            ?.let { dataElementId -> getVisitNumbers(eventList, dataElementId) }
+                    val orderedEvents =
+                        if (visitNumbers != null) {
+                            eventList.sortedWith(
+                                compareBy<Event, Int?>(nullsLast()) { visitNumbers[it.uid()] }
+                                    .thenBy { it.eventDate() ?: it.dueDate() }
+                                    .thenBy { it.uid() },
+                            )
+                        } else {
+                            eventList
+                        }
+                    val hasAllVisitsExpanded = stageSettings?.hasAllVisitsExpanded == true
 
                     val canAddEventToEnrollment =
                         enrollmentUid?.let {
@@ -234,8 +254,8 @@ class TeiDataRepositoryImpl(
                         } ?: false
 
                     val showAllEvents =
-                        selectedStage.showAllEvents &&
-                            selectedStage.stageUid == programStage.uid()
+                        hasAllVisitsExpanded ||
+                            (selectedStage.showAllEvents && selectedStage.stageUid == programStage.uid())
 
                     eventModels.add(
                         EventModel(
@@ -259,7 +279,7 @@ class TeiDataRepositoryImpl(
                                 ),
                         ),
                     )
-                    eventList
+                    orderedEvents
                         .take(
                             if (showAllEvents) eventList.size else maxEventToShow,
                         ).forEachIndexed { index, event ->
@@ -298,12 +318,17 @@ class TeiDataRepositoryImpl(
                                             programStage.style(),
                                             program?.style()?.color()?.toColor() ?: SurfaceColor.Primary,
                                         ),
-                                    followUpVisitNumber = getFollowUpVisitNumber(event, rampDatastoreConfig),
+                                    followUpVisitNumber =
+                                        if (visitNumbers != null && stageSettings.hasVisitNumberPrefixForDateInList == true) {
+                                            visitNumbers[event.uid()]
+                                        } else {
+                                            getFollowUpVisitNumber(event, rampDatastoreConfig)
+                                        },
                                 ),
                             )
                         }
 
-                    if (eventList.size > maxEventToShow) {
+                    if (!hasAllVisitsExpanded && eventList.size > maxEventToShow) {
                         eventModels.add(
                             EventModel(
                                 EventViewModelType.TOGGLE_BUTTON,
@@ -543,6 +568,14 @@ class TeiDataRepositoryImpl(
                     setting.programStageId == event.programStage() &&
                         setting.hasVisitNumberPrefixForDateInList == true
                 }?.visitNumberDataElementId ?: return null
+
+        return getVisitNumber(event, dataElementId)
+    }
+
+    private fun getVisitNumber(
+        event: Event,
+        dataElementId: String,
+    ): Int? {
         val valueRepository =
             d2
                 .trackedEntityModule()
@@ -555,6 +588,20 @@ class TeiDataRepositoryImpl(
             null
         }
     }
+
+    private fun getVisitNumbers(
+        events: List<Event>,
+        dataElementId: String,
+    ): Map<String?, Int?> =
+        d2
+            .trackedEntityModule()
+            .trackedEntityDataValues()
+            .byEvent()
+            .`in`(events.map { it.uid() })
+            .byDataElement()
+            .eq(dataElementId)
+            .blockingGet()
+            .associate { it.event() to it.value()?.toVisitNumber() }
 
     private fun String.toVisitNumber(): Int? =
         trim().toIntOrNull()?.takeIf { it >= 0 }
