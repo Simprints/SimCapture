@@ -231,11 +231,7 @@ class TeiDataRepositoryImpl(
                         stageSettings
                             ?.takeIf { it.hasVisitNumbersSortedAscending == true }
                             ?.visitNumberDataElementId
-                            ?.let { dataElementId ->
-                                eventList.associate { event ->
-                                    event.uid() to getVisitNumber(event, dataElementId)
-                                }
-                            }
+                            ?.let { dataElementId -> getVisitNumbers(eventList, dataElementId) }
                     val orderedEvents =
                         if (visitNumbers != null) {
                             eventList.sortedWith(
@@ -592,6 +588,20 @@ class TeiDataRepositoryImpl(
             null
         }
     }
+
+    private fun getVisitNumbers(
+        events: List<Event>,
+        dataElementId: String,
+    ): Map<String?, Int?> =
+        d2
+            .trackedEntityModule()
+            .trackedEntityDataValues()
+            .byEvent()
+            .`in`(events.map { it.uid() })
+            .byDataElement()
+            .eq(dataElementId)
+            .blockingGet()
+            .associate { it.event() to it.value()?.toVisitNumber() }
 
     private fun String.toVisitNumber(): Int? =
         trim().toIntOrNull()?.takeIf { it >= 0 }
