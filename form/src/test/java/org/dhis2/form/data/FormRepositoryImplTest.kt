@@ -295,7 +295,7 @@ class FormRepositoryImplTest {
         }
 
     @Test
-    fun `Should force show empty capture only biometrics when program rules hide it`() =
+    fun `Should let program rules hide empty capture only biometrics`() =
         runBlocking {
             whenever(dataEntryRepository.list()) doReturn
                 Flowable.just(provideBiometricsCaptureOnlyItemList())
@@ -310,7 +310,7 @@ class FormRepositoryImplTest {
             val result = repository.fetchFormItems()
 
             assertEquals(
-                listOf("section1", "biometrics", "uid001"),
+                listOf("section1", "uid001"),
                 result.map { it.uid },
             )
         }

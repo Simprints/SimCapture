@@ -105,15 +105,7 @@ class FormRepositoryImpl(
         if (sourceField.isLoadingData || !sourceField.value.isNullOrEmpty()) {
             return filterNot { it.uid == attributeId }
         }
-        if (any { it.uid == attributeId }) return this
-
-        val insertionIndex =
-            itemList
-                .takeWhile { it.uid != attributeId }
-                .count { sourceItem -> any { it.uid == sourceItem.uid } }
-        return toMutableList().apply {
-            add(insertionIndex, sourceField)
-        }
+        return this
     }
 
     override fun completeEvent() {
