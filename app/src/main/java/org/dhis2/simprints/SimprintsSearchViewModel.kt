@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -17,6 +18,7 @@ import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.FieldUiModelImpl
+import timber.log.Timber
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
@@ -162,12 +164,18 @@ class SimprintsSearchViewModel(
         if (resultCode != RESULT_OK) return null
 
         SimprintsExternalCredentialUtils.externalCredentialValue(data?.extras)?.let { externalCredentialValue ->
-            simprintsD2Repository.saveExternalCredential(
-                teiUid = navigation.teiUid,
-                programUid = navigation.programUid,
-                biometricAttributeUid = navigation.biometricAttributeUid,
-                externalCredentialValue = externalCredentialValue,
-            )
+            try {
+                simprintsD2Repository.saveExternalCredential(
+                    teiUid = navigation.teiUid,
+                    programUid = navigation.programUid,
+                    biometricAttributeUid = navigation.biometricAttributeUid,
+                    externalCredentialValue = externalCredentialValue,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Unable to save Simprints external credential after identity confirmation")
+            }
         }
         return navigation
     }

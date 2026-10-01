@@ -603,10 +603,9 @@ class SimprintsSearchViewModelTest {
         }
 
     @Test
-    fun `confirm identity save failure should propagate without retaining pending patient`() =
+    fun `confirm identity save failure should still return navigation without retaining pending patient`() =
         runTest {
             val viewModel = pendingConfirmIdentityViewModel()
-            val error = IllegalStateException("Unable to save")
             whenever(
                 simprintsD2Repository.saveExternalCredential(
                     "tei-uid",
@@ -614,11 +613,11 @@ class SimprintsSearchViewModelTest {
                     "selected-biometric",
                     "new-external-credential",
                 ),
-            ).thenThrow(error)
+            ).thenThrow(IllegalStateException("Unable to save"))
 
-            val result = runCatching { viewModel.onConfirmIdentityResult(RESULT_OK, externalCredentialResult()) }
+            val navigation = viewModel.onConfirmIdentityResult(RESULT_OK, externalCredentialResult())
 
-            assertSame(error, result.exceptionOrNull())
+            assertEquals("tei-uid", navigation?.teiUid)
             assertNull(viewModel.onConfirmIdentityResult(RESULT_OK, externalCredentialResult()))
         }
 

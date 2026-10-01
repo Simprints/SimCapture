@@ -564,6 +564,23 @@ class SimprintsEnrollmentViewModelTest {
             verify(sessionRepository, never()).clear()
         }
 
+    @Test
+    fun `failed external credential save must still clear session and continue finish`() =
+        runTest {
+            val resultIntent = externalCredentialResult()
+            val viewModel = prepareExternalCredentialResult(resultIntent)
+            whenever(
+                simprintsD2Repository.saveEnrollmentExternalCredential("enrollment-uid", "attribute-uid", "external-credential-1"),
+            ).thenThrow(IllegalStateException("Credential save failed"))
+
+            val result = viewModel.onRegisterLastResult(RESULT_OK, resultIntent, "tei-uid", "enrollment-uid")
+
+            assertEquals(SimprintsEnrollmentViewModel.RegisterLastResult.CONTINUE_FINISH, result)
+            verify(simprintsD2Repository).saveTrackedEntityAttributeValue("tei-uid", "attribute-uid", "subject-guid")
+            verify(sessionRepository).clear()
+            verify(sessionRepository, never()).clearPendingEnrollment()
+        }
+
     private suspend fun prepareExternalCredentialResult(
         resultIntent: Intent,
         guid: String? = "subject-guid",

@@ -1125,7 +1125,7 @@ class SearchTEIViewModelTest {
         }
 
     @Test
-    fun `confirm identity save failure should show error instead of opening dashboard`() =
+    fun `confirm identity unexpected failure should show error instead of opening dashboard`() =
         runTest {
             val data: Intent = mock()
             whenever(simprintsSearchViewModel.onConfirmIdentityResult(RESULT_OK, data))

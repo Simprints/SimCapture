@@ -939,7 +939,7 @@ class FormRepositoryImplTest {
         }
 
     @Test
-    fun `Simprints external credential save error is surfaced without changing form value`() =
+    fun `Simprints external credential save error is skipped without changing form value`() =
         runTest {
             whenever(formValueStore.enrollmentUid()) doReturn "enrollment"
             whenever(
@@ -949,7 +949,7 @@ class FormRepositoryImplTest {
 
             val result = repository.saveSimprintsExternalCredential("biometrics", "new-credential")
 
-            assertEquals(ValueStoreResult.ERROR_UPDATING_VALUE, result?.valueStoreResult)
+            assertNull(result)
             assertEquals(previousValue, repository.composeList().first { it.uid == "uid001" }.value)
         }
 

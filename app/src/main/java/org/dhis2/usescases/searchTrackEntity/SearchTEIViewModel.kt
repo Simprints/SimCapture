@@ -1106,8 +1106,8 @@ class SearchTEIViewModel(
                 )
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
-                Timber.e("Unable to save Simprints external credential after identity confirmation")
+            } catch (e: Exception) {
+                Timber.e(e)
                 _simprintsNavigation.send(
                     SimprintsNavigationAction.ShowMessage(
                         resourceManager.getString(R.string.custom_intent_error),

@@ -28,6 +28,7 @@ import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.common.ValueType.LONG_TEXT
 import org.hisp.dhis.android.core.event.EventStatus
 import org.hisp.dhis.rules.models.RuleEffect
+import timber.log.Timber
 
 class FormRepositoryImpl(
     private val formValueStore: FormValueStore,
@@ -868,8 +869,9 @@ class FormRepositoryImpl(
             updateValueOnList(attributeUid, value, ValueType.TEXT)
             ruleEffectsNeedRefresh = true
             StoreResult(attributeUid, ValueStoreResult.VALUE_CHANGED)
-        } catch (_: Exception) {
-            StoreResult(biometricAttributeUid, ValueStoreResult.ERROR_UPDATING_VALUE)
+        } catch (e: Exception) {
+            Timber.e(e, "Unable to save Simprints external credential after enrollment")
+            null
         }
     }
 

@@ -27,6 +27,7 @@ import org.dhis2.form.ui.provider.FormResultDialogProvider
 import org.dhis2.mobile.commons.model.CustomIntentRequestArgumentModel
 import org.hisp.dhis.android.core.common.ValueType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -287,17 +288,20 @@ class FormViewModelTest {
         }
 
     @Test
-    fun `Should display error when SID external credential cannot be saved`() =
+    fun `Should keep GUID result when SID external credential cannot be saved`() =
         runTest {
-            whenever(repository.saveSimprintsExternalCredential("biometrics", "credential-value")) doReturn
-                StoreResult("biometrics", ValueStoreResult.ERROR_UPDATING_VALUE)
+            whenever(repository.save("biometrics", "guid", null)) doReturn
+                StoreResult("biometrics", ValueStoreResult.VALUE_CHANGED)
+            whenever(repository.saveSimprintsExternalCredential("biometrics", "credential-value")) doReturn null
 
             viewModel.submitIntent(
                 FormIntent.OnSaveCustomIntent("biometrics", "guid", false, "credential-value"),
             )
             advanceUntilIdle()
 
-            assertEquals(org.dhis2.form.R.string.update_field_error, viewModel.showToast.value)
+            assertNull(viewModel.showToast.value)
+            assertEquals("biometrics", viewModel.savedValue.value?.id)
+            verify(repository).composeList(false)
         }
 
     @Test
