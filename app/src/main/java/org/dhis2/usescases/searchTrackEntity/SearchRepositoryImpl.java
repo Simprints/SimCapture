@@ -497,6 +497,11 @@ public class SearchRepositoryImpl implements SearchRepository {
         return rampDatastoreRepository.isSearchEnabled(currentProgram);
     }
 
+    @Override
+    public boolean isShowingUnfilteredList() {
+        return rampDatastoreRepository.isShowingUnfilteredList(currentProgram);
+    }
+
     private static final String OPTION_SET_REGEX = "_os_";
 
 }

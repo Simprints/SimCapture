@@ -12,6 +12,7 @@ import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.EventResourcesProvider
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository
 import org.dhis2.form.data.GeometryController
 import org.dhis2.form.data.GeometryParserImpl
 import org.dhis2.form.data.metadata.FileResourceConfiguration
@@ -70,6 +71,10 @@ class EventDetailsModule(
 
     @Provides
     @PerFragment
+    fun provideRampDatastoreRepository(d2: D2): RampDatastoreRepository = RampDatastoreRepository(d2)
+
+    @Provides
+    @PerFragment
     fun provideEventDetailsRepository(
         d2: D2,
         resourceManager: ResourceManager,
@@ -123,6 +128,7 @@ class EventDetailsModule(
         eventDetailResourcesProvider: EventDetailResourcesProvider,
         metadataIconProvider: MetadataIconProvider,
         configurePeriodSelector: ConfigurePeriodSelector,
+        rampDatastoreRepository: RampDatastoreRepository,
     ): EventDetailsViewModelFactory =
         EventDetailsViewModelFactory(
             ConfigureEventDetails(
@@ -140,6 +146,8 @@ class EventDetailsModule(
                 periodUtils = periodUtils,
                 enrollmentId = enrollmentId,
                 scheduleInterval = scheduleInterval,
+                anchoredScheduleVisitNumberDataElementId =
+                    rampDatastoreRepository.anchoredScheduleVisitNumberDataElementId(programStageUid),
             ),
             ConfigureOrgUnit(
                 creationType = eventCreationType,

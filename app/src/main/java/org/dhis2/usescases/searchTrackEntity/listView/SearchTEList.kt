@@ -23,6 +23,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.paging.LoadState
+import androidx.paging.PagingData
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -425,7 +426,9 @@ class SearchTEList : FragmentGlobalAbstract() {
     private var lastSearchPagingData: Any? = null
 
     private fun initData() {
-        displayLoadingData()
+        if (viewModel.shouldShowListContent()) {
+            displayLoadingData()
+        }
 
         val listener: () -> Unit = {
             onInitDataLoaded()
@@ -510,7 +513,13 @@ class SearchTEList : FragmentGlobalAbstract() {
 
     private fun hideStaleProgramResults() {
         listAdapter.removeAdapter(liveAdapter)
-        initLoading(listOf(SearchResult(SearchResult.SearchResultType.LOADING)))
+        if (viewModel.shouldShowListContent()) {
+            initLoading(listOf(SearchResult(SearchResult.SearchResultType.LOADING)))
+        } else {
+            globalAdapter.submitData(lifecycle, PagingData.empty())
+            initLoading(emptyList())
+            displayResult(emptyList())
+        }
     }
 
     private fun restoreProgramAdapterAfterRefresh() {

@@ -9,6 +9,7 @@ import org.dhis2.data.dhislogic.AUTH_ALL
 import org.dhis2.data.dhislogic.AUTH_UNCOMPLETE_EVENT
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.ui.FieldViewModelFactory
+import org.dhis2.usescases.eventsWithoutRegistration.eventDetails.models.AnchoredScheduleContext
 import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope
 import org.hisp.dhis.android.core.category.CategoryCombo
@@ -133,6 +134,51 @@ class EventDetailsRepository(
             activeDate.before(scheduleDate) -> scheduleDate
             else -> activeDate
         }
+    }
+
+    fun getAnchoredScheduleContext(
+        enrollmentUid: String?,
+        visitNumberDataElementUid: String,
+    ): AnchoredScheduleContext? {
+        val events =
+            d2
+                .eventModule()
+                .events()
+                .withTrackedEntityDataValues()
+                .byEnrollmentUid()
+                .eq(enrollmentUid)
+                .byProgramStageUid()
+                .eq(programStageUid)
+                .byDeleted()
+                .isFalse
+                .blockingGet()
+
+        val factualVisits =
+            events.mapNotNull { event ->
+                event
+                    .takeIf {
+                        it.eventDate() != null &&
+                            it.status() !in NON_FACTUAL_EVENT_STATUSES
+                    }
+                    ?.visitNumber(visitNumberDataElementUid)
+                    ?.let { visitNumber -> NumberedEvent(event, visitNumber) }
+            }
+        val initialVisitDate =
+            factualVisits
+                .filter { it.visitNumber == 0 }
+                .mapNotNull { it.event.eventDate() }
+                .minOrNull() ?: return null
+        val latestFactualVisit = factualVisits.maxWithOrNull(numberedEventComparator) ?: return null
+        val skippedVisits =
+            events.count { event ->
+                event.status() == EventStatus.SKIPPED &&
+                    event.isAfter(latestFactualVisit.event)
+            }
+
+        return AnchoredScheduleContext(
+            initialVisitDate = initialVisitDate,
+            currentVisitNumber = latestFactualVisit.visitNumber + skippedVisits,
+        )
     }
 
     fun hasAccessDataWrite(): Boolean {
@@ -498,4 +544,42 @@ class EventDetailsRepository(
 
             emit(uid)
         }
+
+    private fun Event.visitNumber(dataElementUid: String): Int? =
+        trackedEntityDataValues()
+            .orEmpty()
+            .firstOrNull { it.dataElement() == dataElementUid }
+            ?.value()
+            ?.trim()
+            ?.toIntOrNull()
+            ?.takeIf { it >= 0 }
+
+    private fun Event.isAfter(other: Event): Boolean = eventOrder.compare(this, other) > 0
+
+    private data class NumberedEvent(
+        val event: Event,
+        val visitNumber: Int,
+    )
+
+    private companion object {
+        val NON_FACTUAL_EVENT_STATUSES =
+            setOf(
+                EventStatus.SCHEDULE,
+                EventStatus.SKIPPED,
+                EventStatus.OVERDUE,
+            )
+
+        val eventOrder =
+            compareBy<Event>(
+                { it.createdAtClient() ?: it.created() ?: Date(0) },
+                { it.uid() },
+            )
+
+        val numberedEventComparator =
+            compareBy<NumberedEvent>(
+                { it.visitNumber },
+                { it.event.createdAtClient() ?: it.event.created() ?: Date(0) },
+                { it.event.uid() },
+            )
+    }
 }

@@ -13,7 +13,11 @@ import org.hisp.dhis.android.core.settings.CustomIntentResponseExtraType as Extr
 
 class CustomIntentRepositoryImpl(
     private val d2: D2,
+    private val isOneLevelUpOrgUnitForBiometricsModuleIdEnabled: () -> Boolean,
+    private val moduleIdPrefix: () -> String?,
 ) : CustomIntentRepository {
+    constructor(d2: D2) : this(d2, { false }, { null })
+
     private val customIntents: List<CustomIntent?> = d2.settingModule().customIntents().blockingGet()
 
     override fun getCustomIntent(
@@ -100,27 +104,66 @@ class CustomIntentRepositoryImpl(
             .settingModule()
             .customIntentService()
             .blockingEvaluateRequestParams(customIntent, context)
-            .overrideSimprintsIdentifyModuleIdWithUserOrgUnitCode(customIntent)
+            .overrideSimprintsModuleId(customIntent, context)
+            .prefixSimprintsModuleId(customIntent)
 
-    private fun Map<String, Any?>.overrideSimprintsIdentifyModuleIdWithUserOrgUnitCode(customIntent: CustomIntent): Map<String, Any?> {
-        val simprintsIdentifyAction = "com.simprints.id.IDENTIFY"
-        val simprintsModuleIdKey = "moduleId"
-        if (customIntent.packageName() != simprintsIdentifyAction) {
-            return this
-        }
-        val orgUnitCode =
-            currentUserOrgUnitCode()
-                ?: return this
-        return this + (simprintsModuleIdKey to orgUnitCode)
+    private fun Map<String, Any?>.prefixSimprintsModuleId(customIntent: CustomIntent): Map<String, Any?> {
+        if (customIntent.packageName()?.startsWith(SIMPRINTS_ACTION_PREFIX) != true) return this
+        val prefix = moduleIdPrefix()?.takeUnless(String::isEmpty) ?: return this
+        val moduleId = this[SIMPRINTS_MODULE_ID_KEY] as? String ?: return this
+        return this + (SIMPRINTS_MODULE_ID_KEY to prefix + moduleId)
     }
 
-    private fun currentUserOrgUnitCode(): String? =
+    private fun Map<String, Any?>.overrideSimprintsModuleId(
+        customIntent: CustomIntent,
+        context: CustomIntentContext,
+    ): Map<String, Any?> {
+        val action = customIntent.packageName() ?: return this
+        if (!action.startsWith(SIMPRINTS_ACTION_PREFIX)) return this
+
+        val isOneLevelUp = isOneLevelUpOrgUnitForBiometricsModuleIdEnabled()
+        if (!isOneLevelUp) {
+            if (action != SIMPRINTS_IDENTIFY_ACTION) return this
+            val orgUnitUid = currentUserOrgUnitUid() ?: return this
+            return this + (SIMPRINTS_MODULE_ID_KEY to orgUnitUid)
+        }
+
+        val evaluatedModuleId = this[SIMPRINTS_MODULE_ID_KEY] as? String
+        val orgUnitUid =
+            if (action == SIMPRINTS_IDENTIFY_ACTION) {
+                currentUserOrgUnitUid()
+            } else {
+                evaluatedModuleId.asOrgUnitUidOrNull()
+                    ?: context.orgunitUid.asOrgUnitUidOrNull()
+                    ?: currentUserOrgUnitUid()
+            } ?: return this
+
+        return this + (SIMPRINTS_MODULE_ID_KEY to oneLevelUpOrgUnitUidOrCurrent(orgUnitUid))
+    }
+
+    private fun String?.asOrgUnitUidOrNull(): String? =
+        this
+            ?.trim()
+            ?.takeUnless { it.isEmpty() || it.equals(SIMPRINTS_NOT_APPLICABLE, ignoreCase = true) }
+
+    private fun currentUserOrgUnitUid(): String? =
         d2
             .organisationUnitModule()
             .organisationUnits()
             .byRootOrganisationUnit(true)
             .blockingGet()
-            .firstNotNullOfOrNull { it.code()?.takeUnless(String::isBlank) }
+            .firstNotNullOfOrNull { it.uid().takeUnless(String::isBlank) }
+
+    private fun oneLevelUpOrgUnitUidOrCurrent(orgUnitUid: String): String =
+        d2
+            .organisationUnitModule()
+            .organisationUnits()
+            .uid(orgUnitUid)
+            .blockingGet()
+            ?.parent()
+            ?.uid()
+            ?.takeUnless(String::isBlank)
+            ?: orgUnitUid
 
     override fun reEvaluateCustomIntentRequestParams(
         orgUnitUid: String,
@@ -131,5 +174,12 @@ class CustomIntentRepositoryImpl(
         return customIntent?.let {
             evaluateCustomIntentRequestParams(customIntent, context)
         } ?: emptyMap()
+    }
+
+    private companion object {
+        private const val SIMPRINTS_ACTION_PREFIX = "com.simprints.id."
+        private const val SIMPRINTS_IDENTIFY_ACTION = "${SIMPRINTS_ACTION_PREFIX}IDENTIFY"
+        private const val SIMPRINTS_MODULE_ID_KEY = "moduleId"
+        private const val SIMPRINTS_NOT_APPLICABLE = "N/A"
     }
 }

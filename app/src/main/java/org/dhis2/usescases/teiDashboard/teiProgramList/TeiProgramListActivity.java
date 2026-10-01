@@ -9,6 +9,7 @@ import androidx.databinding.DataBindingUtil;
 
 import org.dhis2.App;
 import org.dhis2.R;
+import org.dhis2.commons.Constants;
 import org.dhis2.databinding.ActivityTeiProgramListBinding;
 import org.dhis2.ui.ThemeManager;
 import org.dhis2.usescases.general.ActivityGlobalAbstract;
@@ -34,7 +35,9 @@ public class TeiProgramListActivity extends ActivityGlobalAbstract implements Te
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         String trackedEntityId = getIntent().getStringExtra("TEI_UID");
-        ((App) getApplicationContext()).userComponent().plus(new TeiProgramListModule(this, trackedEntityId, getSyncStatusController())).inject(this);
+        String currentProgramId = getIntent().getStringExtra(Constants.PROGRAM_UID);
+        ((App) getApplicationContext()).userComponent().plus(new TeiProgramListModule(this, trackedEntityId,
+                currentProgramId, getSyncStatusController())).inject(this);
         super.onCreate(savedInstanceState);
         binding = DataBindingUtil.setContentView(this, R.layout.activity_tei_program_list);
         binding.setPresenter(presenter);

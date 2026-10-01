@@ -40,14 +40,79 @@ class RampDatastoreRepository(
             .blockingDownload()
     }
 
-    fun isSearchEnabled(programId: String?): Boolean {
+    fun isSearchEnabled(programId: String?): Boolean =
+        isProgramOptionEnabled(programId) { isSearchEnabled }
+
+    fun isShowingUnfilteredList(programId: String?): Boolean =
+        isProgramOptionEnabled(programId) { isShowingUnfilteredList }
+
+    fun isOneLevelUpOrgUnitForBiometricsModuleId(programId: String?): Boolean {
+        val normalizedProgramId = programId.trimToValue() ?: return false
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull { it.programId == normalizedProgramId }
+                ?.isOneLevelUpOrgUnitForBiometricsModuleId == true
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            false
+        }
+    }
+
+    fun moduleIdPrefix(programId: String?): String? {
+        val normalizedProgramId = programId.trimToValue() ?: return null
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull { it.programId == normalizedProgramId }
+                ?.moduleIdPrefix
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
+        }
+    }
+
+    fun biometricsCaptureOnlyAttributeId(programId: String?): String? {
+        val normalizedProgramId = programId.trimToValue() ?: return null
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull { it.programId == normalizedProgramId }
+                ?.isBiometricsCaptureOnlyButtonEnabledForAttributeId
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
+        }
+    }
+
+    fun externalCredentialAttributeId(programId: String?): String? {
+        val normalizedProgramId = programId.trimToValue() ?: return null
+
+        return try {
+            getConfig()
+                .programSpecificSettings
+                .firstOrNull { it.programId == normalizedProgramId }
+                ?.externalCredentialAttributeId
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
+        }
+    }
+
+    private fun isProgramOptionEnabled(
+        programId: String?,
+        option: ProgramSpecificSetting.() -> Boolean?,
+    ): Boolean {
         val normalizedProgramId = programId.trimToValue() ?: return true
 
         return try {
             getConfig()
                 .programSpecificSettings
                 .firstOrNull { it.programId == normalizedProgramId }
-                ?.isSearchEnabled != false
+                ?.option() != false
         } catch (exception: RuntimeException) {
             Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
             true
@@ -88,6 +153,22 @@ class RampDatastoreRepository(
     fun isScheduleOptionEnabled(programStageId: String?): Boolean = isProgramStageOptionEnabled(programStageId) { isScheduleOptionEnabled }
 
     fun isReferOptionEnabled(programStageId: String?): Boolean = isProgramStageOptionEnabled(programStageId) { isReferOptionEnabled }
+
+    fun anchoredScheduleVisitNumberDataElementId(programStageId: String?): String? {
+        val normalizedProgramStageId = programStageId.trimToValue() ?: return null
+
+        return try {
+            getConfig()
+                .programStageSpecificSettings
+                .firstOrNull {
+                    it.programStageId == normalizedProgramStageId &&
+                        it.isScheduleAnchoredToInitialVisit
+                }?.visitNumberDataElementId
+        } catch (exception: RuntimeException) {
+            Timber.e(exception, RAMP_DATASTORE_PARSE_ERROR)
+            null
+        }
+    }
 
     private fun isProgramStageOptionEnabled(
         programStageId: String?,
@@ -220,6 +301,7 @@ class RampDatastoreRepository(
         copy(
             programId = programId.trimToValue(),
             followUpVisitProgramStageId = followUpVisitProgramStageId.trimToValue(),
+            followUpVisitLabel = followUpVisitLabel.trimToValue(),
             headerVisitNumberDataElementId = headerVisitNumberDataElementId.trimToValue(),
             excludedFollowUpVisitDataElementIds =
                 excludedFollowUpVisitDataElementIds
@@ -229,6 +311,10 @@ class RampDatastoreRepository(
     private fun ProgramSpecificSetting.normalized(): ProgramSpecificSetting =
         copy(
             programId = programId.trimToValue(),
+            moduleIdPrefix = moduleIdPrefix.trimToValue(),
+            isBiometricsCaptureOnlyButtonEnabledForAttributeId =
+                isBiometricsCaptureOnlyButtonEnabledForAttributeId.trimToValue(),
+            externalCredentialAttributeId = externalCredentialAttributeId.trimToValue(),
             detailedEnrollmentListingDischargeOutcomeDataElementIds =
                 detailedEnrollmentListingDischargeOutcomeDataElementIds
                     ?.mapNotNull { it.trimToValue() },

@@ -87,6 +87,7 @@ private fun HistoryTable(
                 .background(colorResource(id = R.color.white)),
     ) {
         VisitHeaderRow(
+            label = table.visitLabel ?: stringResource(R.string.simprints_ramp_visit),
             columns = table.columns,
             horizontalScrollState = horizontalScrollState,
         )
@@ -125,12 +126,13 @@ private fun HistoryTable(
 
 @Composable
 private fun VisitHeaderRow(
+    label: String,
     columns: List<EventHistoryTableColumn>,
     horizontalScrollState: ScrollState,
 ) {
     Row(modifier = Modifier.heightIntrinsicRow()) {
         HeaderCell(
-            text = stringResource(R.string.simprints_ramp_visit),
+            text = label,
             width = RowHeaderWidth,
             textAlign = TextAlign.Start,
         )

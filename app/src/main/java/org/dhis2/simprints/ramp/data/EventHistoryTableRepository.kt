@@ -28,7 +28,9 @@ class EventHistoryTableRepository(
         val tableContext = getTableContext() ?: return null
         val config = tableContext.config
         val followUpVisitProgramStageUid = config.followUpVisitProgramStageId.trimToValue() ?: return null
-        val followUpVisitMaxNumber = config.followUpVisitMaxNumber?.takeIf { it >= 0 } ?: return null
+        val followUpVisitNumbers =
+            ((config.followUpVisitMinNumber ?: 0)..(config.followUpVisitMaxNumber ?: -1))
+                .takeIf { it.first in 0..it.last } ?: return null
         val headerVisitNumberDataElementUid = config.headerVisitNumberDataElementId.trimToValue() ?: return null
         val excludedDataElementIds =
             (
@@ -49,9 +51,9 @@ class EventHistoryTableRepository(
                 events = events,
                 eventDataValuesByUid = eventDataValuesByUid,
                 headerVisitNumberDataElementUid = headerVisitNumberDataElementUid,
-                followUpVisitMaxNumber = followUpVisitMaxNumber,
+                followUpVisitNumbers = followUpVisitNumbers,
             )
-        val columnIndexes = (0..followUpVisitMaxNumber).toList()
+        val columnIndexes = followUpVisitNumbers.toList()
         val optionDisplayNamesBySet = getOptionDisplayNamesBySet(rowDefinitions)
 
         fun eventForColumn(columnIndex: Int): Event? = eventsByColumnIndex[columnIndex]
@@ -107,6 +109,7 @@ class EventHistoryTableRepository(
                     columns = tableColumns,
                     sections = it,
                     dateRowValues = dateRowValues,
+                    visitLabel = config.followUpVisitLabel.trimToValue(),
                 )
             }
     }
@@ -325,14 +328,14 @@ class EventHistoryTableRepository(
         events: List<Event>,
         eventDataValuesByUid: Map<String, Map<String, String>>,
         headerVisitNumberDataElementUid: String,
-        followUpVisitMaxNumber: Int,
+        followUpVisitNumbers: IntRange,
     ): Map<Int, Event> =
         events
             .mapNotNull { event ->
                 eventDataValuesByUid[event.uid()]
                     ?.get(headerVisitNumberDataElementUid)
                     ?.toVisitNumber()
-                    ?.takeIf { it in 0..followUpVisitMaxNumber }
+                    ?.takeIf { it in followUpVisitNumbers }
                     ?.let { visitNumber -> visitNumber to event }
             }.toMap()
 

@@ -209,6 +209,57 @@ class EventHistoryTableRepositoryTest {
     }
 
     @Test
+    fun `table should start visit columns at configured minimum with configured label`() {
+        stubRampConfig(followUpVisitMinNumber = 1, followUpVisitLabel = "Custom")
+        stubRowsAndSections()
+        stubFollowUpEvents(
+            listOf(
+                event(
+                    uid = "visit-zero",
+                    eventDate = Date(1_000),
+                    values =
+                        listOf(
+                            value(VISIT_NUMBER_UID, "0"),
+                            value(WEIGHT_UID, "8.0"),
+                        ),
+                ),
+                event(
+                    uid = "visit-one",
+                    eventDate = Date(2_000),
+                    values =
+                        listOf(
+                            value(VISIT_NUMBER_UID, "1"),
+                            value(WEIGHT_UID, "9.0"),
+                        ),
+                ),
+            ),
+        )
+        stubOptions()
+
+        val table =
+            EventHistoryTableRepository(
+                d2 = d2,
+                simprintsRampDatastoreRepository = simprintsRampDatastoreRepository,
+                programUid = PROGRAM_UID,
+                enrollmentUid = ENROLLMENT_UID,
+            ).getTable()
+
+        assertEquals("Custom", table?.visitLabel)
+        assertEquals(listOf("1", "2", "3"), table?.columns?.map { it.label })
+        assertEquals(listOf("visit-one", null, null), table?.columns?.map { it.eventUid })
+        assertEquals(
+            listOf("9.0", "", ""),
+            table
+                ?.sections
+                ?.single()
+                ?.rows
+                ?.first()
+                ?.values
+                ?.map { it.value },
+        )
+    }
+
+    @Test
     fun `table should exclude locally deleted follow-up events`() {
         stubRampConfig()
         stubRowsAndSections()
@@ -320,7 +371,10 @@ class EventHistoryTableRepositoryTest {
         )
     }
 
-    private fun stubRampConfig() {
+    private fun stubRampConfig(
+        followUpVisitMinNumber: Int? = null,
+        followUpVisitLabel: String? = null,
+    ) {
         whenever(simprintsRampDatastoreRepository.getConfig()) doReturn
             RampDatastoreConfig(
                 programStageHistoryTables =
@@ -328,7 +382,9 @@ class EventHistoryTableRepositoryTest {
                         ProgramStageHistoryTableConfig(
                             programId = PROGRAM_UID,
                             followUpVisitProgramStageId = PROGRAM_STAGE_UID,
+                            followUpVisitMinNumber = followUpVisitMinNumber,
                             followUpVisitMaxNumber = 3,
+                            followUpVisitLabel = followUpVisitLabel,
                             headerVisitNumberDataElementId = VISIT_NUMBER_UID,
                             excludedFollowUpVisitDataElementIds = listOf(EXCLUDED_UID),
                         ),

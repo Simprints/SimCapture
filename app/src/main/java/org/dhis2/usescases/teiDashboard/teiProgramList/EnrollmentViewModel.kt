@@ -10,4 +10,5 @@ data class EnrollmentViewModel(
     val orgUnitName: String,
     val followUp: Boolean,
     val programUid: String,
+    val enrollmentDetails: String? = null,
 )

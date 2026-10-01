@@ -100,6 +100,8 @@ public class FilterManager implements Serializable {
     private ObservableField<Integer> assignedToMeApplied;
     private ObservableField<Integer> followUpFilterApplied;
     private ObservableField<Integer> transferredFilterApplied;
+    private ObservableField<Integer> overdueFilterApplied;
+    private ObservableField<Integer> syncErrorFilterApplied;
 
     private List<String> stateValues = new ArrayList<>();
 
@@ -172,6 +174,8 @@ public class FilterManager implements Serializable {
         assignedToMeApplied = new ObservableField<>(0);
         followUpFilterApplied = new ObservableField<>(0);
         transferredFilterApplied = new ObservableField<>(0);
+        overdueFilterApplied = new ObservableField<>(0);
+        syncErrorFilterApplied = new ObservableField<>(0);
 
         filterProcessor = PublishProcessor.create();
         filterFlow = FilterManagerExtensionsKt.initFlow(this);
@@ -233,6 +237,7 @@ public class FilterManager implements Serializable {
             }
         }
         observableStates.postValue(stateFilters);
+        updateSyncErrorFilterCounter();
 
         boolean hasNotSyncedState = stateFilters.contains(State.TO_POST) &&
                 stateFilters.contains(State.TO_UPDATE) &&
@@ -270,7 +275,8 @@ public class FilterManager implements Serializable {
             }
         }
         if (changed) {
-            observableEventStatus.set(eventStatusFilters);
+            observableEventStatus.set(new ArrayList<>(eventStatusFilters)); // passing a new instance so data binding observes the change
+            updateOverdueFilterCounter();
             if (eventStatusFilters.contains(EventStatus.ACTIVE)) {
                 eventStatusFiltersApplied.set(eventStatusFilters.size() - 1);
             } else {
@@ -373,6 +379,10 @@ public class FilterManager implements Serializable {
                 return followUpFilterApplied;
             case TRANSFERRED:
                 return transferredFilterApplied;
+            case OVERDUE:
+                return overdueFilterApplied;
+            case SYNC_ERROR:
+                return syncErrorFilterApplied;
             default:
                 return new ObservableField<>(0);
         }
@@ -521,7 +531,8 @@ public class FilterManager implements Serializable {
     public void clearEventStatus() {
         eventStatusFilters.clear();
         eventStatusFiltersApplied.set(eventStatusFilters.size());
-        observableEventStatus.set(eventStatusFilters);
+        observableEventStatus.set(new ArrayList<>(eventStatusFilters)); // passing a new instance so data binding observes the change
+        updateOverdueFilterCounter();
     }
 
     public void clearEnrollmentStatus() {
@@ -591,6 +602,7 @@ public class FilterManager implements Serializable {
         stateFilters.clear();
         observableStates.postValue(stateFilters);
         stateFiltersApplied.set(stateFilters.size());
+        updateSyncErrorFilterCounter();
     }
 
     public void clearOuFilter() {
@@ -634,6 +646,8 @@ public class FilterManager implements Serializable {
         setWorkingListScope(new EmptyWorkingList());
         followUpFilterApplied.set(0);
         transferredFilterApplied.set(0);
+        updateOverdueFilterCounter();
+        updateSyncErrorFilterCounter();
 
         if (!workingListActive())
             publishData();
@@ -760,8 +774,20 @@ public class FilterManager implements Serializable {
         enrollmentStatusFiltersApplied.set(scope.enrollmentStatusCount());
         eventStatusFiltersApplied.set(scope.eventStatusCount());
         assignedToMeApplied.set(scope.assignCount());
+        updateOverdueFilterCounter();
+        updateSyncErrorFilterCounter();
 
         publishData();
+    }
+
+    private void updateOverdueFilterCounter() {
+        overdueFilterApplied.set(eventStatusFilters.contains(EventStatus.OVERDUE) ? 1 : 0);
+    }
+
+    private void updateSyncErrorFilterCounter() {
+        syncErrorFilterApplied.set(
+                stateFilters.contains(State.ERROR) || stateFilters.contains(State.WARNING) ? 1 : 0
+        );
     }
 
     private int getTotalFilterCounterForWorkingList(WorkingListScope scope) {

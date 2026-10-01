@@ -8,8 +8,11 @@ import org.dhis2.commons.filters.EventStatusFilter
 import org.dhis2.commons.filters.FilterItem
 import org.dhis2.commons.filters.FilterResources
 import org.dhis2.commons.filters.Filters
+import org.dhis2.commons.filters.OverdueFilter
 import org.dhis2.commons.filters.PeriodFilter
 import org.dhis2.commons.filters.ProgramType
+import org.dhis2.commons.filters.SyncErrorFilter
+import org.dhis2.commons.filters.SyncStateFilter
 import org.dhis2.commons.filters.data.FilterRepository
 import org.dhis2.commons.filters.data.GetFiltersApplyingWebAppConfig
 import org.dhis2.commons.filters.sorting.SortingItem
@@ -46,6 +49,8 @@ class FilterRepositoryTest {
         const val PROGRAM_FILTER = "ProgramFilter"
         const val FOLLOW_UP = "follow_up"
         const val TRANSFERRED = "transferred"
+        const val OVERDUE = "overdue"
+        const val WITH_SYNC_ERRORS = "with_sync_errors"
     }
 
     private val observableSortingInject = ObservableField<SortingItem>()
@@ -86,6 +91,8 @@ class FilterRepositoryTest {
         whenever(filterResources.filterEventDateLabel("random")) doReturn EVENT_DATE
         whenever(filterResources.filterFollowUpLabel("Name")) doReturn FOLLOW_UP
         whenever(filterResources.filterTransferredPatientLabel()) doReturn TRANSFERRED
+        whenever(filterResources.filterOverdueLabel()) doReturn OVERDUE
+        whenever(filterResources.filterWithSyncErrorsLabel()) doReturn WITH_SYNC_ERRORS
     }
 
     @Test
@@ -744,6 +751,7 @@ class FilterRepositoryTest {
         ) doReturn emptyList()
 
         val result = filterRepository.programFilters(program.uid())
+                .filterNot { it is OverdueFilter || it is SyncErrorFilter }
 
         assert(result[0].type == Filters.PERIOD)
         assert(result[1].type == Filters.ENROLLMENT_STATUS)
@@ -752,6 +760,101 @@ class FilterRepositoryTest {
         assert(result[4].type == Filters.TRANSFERRED)
         assert(result[5].type == Filters.ASSIGNED_TO_ME)
         assert(result.size == 6)
+    }
+
+    @Test
+    fun `Should add quick tracker filters for available source filters`() {
+        val program =
+            Program
+                .builder()
+                .uid("random")
+                .categoryCombo(ObjectWithUid.create("categoryComboUid"))
+                .enrollmentCategoryCombo(ObjectWithUid.create("categoryComboUid"))
+                .programType(org.hisp.dhis.android.core.program.ProgramType.WITH_REGISTRATION)
+                .build()
+        whenever(d2.programModule().programs().uid(any()).get()) doReturn Single.just(program)
+        whenever(d2.settingModule().appearanceSettings().blockingExists()) doReturn true
+        whenever(filterResources.filterFollowUpLabel("")) doReturn FOLLOW_UP
+        whenever(
+            d2.programModule().programStages().byProgramUid().eq(program.uid()),
+        ) doReturn mock()
+        whenever(
+            d2
+                .programModule()
+                .programStages()
+                .byProgramUid()
+                .eq(program.uid())
+                .byEnableUserAssignment(),
+        ) doReturn mock()
+        whenever(
+            d2
+                .programModule()
+                .programStages()
+                .byProgramUid()
+                .eq(program.uid())
+                .byEnableUserAssignment()
+                .eq(true),
+        ) doReturn mock()
+        whenever(
+            d2
+                .programModule()
+                .programStages()
+                .byProgramUid()
+                .eq(program.uid())
+                .byEnableUserAssignment()
+                .eq(true)
+                .blockingIsEmpty(),
+        ) doReturn false
+
+        val sourceFilters =
+            createDefaultTrackerFilterResult().toMutableList().apply {
+                add(
+                    1,
+                    SyncStateFilter(
+                        ProgramType.TRACKER,
+                        observableSortingInject,
+                        observableOpenFilter,
+                        SYNC_STATUS,
+                    ),
+                )
+            }
+        whenever(
+            getFiltersApplyingWebAppConfig.execute(
+                any<LinkedHashMap<ProgramFilter, FilterItem>>(),
+                any<Map<ProgramFilter, FilterSetting>>(),
+            ),
+        ) doReturn sourceFilters
+
+        val result = filterRepository.programFilters(program.uid())
+        val eventStatusFilter = sourceFilters.filterIsInstance<EventStatusFilter>().single()
+        val syncStateFilter = sourceFilters.filterIsInstance<SyncStateFilter>().single()
+
+        assert((result.single { it.type == Filters.OVERDUE } as OverdueFilter).eventStatusFilter === eventStatusFilter)
+        assert((result.single { it.type == Filters.SYNC_ERROR } as SyncErrorFilter).syncStateFilter === syncStateFilter)
+
+        whenever(
+            getFiltersApplyingWebAppConfig.execute(
+                any<LinkedHashMap<ProgramFilter, FilterItem>>(),
+                any<Map<ProgramFilter, FilterSetting>>(),
+            ),
+        ) doReturn sourceFilters.filterNot { it is SyncStateFilter }
+
+        val filtersWithoutSyncState = filterRepository.programFilters(program.uid())
+
+        assert(filtersWithoutSyncState.none { it.type == Filters.SYNC_ERROR })
+        assert(filtersWithoutSyncState.any { it.type == Filters.OVERDUE })
+
+        whenever(
+            getFiltersApplyingWebAppConfig.execute(
+                any<LinkedHashMap<ProgramFilter, FilterItem>>(),
+                any<Map<ProgramFilter, FilterSetting>>(),
+            ),
+        ) doReturn sourceFilters.filterNot { it is EventStatusFilter }
+
+        val filtersWithoutEventStatus = filterRepository.programFilters(program.uid())
+
+        assert(filtersWithoutEventStatus.none { it.type == Filters.OVERDUE })
+        assert(filtersWithoutEventStatus.any { it.type == Filters.SYNC_ERROR })
     }
 
     private fun createTrackerEntityInstanceFilters(): List<TrackedEntityInstanceFilter> =

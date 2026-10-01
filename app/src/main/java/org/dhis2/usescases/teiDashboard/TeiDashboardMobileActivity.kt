@@ -700,6 +700,7 @@ class TeiDashboardMobileActivity :
     override fun goToEnrollmentList() {
         val intent = Intent(this, TeiProgramListActivity::class.java)
         intent.putExtra(TEI_UID, teiUid)
+        intent.putExtra(Constants.PROGRAM_UID, programUid)
         teiProgramListLauncher.launch(intent)
     }
 

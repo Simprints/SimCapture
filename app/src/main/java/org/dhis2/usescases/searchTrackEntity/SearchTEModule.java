@@ -293,8 +293,16 @@ public class SearchTEModule {
 
     @Provides
     @PerActivity
-    CustomIntentRepository provideCustomIntentRepository(D2 d2) {
-        return new CustomIntentRepositoryImpl(d2);
+    CustomIntentRepository provideCustomIntentRepository(
+            D2 d2,
+            RampDatastoreRepository rampDatastoreRepository
+    ) {
+        return new CustomIntentRepositoryImpl(
+                d2,
+                () -> rampDatastoreRepository
+                        .isOneLevelUpOrgUnitForBiometricsModuleId(initialProgram),
+                () -> rampDatastoreRepository.moduleIdPrefix(initialProgram)
+        );
     }
 
     @Provides
@@ -387,12 +395,14 @@ public class SearchTEModule {
     SimprintsSearchViewModelFactory provideSimprintsSearchViewModelFactory(
             SimprintsResolveConfirmIdentityCalloutUseCase resolveConfirmIdentityCalloutUseCase,
             SimprintsSessionRepository simprintsSessionRepository,
-            SimprintsResolveSingleBiometricSearchNavigationUseCase resolveSingleBiometricSearchNavigationUseCase
+            SimprintsResolveSingleBiometricSearchNavigationUseCase resolveSingleBiometricSearchNavigationUseCase,
+            SimprintsD2Repository simprintsD2Repository
     ) {
         return new SimprintsSearchViewModelFactory(
                 resolveConfirmIdentityCalloutUseCase,
                 simprintsSessionRepository,
-                resolveSingleBiometricSearchNavigationUseCase
+                resolveSingleBiometricSearchNavigationUseCase,
+                simprintsD2Repository
         );
     }
 

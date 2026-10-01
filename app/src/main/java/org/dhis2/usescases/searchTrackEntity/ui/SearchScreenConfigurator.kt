@@ -20,20 +20,40 @@ class SearchScreenConfigurator(
 ) {
     private var hasConfiguredLandscape = false
 
-    fun configure(screenState: SearchTEScreenState) {
+    fun configure(
+        screenState: SearchTEScreenState,
+        shouldLaunchSimprintsBiometricIdentification: Boolean = false,
+    ) {
+        val isDirectSimprintsSearch =
+            screenState is SearchList &&
+                screenState.searchForm.isEnabled &&
+                !screenState.searchForm.isOpened &&
+                !screenState.searchFilters.isOpened &&
+                shouldLaunchSimprintsBiometricIdentification
+        binding.directSearchBackground?.visibility =
+            if (isDirectSimprintsSearch) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
         when (screenState) {
             is SearchAnalytics -> configureLandscapeAnalyticsScreen(true, withAnimation = hasConfiguredLandscape)
             is SearchList ->
                 if (isPortrait()) {
                     configureListScreen(screenState)
                 } else {
+                    positionLandscapeSearchButton(isDirectSimprintsSearch)
                     val withAnimation = hasConfiguredLandscape
                     if (screenState.screenState != SearchScreenState.MAP &&
                         (screenState.searchForm.isEnabled || screenState.searchFilters.isOpened)
                     ) {
                         configureLandscapeAnalyticsScreen(false, withAnimation = withAnimation)
                     }
-                    configureLandscapeListScreen(screenState, withAnimation)
+                    configureLandscapeListScreen(
+                        screenState,
+                        withAnimation,
+                        shouldLaunchSimprintsBiometricIdentification,
+                    )
                     hasConfiguredLandscape = true
                 }
         }
@@ -51,7 +71,11 @@ class SearchScreenConfigurator(
         setFiltersVisibility(!searchConfiguration.searchForm.isOpened)
     }
 
-    private fun configureLandscapeListScreen(searchConfiguration: SearchList, withAnimation: Boolean) {
+    private fun configureLandscapeListScreen(
+        searchConfiguration: SearchList,
+        withAnimation: Boolean,
+        shouldLaunchSimprintsBiometricIdentification: Boolean,
+    ) {
         when {
             searchConfiguration.searchFilters.isOpened -> {
                 if (searchConfiguration.screenState == SearchScreenState.MAP) {
@@ -60,11 +84,19 @@ class SearchScreenConfigurator(
                 openFilters()
             }
 
-            searchConfiguration.searchForm.isEnabled -> {
+            searchConfiguration.searchForm.isEnabled &&
+                (!shouldLaunchSimprintsBiometricIdentification || searchConfiguration.searchForm.isOpened) -> {
                 if (searchConfiguration.screenState == SearchScreenState.MAP) {
                     configureLandscapeAnalyticsScreen(false, withAnimation = withAnimation)
                 }
                 openSearch()
+            }
+
+            searchConfiguration.searchForm.isEnabled -> {
+                if (searchConfiguration.screenState == SearchScreenState.MAP) {
+                    configureLandscapeAnalyticsScreen(false, withAnimation = withAnimation)
+                }
+                closeBackdrop()
             }
 
             else -> {
@@ -75,6 +107,21 @@ class SearchScreenConfigurator(
 
         syncButtonVisibility(true)
         setFiltersVisibility(true)
+    }
+
+    private fun positionLandscapeSearchButton(atTop: Boolean) {
+        val constraintSet = ConstraintSet()
+        constraintSet.clone(binding.backdropLayout)
+        constraintSet.clear(R.id.landOpenSearchButton, ConstraintSet.TOP)
+        constraintSet.clear(R.id.landOpenSearchButton, ConstraintSet.BOTTOM)
+        val side = if (atTop) ConstraintSet.TOP else ConstraintSet.BOTTOM
+        constraintSet.connect(
+            R.id.landOpenSearchButton,
+            side,
+            ConstraintSet.PARENT_ID,
+            side,
+        )
+        constraintSet.applyTo(binding.backdropLayout)
     }
 
     private fun configureLandscapeAnalyticsScreen(expanded: Boolean, withAnimation: Boolean = true) {

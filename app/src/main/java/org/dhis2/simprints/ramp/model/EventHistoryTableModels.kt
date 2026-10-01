@@ -20,6 +20,7 @@ data class EventHistoryTable(
     val columns: List<EventHistoryTableColumn>,
     val sections: List<EventHistoryTableSection>,
     val dateRowValues: List<String> = emptyList(),
+    val visitLabel: String? = null,
 )
 
 data class EventHistoryTableColumn(

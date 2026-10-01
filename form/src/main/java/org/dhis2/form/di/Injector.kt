@@ -11,6 +11,7 @@ import org.dhis2.commons.resources.EventResourcesProvider
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository as SimprintsRampDatastoreRepository
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.data.DataEntryRepository
@@ -60,6 +61,7 @@ object Injector {
     fun provideFormViewModelFactory(
         context: Context,
         repositoryRecords: FormRepositoryRecords,
+        programUid: String?,
         openErrorLocation: Boolean,
         useCompose: Boolean,
     ): FormViewModelFactory =
@@ -67,6 +69,7 @@ object Injector {
             provideFormRepository(
                 context,
                 repositoryRecords,
+                programUid,
                 useCompose,
             ),
             provideDispatchers(),
@@ -93,14 +96,41 @@ object Injector {
 
     fun provideDispatchers(): DispatcherProvider = FormDispatcher()
 
-    fun provideCustomIntentProvider(): CustomIntentRepository = CustomIntentRepositoryImpl(provideD2())
+    fun provideCustomIntentProvider(programUid: String?): CustomIntentRepository {
+        val d2 = provideD2()
+        val rampDatastoreRepository = SimprintsRampDatastoreRepository(d2)
+        return CustomIntentRepositoryImpl(
+            d2 = d2,
+            isOneLevelUpOrgUnitForBiometricsModuleIdEnabled = {
+                rampDatastoreRepository.isOneLevelUpOrgUnitForBiometricsModuleId(programUid)
+            },
+            moduleIdPrefix = { rampDatastoreRepository.moduleIdPrefix(programUid) },
+        )
+    }
 
     private fun provideFormRepository(
         context: Context,
         repositoryRecords: FormRepositoryRecords,
+        programUid: String?,
         useCompose: Boolean,
-    ): FormRepository =
-        FormRepositoryImpl(
+    ): FormRepository {
+        val biometricsCaptureOnlyAttributeId by lazy {
+            if (repositoryRecords.entryMode == EntryMode.ATTR) {
+                SimprintsRampDatastoreRepository(provideD2())
+                    .biometricsCaptureOnlyAttributeId(programUid)
+            } else {
+                null
+            }
+        }
+        val biometricsCaptureOnlyAttributeIdProvider = { biometricsCaptureOnlyAttributeId }
+        val externalCredentialAttributeId by lazy {
+            if (repositoryRecords.entryMode == EntryMode.ATTR) {
+                SimprintsRampDatastoreRepository(provideD2()).externalCredentialAttributeId(programUid)
+            } else {
+                null
+            }
+        }
+        return FormRepositoryImpl(
             formValueStore =
                 provideFormValueStore(
                     context = context,
@@ -115,6 +145,8 @@ object Injector {
                     context = context,
                     repositoryRecords = repositoryRecords,
                     metadataIconProvider = provideMetadataIconProvider(),
+                    customIntentRepository = provideCustomIntentProvider(programUid),
+                    biometricsCaptureOnlyAttributeIdProvider = biometricsCaptureOnlyAttributeIdProvider,
                 ),
             ruleEngineRepository =
                 provideRuleEngineRepository(
@@ -125,13 +157,20 @@ object Injector {
             legendValueProvider = provideLegendValueProvider(context),
             useCompose = useCompose,
             preferenceProvider = providePreferenceProvider(context),
+            biometricsCaptureOnlyAttributeIdProvider = biometricsCaptureOnlyAttributeIdProvider,
+            externalCredentialAttributeIdProvider = { externalCredentialAttributeId },
+            simprintsD2Repository =
+                if (repositoryRecords.entryMode == EntryMode.ATTR) SimprintsD2Repository(provideD2()) else null,
         )
+    }
 
     private fun provideDataEntryRepository(
         entryMode: EntryMode?,
         context: Context,
         repositoryRecords: FormRepositoryRecords,
         metadataIconProvider: MetadataIconProvider,
+        customIntentRepository: CustomIntentRepository,
+        biometricsCaptureOnlyAttributeIdProvider: () -> String?,
     ): DataEntryRepository =
         when (entryMode) {
             EntryMode.ATTR ->
@@ -139,12 +178,15 @@ object Injector {
                     context,
                     repositoryRecords as EnrollmentRecords,
                     metadataIconProvider,
+                    customIntentRepository,
+                    biometricsCaptureOnlyAttributeIdProvider,
                 )
 
             else ->
                 provideEventRepository(
                     context,
                     repositoryRecords as EventRecords,
+                    customIntentRepository,
                 )
         }
 
@@ -152,6 +194,8 @@ object Injector {
         context: Context,
         enrollmentRecords: EnrollmentRecords,
         metadataIconProvider: MetadataIconProvider,
+        customIntentRepository: CustomIntentRepository,
+        biometricsCaptureOnlyAttributeIdProvider: () -> String?,
     ): DataEntryRepository =
         EnrollmentRepository(
             fieldFactory = provideFieldFactory(context),
@@ -164,12 +208,14 @@ object Injector {
             enrollmentMode = enrollmentRecords.enrollmentMode,
             enrollmentFormLabelsProvider = provideEnrollmentFormLabelsProvider(context),
             metadataIconProvider = metadataIconProvider,
-            customIntentRepository = provideCustomIntentProvider(),
+            customIntentRepository = customIntentRepository,
+            biometricsCaptureOnlyAttributeIdProvider = biometricsCaptureOnlyAttributeIdProvider,
         )
 
     private fun provideEventRepository(
         context: Context,
         eventRecords: EventRecords,
+        customIntentRepository: CustomIntentRepository,
     ): DataEntryRepository =
         EventRepository(
             fieldFactory = provideFieldFactory(context),
@@ -184,7 +230,7 @@ object Injector {
                 ),
             eventMode = eventRecords.eventMode,
             dispatcherProvider = provideDispatchers(),
-            customIntentRepository = provideCustomIntentProvider(),
+            customIntentRepository = customIntentRepository,
             getSimprintsRampFormHistoryChart =
                 GetSimprintsRampFormHistoryChartUseCase(
                     SimprintsRampDatastoreRepository(provideD2()),

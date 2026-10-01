@@ -19,6 +19,7 @@ object SimprintsIntentUtils {
     data class PreparedCallout(
         val launchIntent: Intent,
         val responseData: List<CustomIntentResponseDataModel>?,
+        val biometricAttributeUid: String? = null,
     )
 
     fun isCallout(customIntent: CustomIntentModel?): Boolean = customIntent?.packageName?.startsWith(SIMPRINTS_PACKAGE_NAME) == true

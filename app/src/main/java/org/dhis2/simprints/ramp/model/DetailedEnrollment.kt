@@ -3,7 +3,6 @@ package org.dhis2.simprints.ramp.model
 import java.util.Date
 
 data class DetailedEnrollment(
-    val programName: String,
     val admitted: Date?,
     val discharge: Date?,
     val outcome: String?,

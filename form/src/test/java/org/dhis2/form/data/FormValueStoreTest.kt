@@ -28,6 +28,7 @@ import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttributeValueObjec
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityDataValue
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityDataValueObjectRepository
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -112,6 +113,18 @@ class FormValueStoreTest {
             networkUtils,
             resourceManager,
         )
+    }
+
+    @Test
+    fun `Should resolve enrollment uid only when an enrollment repository exists`() {
+        val mockedEnrollment: Enrollment =
+            mock {
+                on { uid() } doReturn "enrollmentUid"
+            }
+        whenever(enrollmentRepository.blockingGet()) doReturn mockedEnrollment
+
+        assertEquals("enrollmentUid", attrValueStore.enrollmentUid())
+        assertNull(deValueStore.enrollmentUid())
     }
 
     @Test(expected = IllegalArgumentException::class)

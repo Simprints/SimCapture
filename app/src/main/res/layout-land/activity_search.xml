@@ -182,6 +182,17 @@
                 android:orientation="vertical"
                 app:layout_constraintGuide_percent="0.26" />
 
+            <View
+                android:id="@+id/directSearchBackground"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:background="@drawable/bg_landscape_direct_search_simprints_ramp"
+                android:visibility="gone"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/backdropGuideDiv"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/filterRecyclerLayout"
                 android:layout_width="0dp"
@@ -223,7 +234,7 @@
 
             <androidx.compose.ui.platform.ComposeView
                 android:id="@+id/landOpenSearchButton"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:clipToPadding="false"
                 android:padding="16dp"
