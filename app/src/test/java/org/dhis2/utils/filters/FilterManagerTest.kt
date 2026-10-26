@@ -3,6 +3,7 @@ package org.dhis2.utils.filters
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import io.reactivex.android.plugins.RxAndroidPlugins
 import io.reactivex.schedulers.Schedulers
+import org.dhis2.commons.R
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.filters.Filters
 import org.dhis2.commons.filters.data.EmptyWorkingList
@@ -141,6 +142,26 @@ class FilterManagerTest {
 
         assertTrue(filterManager.totalFilters == 0)
         assertTrue(filterManager.observeTransferred().get() == false)
+    }
+
+    @Test
+    fun `Should count due today only while scheduled status and today period are both selected`() {
+        filterManager.periodIdSelected.set(R.id.today)
+        filterManager.addPeriod(arrayListOf(DatePeriod.create(Date(), Date())))
+        assertTrue(filterManager.observeField(Filters.DUE_TODAY).get() == 0)
+
+        filterManager.addEventStatus(false, EventStatus.SCHEDULE)
+        assertTrue(filterManager.observeField(Filters.DUE_TODAY).get() == 1)
+
+        filterManager.clearPeriodFilter()
+        assertTrue(filterManager.observeField(Filters.DUE_TODAY).get() == 0)
+
+        filterManager.periodIdSelected.set(R.id.today)
+        filterManager.addPeriod(arrayListOf(DatePeriod.create(Date(), Date())))
+        assertTrue(filterManager.observeField(Filters.DUE_TODAY).get() == 1)
+
+        filterManager.clearEventStatus()
+        assertTrue(filterManager.observeField(Filters.DUE_TODAY).get() == 0)
     }
 
     @Test

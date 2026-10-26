@@ -122,6 +122,8 @@ class FilterResources(
 
     fun filterOverdueLabel(): String = resourceManager.getString(R.string.filter_event_status_overdue)
 
+    fun filterDueTodayLabel(): String = resourceManager.getString(R.string.overdue_due_today)
+
     fun filterWithSyncErrorsLabel(): String = resourceManager.getString(R.string.filter_with_sync_errors)
 
     fun filterEventStatusLabel(programUid: String): String =

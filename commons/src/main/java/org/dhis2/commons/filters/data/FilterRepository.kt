@@ -3,6 +3,7 @@ package org.dhis2.commons.filters.data
 import androidx.databinding.ObservableField
 import org.dhis2.commons.filters.AssignedFilter
 import org.dhis2.commons.filters.CatOptionComboFilter
+import org.dhis2.commons.filters.DueTodayFilter
 import org.dhis2.commons.filters.EnrollmentDateFilter
 import org.dhis2.commons.filters.EnrollmentStatusFilter
 import org.dhis2.commons.filters.EventStatusFilter
@@ -590,10 +591,16 @@ constructor(
             filtersToShow.add(transferredFilter)
         }
 
+        val eventStatusFilter = filtersToShow.filterIsInstance<EventStatusFilter>().singleOrNull()
         val quickFilters =
             listOfNotNull(
-                filtersToShow.filterIsInstance<EventStatusFilter>().singleOrNull()?.let {
+                eventStatusFilter?.let {
                     OverdueFilter(it, resources.filterOverdueLabel())
+                },
+                eventStatusFilter?.let { statusFilter ->
+                    filtersToShow.filterIsInstance<PeriodFilter>().singleOrNull()?.let {
+                        DueTodayFilter(statusFilter, it, resources.filterDueTodayLabel())
+                    }
                 },
                 filtersToShow.filterIsInstance<SyncStateFilter>().singleOrNull()?.let {
                     SyncErrorFilter(it, resources.filterWithSyncErrorsLabel())

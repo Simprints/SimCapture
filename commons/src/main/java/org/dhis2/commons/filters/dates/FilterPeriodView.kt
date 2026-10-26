@@ -38,7 +38,6 @@ class FilterPeriodView
 
         fun setFilterItem(filterItem: FilterItem) {
             binding.filterItem = filterItem
-            updateSelection(R.id.anytime)
             if (filterItem is EnrollmentDateFilter) {
                 setEnrollmentFilter(filterItem)
             } else if (filterItem is PeriodFilter) {
@@ -66,6 +65,7 @@ class FilterPeriodView
             onPeriodSelected = { periods, checkedId ->
                 filterItem.setSelectedPeriod(periods, checkedId)
             }
+            updateSelection(filterItem.observePeriod().get() ?: R.id.anytime)
         }
 
         private fun setPeriodFilter(filterItem: PeriodFilter) {
@@ -89,6 +89,7 @@ class FilterPeriodView
             onPeriodSelected = { periods, checkedId ->
                 filterItem.setSelectedPeriod(periods, checkedId)
             }
+            updateSelection(filterItem.observePeriod().get() ?: R.id.anytime)
         }
 
         override fun onCheckedChanged(
