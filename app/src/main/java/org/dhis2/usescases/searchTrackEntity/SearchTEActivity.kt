@@ -125,7 +125,7 @@ class SearchTEActivity :
 
     private val simprintsConfirmIdentityLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            viewModel.onConfirmIdentityResult(result.resultCode)
+            viewModel.onConfirmIdentityResult(result.resultCode, result.data)
         }
 
     private var simprintsKeepSessionOnFinish = false
@@ -163,6 +163,7 @@ class SearchTEActivity :
             themeManager.setProgramTheme(initialProgram!!)
         }
         super.onCreate(savedInstanceState)
+        viewModel.restorePendingSimprintsConfirmIdentity(savedInstanceState)
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_search)
         val currentScreen = savedInstanceState?.getString(CURRENT_SCREEN).orEmpty()
@@ -320,6 +321,7 @@ class SearchTEActivity :
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        viewModel.savePendingSimprintsConfirmIdentity(outState)
         super.onSaveInstanceState(outState)
         outState.putString(Constants.QUERY_DATA, JSONObject(viewModel.queryDataAsMap()).toString())
         outState.putString(CURRENT_SCREEN, currentContent?.name)

@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format
 import kotlinx.datetime.toLocalDateTime
+import org.dhis2.commons.simprints.repository.SimprintsDatastoreRepository
 import org.dhis2.mobile.commons.coroutine.Dispatcher
 import org.dhis2.mobile.commons.dates.dateTimeFormat
 import org.dhis2.mobile.commons.error.DomainErrorMapper
@@ -45,6 +46,7 @@ class AndroidSyncRepository(
     private val analyticsHelper: AnalyticActions,
     private val domainErrorMapper: DomainErrorMapper,
     private val dispatcher: Dispatcher,
+    private val simprintsDatastoreRepository: SimprintsDatastoreRepository,
 ) : SyncRepository {
     private suspend fun <T> execute(block: suspend () -> Result<T>): Result<T> =
         withContext(dispatcher.io) {
@@ -303,6 +305,7 @@ class AndroidSyncRepository(
             d2.metadataModule().download().blockingForEach { progress ->
                 onProgressUpdate(ceil(progress.percentage() ?: 0.0).toInt())
             }
+            simprintsDatastoreRepository.sync()
             Result.success(Unit)
         }
 

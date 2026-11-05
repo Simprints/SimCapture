@@ -1,6 +1,7 @@
 package org.dhis2.mobile.sync.di
 
 import androidx.work.WorkManager
+import org.dhis2.commons.simprints.repository.SimprintsDatastoreRepository
 import org.dhis2.mobile.sync.data.AndroidSyncBackgroundJobAction
 import org.dhis2.mobile.sync.data.AndroidSyncRepository
 import org.dhis2.mobile.sync.data.SyncBackgroundJobAction
@@ -33,8 +34,10 @@ actual val syncModule =
         }
 
         factory<SyncRepository> {
-            AndroidSyncRepository(get(), get(), get(), get(), get())
+            AndroidSyncRepository(get(), get(), get(), get(), get(), get())
         }
+
+        factory { SimprintsDatastoreRepository(get()) }
 
         factoryOf(::SyncMetadata)
 

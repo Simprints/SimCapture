@@ -3,9 +3,12 @@ package org.dhis2.simprints
 import android.app.Activity.RESULT_OK
 import android.content.Intent
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.CancellationException
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.simprints.usecases.SimprintsResolvePendingEnrollmentActionUseCase
+import org.dhis2.commons.simprints.utils.SimprintsExternalCredentialUtils
+import timber.log.Timber
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
@@ -87,6 +90,25 @@ class SimprintsEnrollmentViewModel(
                     attributeUid = resolvedAction.fieldUid,
                     value = value,
                 )
+                val externalCredentialValue =
+                    SimprintsExternalCredentialUtils.enrollmentExternalCredentialValue(
+                        resolvedAction.callout.launchIntent.action,
+                        value,
+                        data?.extras,
+                    )
+                if (externalCredentialValue != null && enrollmentUid != null) {
+                    try {
+                        simprintsD2Repository.saveEnrollmentExternalCredential(
+                            enrollmentUid = enrollmentUid,
+                            biometricAttributeUid = resolvedAction.fieldUid,
+                            externalCredentialValue = externalCredentialValue,
+                        )
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Timber.e(e, "Unable to save Simprints external credential after enrollment")
+                    }
+                }
                 sessionRepository.clear()
                 RegisterLastResult.CONTINUE_FINISH
             }
