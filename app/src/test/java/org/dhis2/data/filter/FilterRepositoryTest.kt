@@ -3,6 +3,7 @@ package org.dhis2.data.filter
 import androidx.databinding.ObservableField
 import io.reactivex.Single
 import org.dhis2.commons.filters.AssignedFilter
+import org.dhis2.commons.filters.DueTodayFilter
 import org.dhis2.commons.filters.EnrollmentStatusFilter
 import org.dhis2.commons.filters.EventStatusFilter
 import org.dhis2.commons.filters.FilterItem
@@ -50,6 +51,7 @@ class FilterRepositoryTest {
         const val FOLLOW_UP = "follow_up"
         const val TRANSFERRED = "transferred"
         const val OVERDUE = "overdue"
+        const val DUE_TODAY = "due_today"
         const val WITH_SYNC_ERRORS = "with_sync_errors"
     }
 
@@ -92,6 +94,7 @@ class FilterRepositoryTest {
         whenever(filterResources.filterFollowUpLabel("Name")) doReturn FOLLOW_UP
         whenever(filterResources.filterTransferredPatientLabel()) doReturn TRANSFERRED
         whenever(filterResources.filterOverdueLabel()) doReturn OVERDUE
+        whenever(filterResources.filterDueTodayLabel()) doReturn DUE_TODAY
         whenever(filterResources.filterWithSyncErrorsLabel()) doReturn WITH_SYNC_ERRORS
     }
 
@@ -751,7 +754,7 @@ class FilterRepositoryTest {
         ) doReturn emptyList()
 
         val result = filterRepository.programFilters(program.uid())
-                .filterNot { it is OverdueFilter || it is SyncErrorFilter }
+                .filterNot { it is OverdueFilter || it is DueTodayFilter || it is SyncErrorFilter }
 
         assert(result[0].type == Filters.PERIOD)
         assert(result[1].type == Filters.ENROLLMENT_STATUS)
@@ -827,9 +830,13 @@ class FilterRepositoryTest {
 
         val result = filterRepository.programFilters(program.uid())
         val eventStatusFilter = sourceFilters.filterIsInstance<EventStatusFilter>().single()
+        val periodFilter = sourceFilters.filterIsInstance<PeriodFilter>().single()
         val syncStateFilter = sourceFilters.filterIsInstance<SyncStateFilter>().single()
 
         assert((result.single { it.type == Filters.OVERDUE } as OverdueFilter).eventStatusFilter === eventStatusFilter)
+        val dueTodayFilter = result.single { it.type == Filters.DUE_TODAY } as DueTodayFilter
+        assert(dueTodayFilter.eventStatusFilter === eventStatusFilter)
+        assert(dueTodayFilter.periodFilter === periodFilter)
         assert((result.single { it.type == Filters.SYNC_ERROR } as SyncErrorFilter).syncStateFilter === syncStateFilter)
 
         whenever(
@@ -843,6 +850,7 @@ class FilterRepositoryTest {
 
         assert(filtersWithoutSyncState.none { it.type == Filters.SYNC_ERROR })
         assert(filtersWithoutSyncState.any { it.type == Filters.OVERDUE })
+        assert(filtersWithoutSyncState.any { it.type == Filters.DUE_TODAY })
 
         whenever(
             getFiltersApplyingWebAppConfig.execute(
@@ -854,7 +862,20 @@ class FilterRepositoryTest {
         val filtersWithoutEventStatus = filterRepository.programFilters(program.uid())
 
         assert(filtersWithoutEventStatus.none { it.type == Filters.OVERDUE })
+        assert(filtersWithoutEventStatus.none { it.type == Filters.DUE_TODAY })
         assert(filtersWithoutEventStatus.any { it.type == Filters.SYNC_ERROR })
+
+        whenever(
+            getFiltersApplyingWebAppConfig.execute(
+                any<LinkedHashMap<ProgramFilter, FilterItem>>(),
+                any<Map<ProgramFilter, FilterSetting>>(),
+            ),
+        ) doReturn sourceFilters.filterNot { it is PeriodFilter }
+
+        val filtersWithoutPeriod = filterRepository.programFilters(program.uid())
+
+        assert(filtersWithoutPeriod.none { it.type == Filters.DUE_TODAY })
+        assert(filtersWithoutPeriod.any { it.type == Filters.OVERDUE })
     }
 
     private fun createTrackerEntityInstanceFilters(): List<TrackedEntityInstanceFilter> =

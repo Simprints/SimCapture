@@ -5,6 +5,8 @@ import androidx.databinding.ObservableBoolean
 import androidx.databinding.ObservableField
 import androidx.lifecycle.LiveData
 import org.dhis2.commons.R
+import org.dhis2.commons.date.DateUtils
+import org.dhis2.commons.date.Period
 import org.dhis2.commons.filters.data.WorkingListScope
 import org.dhis2.commons.filters.sorting.Sorting
 import org.dhis2.commons.filters.sorting.SortingItem
@@ -18,6 +20,7 @@ import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
 import org.hisp.dhis.android.core.event.EventStatus
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit
 import org.hisp.dhis.android.core.period.DatePeriod
+import java.util.Date
 
 sealed class FilterItem(
     val type: Filters,
@@ -84,6 +87,7 @@ sealed class FilterItem(
                 Filters.FOLLOW_UP,
                 Filters.TRANSFERRED,
                 Filters.OVERDUE,
+                Filters.DUE_TODAY,
                 Filters.SYNC_ERROR,
                 Filters.ASSIGNED_TO_ME,
             )
@@ -390,4 +394,42 @@ data class SyncErrorFilter(
     fun observeSyncError(): ObservableBoolean = syncStateFilter.observeSyncState(State.ERROR)
 
     override fun icon() = R.drawable.ic_sync_problem_red
+}
+
+data class DueTodayFilter(
+    val eventStatusFilter: EventStatusFilter,
+    val periodFilter: PeriodFilter,
+    override val filterLabel: String,
+) : FilterItem(
+        Filters.DUE_TODAY,
+        eventStatusFilter.programType,
+        eventStatusFilter.sortingItem,
+        eventStatusFilter.openFilter,
+        filterLabel,
+    ) {
+    fun activate(setActive: Boolean) {
+        val filterManager = FilterManager.getInstance()
+        if (setActive == isActive() ||
+            filterManager.isFilterActiveForWorkingList(Filters.EVENT_STATUS) ||
+            filterManager.isFilterActiveForWorkingList(Filters.PERIOD)
+        ) {
+            return
+        }
+        if (setActive) {
+            periodFilter.setSelectedPeriod(todayPeriod(), R.id.today)
+            eventStatusFilter.setEventStatus(true, EventStatus.SCHEDULE)
+        } else {
+            eventStatusFilter.setEventStatus(false, EventStatus.SCHEDULE)
+            periodFilter.setSelectedPeriod(emptyList(), R.id.anytime)
+        }
+    }
+
+    private fun isActive(): Boolean = (observeCount().get() ?: 0) > 0
+
+    private fun todayPeriod(): List<DatePeriod> {
+        val (start, end) = DateUtils.getInstance().getDateFromDateAndPeriod(Date(), Period.DAILY)
+        return listOf(DatePeriod.create(start, end))
+    }
+
+    override fun icon() = R.drawable.ic_due_today_filter
 }

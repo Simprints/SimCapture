@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
@@ -32,6 +33,7 @@ import kotlinx.coroutines.launch
 import org.dhis2.form.R
 import org.dhis2.form.model.FieldUiModel
 import org.dhis2.form.model.FormSection
+import org.dhis2.form.simprints.ramp.ui.FixedSectionNextButton
 import org.dhis2.form.ui.event.RecyclerViewUiEvents
 import org.dhis2.form.ui.intent.FormIntent
 import org.dhis2.form.ui.provider.inputfield.FieldProvider
@@ -161,6 +163,9 @@ fun Form(
                                         reEvaluateCustomIntentRequestParameters = true,
                                     )
                                 }
+                            }
+                            if (section.state == SectionState.FIXED && nextSection != null) {
+                                FixedSectionNextButton(Modifier.align(Alignment.End), onNextSection)
                             }
                         },
                     )

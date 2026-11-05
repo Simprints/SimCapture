@@ -102,6 +102,7 @@ public class FilterManager implements Serializable {
     private ObservableField<Integer> transferredFilterApplied;
     private ObservableField<Integer> overdueFilterApplied;
     private ObservableField<Integer> syncErrorFilterApplied;
+    private ObservableField<Integer> dueTodayFilterApplied;
 
     private List<String> stateValues = new ArrayList<>();
 
@@ -176,6 +177,7 @@ public class FilterManager implements Serializable {
         transferredFilterApplied = new ObservableField<>(0);
         overdueFilterApplied = new ObservableField<>(0);
         syncErrorFilterApplied = new ObservableField<>(0);
+        dueTodayFilterApplied = new ObservableField<>(0);
 
         filterProcessor = PublishProcessor.create();
         filterFlow = FilterManagerExtensionsKt.initFlow(this);
@@ -277,6 +279,7 @@ public class FilterManager implements Serializable {
         if (changed) {
             observableEventStatus.set(new ArrayList<>(eventStatusFilters)); // passing a new instance so data binding observes the change
             updateOverdueFilterCounter();
+            updateDueTodayFilterCounter();
             if (eventStatusFilters.contains(EventStatus.ACTIVE)) {
                 eventStatusFiltersApplied.set(eventStatusFilters.size() - 1);
             } else {
@@ -311,6 +314,7 @@ public class FilterManager implements Serializable {
         this.periodFilters = datePeriod;
         observablePeriodFilters.set(datePeriod);
         periodFiltersApplied.set(datePeriod != null && !datePeriod.isEmpty() ? 1 : 0);
+        updateDueTodayFilterCounter();
         publishData();
         CountingIdlingResourceSingleton.INSTANCE.decrement();
     }
@@ -383,6 +387,8 @@ public class FilterManager implements Serializable {
                 return overdueFilterApplied;
             case SYNC_ERROR:
                 return syncErrorFilterApplied;
+            case DUE_TODAY:
+                return dueTodayFilterApplied;
             default:
                 return new ObservableField<>(0);
         }
@@ -533,6 +539,7 @@ public class FilterManager implements Serializable {
         eventStatusFiltersApplied.set(eventStatusFilters.size());
         observableEventStatus.set(new ArrayList<>(eventStatusFilters)); // passing a new instance so data binding observes the change
         updateOverdueFilterCounter();
+        updateDueTodayFilterCounter();
     }
 
     public void clearEnrollmentStatus() {
@@ -596,6 +603,7 @@ public class FilterManager implements Serializable {
         observablePeriodFilters.set(periodFilters);
         periodIdSelected.set(R.id.anytime);
         periodFiltersApplied.set(0);
+        updateDueTodayFilterCounter();
     }
 
     public void clearSyncFilter() {
@@ -647,6 +655,7 @@ public class FilterManager implements Serializable {
         followUpFilterApplied.set(0);
         transferredFilterApplied.set(0);
         updateOverdueFilterCounter();
+        updateDueTodayFilterCounter();
         updateSyncErrorFilterCounter();
 
         if (!workingListActive())
@@ -775,6 +784,7 @@ public class FilterManager implements Serializable {
         eventStatusFiltersApplied.set(scope.eventStatusCount());
         assignedToMeApplied.set(scope.assignCount());
         updateOverdueFilterCounter();
+        updateDueTodayFilterCounter();
         updateSyncErrorFilterCounter();
 
         publishData();
@@ -787,6 +797,12 @@ public class FilterManager implements Serializable {
     private void updateSyncErrorFilterCounter() {
         syncErrorFilterApplied.set(
                 stateFilters.contains(State.ERROR) || stateFilters.contains(State.WARNING) ? 1 : 0
+        );
+    }
+
+    private void updateDueTodayFilterCounter() {
+        dueTodayFilterApplied.set(
+                eventStatusFilters.contains(EventStatus.SCHEDULE) && Objects.equals(periodIdSelected.get(), R.id.today) ? 1 : 0
         );
     }
 
