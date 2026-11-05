@@ -685,7 +685,9 @@ class FormRepositoryImplTest {
                 ),
         )
 
-    private fun createRepository(externalCredentialAttributeId: String? = null) =
+    private fun createRepository(
+        externalCredentialAttributeId: String? = null,
+    ) =
         FormRepositoryImpl(
             formValueStore,
             fieldErrorMessageProvider,

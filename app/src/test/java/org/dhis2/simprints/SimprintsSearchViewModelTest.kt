@@ -496,10 +496,7 @@ class SimprintsSearchViewModelTest {
             assertEquals("program-uid", navigation?.programUid)
             assertEquals("enrollment-uid", navigation?.enrollmentUid)
             verify(simprintsD2Repository).saveExternalCredential(
-                "tei-uid",
-                "program-uid",
-                "selected-biometric",
-                "new-external-credential",
+                "tei-uid", "program-uid", "selected-biometric", "new-external-credential",
             )
             restored.savePendingConfirmIdentity(savedState)
             assertNull(restoredConfirmIdentityViewModel(savedState).onConfirmIdentityResult(RESULT_OK, externalCredentialResult()))

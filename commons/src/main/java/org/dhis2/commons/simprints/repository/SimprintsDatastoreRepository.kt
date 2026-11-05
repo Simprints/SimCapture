@@ -86,9 +86,11 @@ class SimprintsDatastoreRepository(
             this
         }
 
-    private fun parseDatastoreJsonElement(value: String): JsonElement = parseJsonWrapperElement(value) ?: parseJsonElement(value)
+    private fun parseDatastoreJsonElement(value: String): JsonElement =
+        parseJsonWrapperElement(value) ?: parseJsonElement(value)
 
-    private fun parseJsonElement(value: String): JsonElement = JsonParser.parseString(value).parseDatastoreJsonElement()
+    private fun parseJsonElement(value: String): JsonElement =
+        JsonParser.parseString(value).parseDatastoreJsonElement()
 
     private fun parseJsonWrapperElement(value: String): JsonElement? =
         value
