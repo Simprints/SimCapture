@@ -124,6 +124,8 @@ class FormValueStore(
 
     fun recordUid(): String = recordUid
 
+    fun enrollmentUid(): String? = enrollmentRepository?.blockingGet()?.uid()
+
     fun completeEvent() {
         try {
             d2

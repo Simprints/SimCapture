@@ -30,11 +30,10 @@ class SimprintsDatastoreRepositoryTest {
               "programSpecificSettings": [
                 {
                   "programId": " program ",
-                  "isBiometricsCaptureOnlyButtonEnabledForAttributeId": " biometrics ",
                   "externalCredentialAttributeId": " external-credential-attribute "
                 },
                 {
-                  "isBiometricsCaptureOnlyButtonEnabledForAttributeId": "no-program"
+                  "externalCredentialAttributeId": "no-program"
                 },
                 {
                   "programId": " "
@@ -48,46 +47,9 @@ class SimprintsDatastoreRepositoryTest {
 
         assertEquals("program", config.programSpecificSettings.single().programId)
         assertEquals(
-            "biometrics",
-            config.programSpecificSettings
-                .single()
-                .isBiometricsCaptureOnlyButtonEnabledForAttributeId,
-        )
-        assertEquals(
             "external-credential-attribute",
             config.programSpecificSettings.single().externalCredentialAttributeId,
         )
-    }
-
-    @Test
-    fun `biometrics capture only attribute should be returned only for configured program`() {
-        stubConfigRawValue(
-            """
-            {
-              "programSpecificSettings": [
-                {
-                  "programId": " enabledProgram ",
-                  "isBiometricsCaptureOnlyButtonEnabledForAttributeId": " biometrics "
-                },
-                {
-                  "programId": "blankAttributeProgram",
-                  "isBiometricsCaptureOnlyButtonEnabledForAttributeId": " "
-                },
-                {
-                  "programId": "defaultProgram"
-                }
-              ]
-            }
-            """.trimIndent(),
-        )
-
-        assertEquals("biometrics", repository.biometricsCaptureOnlyAttributeId("enabledProgram"))
-        assertEquals("biometrics", repository.biometricsCaptureOnlyAttributeId(" enabledProgram "))
-        assertEquals(null, repository.biometricsCaptureOnlyAttributeId("blankAttributeProgram"))
-        assertEquals(null, repository.biometricsCaptureOnlyAttributeId("defaultProgram"))
-        assertEquals(null, repository.biometricsCaptureOnlyAttributeId("missingProgram"))
-        assertEquals(null, repository.biometricsCaptureOnlyAttributeId(null))
-        assertEquals(null, repository.biometricsCaptureOnlyAttributeId(" "))
     }
 
     @Test
@@ -195,7 +157,6 @@ class SimprintsDatastoreRepositoryTest {
         val config = repository.getConfig()
 
         assertEquals(0, config.programSpecificSettings.size)
-        assertEquals(null, repository.biometricsCaptureOnlyAttributeId("program"))
         assertEquals(null, repository.externalCredentialAttributeId("program"))
     }
 

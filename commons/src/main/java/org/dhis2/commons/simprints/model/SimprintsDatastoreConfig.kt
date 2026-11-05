@@ -9,8 +9,6 @@ data class SimprintsDatastoreConfig(
 data class ProgramSpecificSetting(
     @SerializedName("programId")
     val programId: String? = null,
-    @SerializedName("isBiometricsCaptureOnlyButtonEnabledForAttributeId")
-    val isBiometricsCaptureOnlyButtonEnabledForAttributeId: String? = null,
     @SerializedName("externalCredentialAttributeId")
     val externalCredentialAttributeId: String? = null,
 ) {

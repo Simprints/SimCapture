@@ -10,6 +10,8 @@ import org.dhis2.commons.resources.DhisPeriodUtils
 import org.dhis2.commons.resources.EventResourcesProvider
 import org.dhis2.commons.resources.MetadataIconProvider
 import org.dhis2.commons.resources.ResourceManager
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
+import org.dhis2.commons.simprints.repository.SimprintsDatastoreRepository
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
 import org.dhis2.commons.viewmodel.DispatcherProvider
 import org.dhis2.form.data.DataEntryRepository
@@ -57,6 +59,7 @@ object Injector {
     fun provideFormViewModelFactory(
         context: Context,
         repositoryRecords: FormRepositoryRecords,
+        programUid: String?,
         openErrorLocation: Boolean,
         useCompose: Boolean,
     ): FormViewModelFactory =
@@ -64,6 +67,7 @@ object Injector {
             provideFormRepository(
                 context,
                 repositoryRecords,
+                programUid,
                 useCompose,
             ),
             provideDispatchers(),
@@ -95,9 +99,17 @@ object Injector {
     private fun provideFormRepository(
         context: Context,
         repositoryRecords: FormRepositoryRecords,
+        programUid: String?,
         useCompose: Boolean,
-    ): FormRepository =
-        FormRepositoryImpl(
+    ): FormRepository {
+        val externalCredentialAttributeId by lazy {
+            if (repositoryRecords.entryMode == EntryMode.ATTR) {
+                SimprintsDatastoreRepository(provideD2()).externalCredentialAttributeId(programUid)
+            } else {
+                null
+            }
+        }
+        return FormRepositoryImpl(
             formValueStore =
                 provideFormValueStore(
                     context = context,
@@ -122,7 +134,11 @@ object Injector {
             legendValueProvider = provideLegendValueProvider(context),
             useCompose = useCompose,
             preferenceProvider = providePreferenceProvider(context),
+            externalCredentialAttributeIdProvider = { externalCredentialAttributeId },
+            simprintsD2Repository =
+                if (repositoryRecords.entryMode == EntryMode.ATTR) SimprintsD2Repository(provideD2()) else null,
         )
+    }
 
     private fun provideDataEntryRepository(
         entryMode: EntryMode?,
