@@ -52,6 +52,7 @@ val searchTEKoinModule =
                 resolveConfirmIdentityCallout = get(),
                 sessionRepository = get(),
                 resolveSingleBiometricSearchNavigation = get { parametersOf(teType) },
+                simprintsD2Repository = get(),
             )
         }
 
