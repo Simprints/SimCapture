@@ -161,6 +161,16 @@ class SimprintsDatastoreRepositoryTest {
     }
 
     @Test
+    fun `getConfig should return default config when datastore value is a scalar string`() {
+        stubConfigRawValue("JsonWrapper(json=\"string\")")
+
+        val config = repository.getConfig()
+
+        assertEquals(0, config.programSpecificSettings.size)
+        assertEquals(null, repository.externalCredentialAttributeId("program"))
+    }
+
+    @Test
     fun `getConfig should propagate datastore read failure`() {
         whenever(
             d2

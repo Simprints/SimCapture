@@ -79,18 +79,17 @@ class SimprintsDatastoreRepository(
             SimprintsDatastoreConfig()
         }
 
-    private fun JsonElement.parseDatastoreJsonElement(): JsonElement =
-        if (isJsonPrimitive && asJsonPrimitive.isString) {
-            parseDatastoreJsonElement(asString)
-        } else {
-            this
-        }
-
     private fun parseDatastoreJsonElement(value: String): JsonElement =
         parseJsonWrapperElement(value) ?: parseJsonElement(value)
 
     private fun parseJsonElement(value: String): JsonElement =
-        JsonParser.parseString(value).parseDatastoreJsonElement()
+        JsonParser.parseString(value).let { element ->
+            if (element.isJsonPrimitive && element.asJsonPrimitive.isString && element.asString != value) {
+                parseDatastoreJsonElement(element.asString)
+            } else {
+                element
+            }
+        }
 
     private fun parseJsonWrapperElement(value: String): JsonElement? =
         value
