@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -77,8 +78,8 @@ import org.hisp.dhis.android.core.arch.call.D2Progress
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit
 import org.hisp.dhis.mobile.ui.designsystem.component.navigationBar.NavigationBar
 import org.hisp.dhis.mobile.ui.designsystem.theme.DHIS2Theme
+import org.json.JSONObject
 import timber.log.Timber
-import java.io.Serializable
 import javax.inject.Inject
 
 class SearchTEActivity :
@@ -122,6 +123,13 @@ class SearchTEActivity :
 
     private val viewModel: SearchTEIViewModel by viewModels<SearchTEIViewModel> { viewModelFactory }
 
+    private val simprintsConfirmIdentityLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            viewModel.onConfirmIdentityResult(result.resultCode, result.data)
+        }
+
+    private var simprintsKeepSessionOnFinish = false
+
     private var initSearchNeeded = true
     var searchComponent: SearchTEComponent? = null
 
@@ -155,12 +163,16 @@ class SearchTEActivity :
             themeManager.setProgramTheme(initialProgram!!)
         }
         super.onCreate(savedInstanceState)
+        viewModel.restorePendingSimprintsConfirmIdentity(savedInstanceState)
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_search)
         val currentScreen = savedInstanceState?.getString(CURRENT_SCREEN).orEmpty()
         if (currentScreen.isNotBlank()) {
             currentContent = Content.valueOf(currentScreen)
         }
+        viewModel.setSimprintsPossibleDuplicatesSearch(
+            intent.getBooleanExtra(SIMPRINTS_POSSIBLE_DUPLICATES_SEARCH, false),
+        )
         initSearchParameters()
 
         searchScreenConfigurator =
@@ -203,6 +215,8 @@ class SearchTEActivity :
         observeScreenState()
         observeDownload()
         observeLegacyInteractions()
+        observeSimprintsBiometricSearchNavigation()
+        observeSimprintsNavigation()
 
         if (intent.shouldLaunchSyncDialog()) {
             openSyncDialog()
@@ -240,6 +254,7 @@ class SearchTEActivity :
         super.onResume()
         if (sessionManagerServiceImpl.isUserLoggedIn()) {
             FilterManager.getInstance().clearUnsupportedFilters()
+            viewModel.refreshSimprintsUiState()
             if (initSearchNeeded) {
                 presenter.init()
             } else {
@@ -260,6 +275,13 @@ class SearchTEActivity :
     }
 
     override fun onDestroy() {
+        if (
+            isFinishing &&
+            intent.getBooleanExtra(SIMPRINTS_POSSIBLE_DUPLICATES_SEARCH, false) &&
+            !simprintsKeepSessionOnFinish
+        ) {
+            viewModel.clearSimprintsSession()
+        }
         if (sessionManagerServiceImpl.isUserLoggedIn()) {
             presenter.onDestroy()
             FilterManager.getInstance().clearEnrollmentStatus()
@@ -299,8 +321,9 @@ class SearchTEActivity :
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        viewModel.savePendingSimprintsConfirmIdentity(outState)
         super.onSaveInstanceState(outState)
-        outState.putSerializable(Constants.QUERY_DATA, viewModel.queryDataAsMap() as Serializable)
+        outState.putString(Constants.QUERY_DATA, JSONObject(viewModel.queryDataAsMap()).toString())
         outState.putString(CURRENT_SCREEN, currentContent?.name)
     }
 
@@ -547,7 +570,7 @@ class SearchTEActivity :
                 when (legacyInteraction.id) {
                     LegacyInteractionID.ON_ENROLL_CLICK -> {
                         val interaction = legacyInteraction as OnEnrollClick
-                        presenter.onEnrollClick(HashMap(interaction.queryData))
+                        presenter.onEnrollClick(viewModel.prepareEnrollmentQueryData(interaction.queryData))
                     }
 
                     LegacyInteractionID.ON_ADD_RELATIONSHIP -> {
@@ -569,7 +592,7 @@ class SearchTEActivity :
                         presenter.enroll(
                             interaction.initialProgramUid,
                             interaction.teiUid,
-                            HashMap(interaction.queryData),
+                            viewModel.prepareEnrollmentQueryData(interaction.queryData),
                         )
                     }
 
@@ -583,6 +606,63 @@ class SearchTEActivity :
                     }
                 }
                 viewModel.onLegacyInteractionConsumed()
+            }
+        }
+    }
+
+    private fun observeSimprintsBiometricSearchNavigation() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.simprintsBiometricSearchNavigation.collect {
+                    searchScreenConfigurator.closeBackdrop(withAnimation = false)
+                    viewModel.onSimprintsBiometricSearchNavigation()
+                }
+            }
+        }
+    }
+
+    private fun observeSimprintsNavigation() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.simprintsNavigation.collect { action ->
+                    when (action) {
+                        is SimprintsNavigationAction.LaunchConfirmIdentity -> {
+                            try {
+                                simprintsConfirmIdentityLauncher.launch(action.intent)
+                            } catch (e: Exception) {
+                                Timber.e(e)
+                                viewModel.onConfirmIdentityLaunchFailed()
+                                displayMessage(getString(R.string.custom_intent_error))
+                            }
+                        }
+
+                        is SimprintsNavigationAction.OpenDashboard -> {
+                            openDashboardDirectly(
+                                action.teiUid,
+                                action.programUid,
+                                action.enrollmentUid,
+                            )
+                        }
+
+                        is SimprintsNavigationAction.ShowMessage -> {
+                            displayMessage(action.message)
+                        }
+
+                        is SimprintsNavigationAction.AutoEnrollLastBiometricsFromSimprintsPossibleDuplicates -> {
+                            simprintsKeepSessionOnFinish = true
+                            setResult(
+                                RESULT_OK,
+                                Intent().putExtra(SIMPRINTS_AUTO_ENROLL_LAST_BIOMETRICS_RESULT, true),
+                            )
+                            finish()
+                        }
+
+                        is SimprintsNavigationAction.FinishSimprintsPossibleDuplicatesSearch -> {
+                            simprintsKeepSessionOnFinish = true
+                            finish()
+                        }
+                    }
+                }
             }
         }
     }
@@ -719,6 +799,14 @@ class SearchTEActivity :
         programUid: String?,
         enrollmentUid: String?,
     ) {
+        viewModel.onOpenDashboardRequested(teiUid, programUid, enrollmentUid)
+    }
+
+    private fun openDashboardDirectly(
+        teiUid: String,
+        programUid: String?,
+        enrollmentUid: String?,
+    ) {
         searchNavigator.openDashboard(teiUid, programUid, enrollmentUid)
     }
 
@@ -760,6 +848,8 @@ class SearchTEActivity :
 
     companion object {
         private const val CURRENT_SCREEN = "current_screen"
+        private const val SIMPRINTS_POSSIBLE_DUPLICATES_SEARCH = "SIMPRINTS_POSSIBLE_DUPLICATES_SEARCH"
+        const val SIMPRINTS_AUTO_ENROLL_LAST_BIOMETRICS_RESULT = "SIMPRINTS_AUTO_ENROLL_LAST_BIOMETRICS_RESULT"
 
         fun getIntent(
             context: Context?,
@@ -777,5 +867,20 @@ class SearchTEActivity :
             intent.putExtras(extras)
             return intent
         }
+
+        fun getSimprintsPossibleDuplicatesIntent(
+            context: Context,
+            programUid: String,
+            teiTypeToAdd: String,
+            fieldUid: String,
+            guidValues: List<String>,
+        ): Intent =
+            Intent(context, SearchTEActivity::class.java).apply {
+                putExtra(Extra.TEI_UID.key, teiTypeToAdd)
+                putExtra(Extra.PROGRAM_UID.key, programUid)
+                putStringArrayListExtra(Extra.QUERY_ATTR.key, arrayListOf(fieldUid))
+                putStringArrayListExtra(Extra.QUERY_VALUES.key, arrayListOf(guidValues.joinToString(",")))
+                putExtra(SIMPRINTS_POSSIBLE_DUPLICATES_SEARCH, true)
+            }
     }
 }

@@ -7,9 +7,11 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import org.dhis2.R
 import org.dhis2.commons.locationprovider.LocationProvider
+import org.dhis2.commons.simprints.usecases.SimprintsResolvePossibleDuplicatesSearchUseCase.SimprintsPossibleDuplicatesSearch
 import org.dhis2.form.model.EnrollmentMode
 import org.dhis2.form.model.EnrollmentRecords
 import org.dhis2.form.ui.FormView
+import org.dhis2.form.ui.customintent.CustomIntentInput
 
 data class EnrollmentFormBuilderConfig(
     val enrollmentUid: String,
@@ -26,6 +28,8 @@ fun AppCompatActivity.buildEnrollmentForm(
     config: EnrollmentFormBuilderConfig,
     locationProvider: LocationProvider,
     dateEditionWarningHandler: DateEditionWarningHandler,
+    onLaunchSimprintsCustomIntent: ((CustomIntentInput) -> Unit)? = null,
+    onLaunchSimprintsPossibleDuplicatesSearch: ((SimprintsPossibleDuplicatesSearch) -> Unit)? = null,
     onFinish: () -> Unit,
 ): FormView =
     FormView
@@ -46,16 +50,20 @@ fun AppCompatActivity.buildEnrollmentForm(
                 )
             }
         }.onFinishDataEntry(onFinish)
-        .factory(supportFragmentManager)
-        .setRecords(
-            EnrollmentRecords(
-                enrollmentUid = config.enrollmentUid,
-                enrollmentMode = config.enrollmentMode,
-            ),
-        ).openErrorLocation(config.openErrorLocation)
-        .setProgramUid(config.programUid)
-        .build()
-        .also { formView ->
+        .let { builder ->
+            onLaunchSimprintsCustomIntent?.let(builder::onLaunchSimprintsCustomIntent)
+            onLaunchSimprintsPossibleDuplicatesSearch?.let(builder::onLaunchSimprintsPossibleDuplicatesSearch)
+            builder
+                .factory(supportFragmentManager)
+                .setRecords(
+                    EnrollmentRecords(
+                        enrollmentUid = config.enrollmentUid,
+                        enrollmentMode = config.enrollmentMode,
+                    ),
+                ).openErrorLocation(config.openErrorLocation)
+                .setProgramUid(config.programUid)
+                .build()
+        }.also { formView ->
 
             config.saveButton.setOnClickListener { formView.onSaveClick() }
 

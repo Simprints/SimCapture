@@ -1,5 +1,7 @@
 package org.dhis2.usescases.searchTrackEntity
 
+import android.app.Activity.RESULT_OK
+import android.content.Intent
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -9,6 +11,7 @@ import androidx.compose.material.icons.outlined.Map
 import androidx.paging.PagingData
 import androidx.paging.testing.asSnapshot
 import app.cash.turbine.test
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -28,6 +31,8 @@ import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.maps.geometry.mapper.EventsByProgramStage
 import org.dhis2.maps.usecases.MapStyleConfiguration
 import org.dhis2.mobile.commons.model.CustomIntentModel
+import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
+import org.dhis2.simprints.SimprintsSearchViewModel
 import org.dhis2.tracker.input.model.TrackerInputType
 import org.dhis2.tracker.input.ui.action.TrackerInputAction
 import org.dhis2.tracker.input.ui.state.TrackerInputUiState
@@ -43,6 +48,7 @@ import org.hisp.dhis.android.core.trackedentity.TrackedEntityType
 import org.hisp.dhis.mobile.ui.designsystem.component.Orientation
 import org.hisp.dhis.mobile.ui.designsystem.component.navigationBar.NavigationBarItem
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -51,6 +57,7 @@ import org.maplibre.geojson.BoundingBox
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -81,6 +88,8 @@ class SearchTEIViewModelTest {
 
     private val fetchSearchParameters: FetchSearchParameters = mock()
     private val fetchOptionSetOptions: FetchOptionSetOptions = mock()
+    private val simprintsSearchViewModel: SimprintsSearchViewModel = mock()
+    private val loadSimprintsBiometricSearchResultsUseCase: SimprintsLoadBiometricSearchResultsUseCase = mock()
 
     @ExperimentalCoroutinesApi
     private val testingDispatcher = StandardTestDispatcher()
@@ -119,6 +128,8 @@ class SearchTEIViewModelTest {
                 searchTrackedEntities = searchTrackedEntities,
                 fetchSearchParameters = fetchSearchParameters,
                 fetchOptionSetOptions = fetchOptionSetOptions,
+                simprintsSearchViewModel = simprintsSearchViewModel,
+                loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
     }
@@ -792,6 +803,8 @@ class SearchTEIViewModelTest {
                 searchTrackedEntities = searchTrackedEntities,
                 fetchSearchParameters = fetchSearchParameters,
                 fetchOptionSetOptions = fetchOptionSetOptions,
+                simprintsSearchViewModel = simprintsSearchViewModel,
+                loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
 
@@ -841,6 +854,8 @@ class SearchTEIViewModelTest {
                 searchTrackedEntities = searchTrackedEntities,
                 fetchSearchParameters = fetchSearchParameters,
                 fetchOptionSetOptions = fetchOptionSetOptions,
+                simprintsSearchViewModel = simprintsSearchViewModel,
+                loadSimprintsBiometricSearchResultsUseCase = loadSimprintsBiometricSearchResultsUseCase,
             )
         testingDispatcher.scheduler.advanceUntilIdle()
 
@@ -878,6 +893,48 @@ class SearchTEIViewModelTest {
         }
 
     @Test
+    fun `confirm identity should forward response and wait before opening dashboard`() =
+        runTest {
+            val data: Intent = mock()
+            val saveStarted = CompletableDeferred<Unit>()
+            val finishSaving = CompletableDeferred<Unit>()
+            whenever(simprintsSearchViewModel.onConfirmIdentityResult(RESULT_OK, data)) doSuspendableAnswer {
+                saveStarted.complete(Unit)
+                finishSaving.await()
+                SimprintsSearchViewModel.PendingDashboardNavigation("tei-uid", "program-uid", "enrollment-uid")
+            }
+
+            viewModel.simprintsNavigation.test {
+                viewModel.onConfirmIdentityResult(RESULT_OK, data)
+                saveStarted.await()
+                expectNoEvents()
+
+                finishSaving.complete(Unit)
+                assertEquals(
+                    SimprintsNavigationAction.OpenDashboard("tei-uid", "program-uid", "enrollment-uid"),
+                    awaitItem(),
+                )
+                verify(simprintsSearchViewModel).onConfirmIdentityResult(RESULT_OK, data)
+            }
+        }
+
+    @Test
+    fun `confirm identity unexpected failure should show error instead of opening dashboard`() =
+        runTest {
+            val data: Intent = mock()
+            whenever(simprintsSearchViewModel.onConfirmIdentityResult(RESULT_OK, data))
+                .thenThrow(IllegalStateException("Unable to save"))
+            whenever(resourceManager.getString(R.string.custom_intent_error)) doReturn "Custom intent error message"
+
+            viewModel.simprintsNavigation.test {
+                viewModel.onConfirmIdentityResult(RESULT_OK, data)
+
+                assertEquals(SimprintsNavigationAction.ShowMessage("Custom intent error message"), awaitItem())
+                expectNoEvents()
+            }
+        }
+
+    @Test
     fun `should set error if custom intent result is error`() {
         whenever(resourceManager.getString(R.string.custom_intent_error)) doReturn "Custom intent error message"
         viewModel.searchParametersUiState =
@@ -898,7 +955,7 @@ class SearchTEIViewModelTest {
             viewModel.searchParametersUiState =
                 viewModel.searchParametersUiState.copy(items = customIntentFieldUIModels())
             viewModel.handleCustomIntentResult(
-                CustomIntentResult.Success("fieldUid", "customValue"),
+                CustomIntentResult.Success("fieldUid", "customValue", null, null),
             )
             assertTrue(
                 viewModel.searchParametersUiState.items

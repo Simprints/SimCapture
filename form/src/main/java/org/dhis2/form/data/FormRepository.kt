@@ -32,6 +32,11 @@ interface FormRepository {
         extraData: String?,
     ): StoreResult?
 
+    fun saveSimprintsExternalCredential(
+        biometricAttributeUid: String,
+        value: String,
+    ): StoreResult?
+
     fun updateValueOnList(
         uid: String,
         value: String?,

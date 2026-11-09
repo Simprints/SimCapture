@@ -1,0 +1,347 @@
+package org.dhis2.simprints
+
+import android.app.Activity.RESULT_OK
+import android.content.Intent
+import android.os.Bundle
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
+import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
+import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase
+import org.dhis2.commons.simprints.utils.SimprintsExternalCredentialUtils
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
+import org.dhis2.commons.simprints.utils.SimprintsSearchUtils
+import org.dhis2.form.model.FieldUiModel
+import org.dhis2.form.model.FieldUiModelImpl
+import timber.log.Timber
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+
+@OptIn(ExperimentalAtomicApi::class)
+class SimprintsSearchViewModel(
+    private val resolveConfirmIdentityCallout: SimprintsResolveConfirmIdentityCalloutUseCase,
+    private val sessionRepository: SimprintsSessionRepository,
+    private val resolveSingleBiometricSearchNavigation: SimprintsResolveSingleBiometricSearchNavigationUseCase,
+    private val simprintsD2Repository: SimprintsD2Repository,
+) : ViewModel() {
+    private data class PendingSimprintsMfidBiometricIdentification(
+        val uid: String,
+        val value: String?,
+    )
+
+    data class PendingDashboardNavigation(
+        val teiUid: String,
+        val programUid: String?,
+        val enrollmentUid: String?,
+        val isOnline: Boolean = false,
+        val biometricAttributeUid: String? = null,
+    )
+
+    sealed class DashboardAction {
+        data class LaunchConfirmIdentity(
+            val intent: Intent,
+        ) : DashboardAction()
+
+        data class OpenDashboard(
+            val navigation: PendingDashboardNavigation,
+        ) : DashboardAction()
+    }
+
+    private val pendingDashboardNavigation = AtomicReference<PendingDashboardNavigation?>(null)
+    private var confirmIdentityStateRestored = false
+    private val pendingSimprintsMfidBiometricIdentification =
+        AtomicReference<PendingSimprintsMfidBiometricIdentification?>(null)
+    private var useLastBiometricsForSequentialSearch = false
+    private val _simprintsBiometricSearchNavigation = Channel<Unit>(Channel.BUFFERED)
+    val simprintsBiometricSearchNavigation: Flow<Unit> =
+        _simprintsBiometricSearchNavigation.receiveAsFlow()
+    private val _isSimprintsBiometricSearch = MutableLiveData(false)
+    val isSimprintsBiometricSearch: LiveData<Boolean> = _isSimprintsBiometricSearch
+    private val _isSimprintsUseLastBiometricsLabel = MutableLiveData(false)
+    val isSimprintsUseLastBiometricsLabel: LiveData<Boolean> = _isSimprintsUseLastBiometricsLabel
+
+    suspend fun onDashboardRequested(
+        searchItems: List<FieldUiModel>,
+        teiUid: String,
+        programUid: String?,
+        enrollmentUid: String?,
+        keepSession: Boolean = false,
+    ): DashboardAction {
+        val searchFields = searchItems.toSearchFields()
+        val searchState = SimprintsSearchUtils.searchState(searchFields)
+        val useSequentialSearchLastBiometrics = shouldUseSequentialSearchLastBiometrics(searchState)
+        val sessionId =
+            sessionRepository
+                .get()
+                ?.takeIf { searchState.hasBiometricIdentificationQuery || useSequentialSearchLastBiometrics }
+        val confirmIdentityCallout =
+            sessionId?.let {
+                resolveConfirmIdentityCallout(
+                    teiUid = teiUid,
+                    searchFields = searchFields,
+                    sessionId = it,
+                    allowBlankSearchValue = useSequentialSearchLastBiometrics,
+                )
+            }
+
+        val navigation =
+            PendingDashboardNavigation(
+                teiUid = teiUid,
+                programUid = programUid,
+                enrollmentUid = enrollmentUid,
+                biometricAttributeUid = confirmIdentityCallout?.biometricAttributeUid,
+            )
+        if (confirmIdentityCallout == null) {
+            return DashboardAction.OpenDashboard(navigation)
+        }
+
+        pendingDashboardNavigation.store(navigation)
+        if (!keepSession) {
+            pendingSimprintsMfidBiometricIdentification.store(null)
+            useLastBiometricsForSequentialSearch = false
+            sessionRepository.clear()
+        }
+        return DashboardAction.LaunchConfirmIdentity(confirmIdentityCallout.launchIntent)
+    }
+
+    fun prepareEnrollmentQueryData(
+        searchItems: List<FieldUiModel>,
+        queryData: Map<String, List<String>?>,
+    ): HashMap<String, List<String>> {
+        val searchFields = searchItems.toSearchFields()
+        val searchState = SimprintsSearchUtils.searchState(searchFields)
+
+        if (
+            sessionRepository.hasPendingSession() &&
+            (searchState.hasBiometricIdentificationQuery || shouldUseSequentialSearchLastBiometrics(searchState))
+        ) {
+            sessionRepository.markPendingEnrollment()
+        }
+
+        return SimprintsSearchUtils.filterQueryData(
+            queryData = queryData,
+            fields = searchFields,
+        )
+    }
+
+    fun markPendingEnrollmentFromSimprintsPossibleDuplicates() {
+        sessionRepository.markPendingEnrollmentFromPossibleDuplicates()
+    }
+
+    fun savePendingConfirmIdentity(outState: Bundle) {
+        val navigation = pendingDashboardNavigation.load()
+        outState.putString("simprints.confirmIdentity.teiUid", navigation?.teiUid)
+        outState.putString("simprints.confirmIdentity.programUid", navigation?.programUid)
+        outState.putString("simprints.confirmIdentity.enrollmentUid", navigation?.enrollmentUid)
+        outState.putString("simprints.confirmIdentity.biometricAttributeUid", navigation?.biometricAttributeUid)
+    }
+
+    fun restorePendingConfirmIdentity(savedState: Bundle?) {
+        if (confirmIdentityStateRestored) return
+        confirmIdentityStateRestored = true
+        val teiUid = savedState?.getString("simprints.confirmIdentity.teiUid")?.takeIf(String::isNotBlank) ?: return
+        pendingDashboardNavigation.compareAndSet(
+            null,
+            PendingDashboardNavigation(
+                teiUid = teiUid,
+                programUid = savedState.getString("simprints.confirmIdentity.programUid"),
+                enrollmentUid = savedState.getString("simprints.confirmIdentity.enrollmentUid"),
+                biometricAttributeUid = savedState.getString("simprints.confirmIdentity.biometricAttributeUid"),
+            ),
+        )
+    }
+
+    suspend fun onConfirmIdentityResult(
+        resultCode: Int,
+        data: Intent? = null,
+    ): PendingDashboardNavigation? {
+        val navigation = pendingDashboardNavigation.exchange(null) ?: return null
+        if (resultCode != RESULT_OK) return null
+
+        SimprintsExternalCredentialUtils.externalCredentialValue(data?.extras)?.let { externalCredentialValue ->
+            try {
+                simprintsD2Repository.saveExternalCredential(
+                    teiUid = navigation.teiUid,
+                    programUid = navigation.programUid,
+                    biometricAttributeUid = navigation.biometricAttributeUid,
+                    externalCredentialValue = externalCredentialValue,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Unable to save Simprints external credential after identity confirmation")
+            }
+        }
+        return navigation
+    }
+
+    fun onConfirmIdentityLaunchFailed() {
+        pendingDashboardNavigation.store(null)
+    }
+
+    fun clearPendingSession() {
+        pendingDashboardNavigation.store(null)
+        pendingSimprintsMfidBiometricIdentification.store(null)
+        useLastBiometricsForSequentialSearch = false
+        sessionRepository.clear()
+    }
+
+    fun clearPendingSessionIfNeeded(searchItems: List<FieldUiModel>) {
+        val searchFields = searchItems.toSearchFields()
+        val searchState = SimprintsSearchUtils.searchState(searchFields)
+        if (
+            sessionRepository.hasPendingSession() &&
+            searchState.shouldClearPendingSession &&
+            !shouldUseSequentialSearchLastBiometrics(searchState)
+        ) {
+            pendingSimprintsMfidBiometricIdentification.store(null)
+            useLastBiometricsForSequentialSearch = false
+            sessionRepository.clear()
+        }
+    }
+
+    fun refreshSimprintsUiState(searchItems: List<FieldUiModel>) {
+        clearPendingSessionIfNeeded(searchItems)
+        val searchFields = searchItems.toSearchFields()
+        val searchState = SimprintsSearchUtils.searchState(searchFields)
+        _isSimprintsBiometricSearch.postValue(searchState.hasBiometricIdentificationQuery)
+        _isSimprintsUseLastBiometricsLabel.postValue(
+            SimprintsSearchUtils.shouldUseLastBiometricsLabel(
+                searchState = searchState,
+                hasPendingSession = sessionRepository.hasPendingSession(),
+            ) || shouldUseSequentialSearchLastBiometrics(searchState),
+        )
+    }
+
+    fun onSimprintsBiometricIdentificationResult(
+        uid: String,
+        value: String?,
+        hasAutoOpenEligibleSimprintsIdentification: Boolean,
+    ) {
+        useLastBiometricsForSequentialSearch = false
+        pendingSimprintsMfidBiometricIdentification.store(
+            if (!value.isNullOrBlank() && hasAutoOpenEligibleSimprintsIdentification) {
+                PendingSimprintsMfidBiometricIdentification(uid = uid, value = value)
+            } else {
+                null
+            },
+        )
+    }
+
+    suspend fun onSimprintsParameterSaved(
+        uid: String,
+        value: String?,
+        searchItems: List<FieldUiModel>,
+        initialProgramUid: String?,
+        queryData: Map<String, List<String>?>,
+    ): PendingDashboardNavigation? {
+        val searchFields = searchItems.toSearchFields()
+
+        if (consumePendingSimprintsMfidBiometricIdentification(uid, value)) {
+            return resolveSingleBiometricSearchNavigation(
+                initialProgramUid = initialProgramUid,
+                queryData = queryData,
+                value = value,
+            )?.let { navigationTarget ->
+                PendingDashboardNavigation(
+                    teiUid = navigationTarget.teiUid,
+                    programUid = navigationTarget.programUid,
+                    enrollmentUid = navigationTarget.enrollmentUid,
+                    isOnline = navigationTarget.isOnline,
+                )
+            }?.also {
+                clearPendingSession()
+            } ?: requestSimprintsBiometricSearchNavigation()
+        }
+
+        if (!shouldAutoNavigateToSimprintsBiometricSearch(uid, value, searchFields)) {
+            return null
+        }
+
+        requestSimprintsBiometricSearchNavigation()
+        return null
+    }
+
+    fun clearSimprintsBiometricQueryData(
+        searchItems: List<FieldUiModel>,
+        queryData: MutableMap<String, List<String>?>,
+    ): List<FieldUiModel>? {
+        val simprintsBiometricFieldUids =
+            searchItems
+                .filter { field ->
+                    SimprintsIntentUtils.isIdentifyCallout(field.customIntent)
+                }.map(FieldUiModel::uid)
+                .toSet()
+
+        if (simprintsBiometricFieldUids.isEmpty()) {
+            return null
+        }
+
+        queryData.keys.removeAll(simprintsBiometricFieldUids)
+        useLastBiometricsForSequentialSearch = sessionRepository.hasPendingSession()
+
+        return searchItems.map { field ->
+            if (field.uid in simprintsBiometricFieldUids) {
+                (field as FieldUiModelImpl).copy(value = null, displayName = null)
+            } else {
+                field
+            }
+        }.also(::refreshSimprintsUiState)
+    }
+
+    fun shouldUseLastBiometricsLabel(searchItems: List<FieldUiModel>): Boolean {
+        val searchState = SimprintsSearchUtils.searchState(searchItems.toSearchFields())
+        return SimprintsSearchUtils.shouldUseLastBiometricsLabel(
+            searchState = searchState,
+            hasPendingSession = sessionRepository.hasPendingSession(),
+        ) || shouldUseSequentialSearchLastBiometrics(searchState)
+    }
+
+    private fun shouldUseSequentialSearchLastBiometrics(
+        searchState: SimprintsSearchUtils.SearchState,
+    ): Boolean =
+        useLastBiometricsForSequentialSearch &&
+            searchState.shouldClearPendingSession &&
+            sessionRepository.hasPendingSession()
+
+    private fun shouldAutoNavigateToSimprintsBiometricSearch(
+        uid: String,
+        value: String?,
+        searchFields: List<SimprintsSearchUtils.SearchField>,
+    ): Boolean =
+        !value.isNullOrBlank() &&
+            searchFields
+                .firstOrNull { it.uid == uid }
+                ?.customIntent
+                ?.let(SimprintsIntentUtils::isIdentifyCallout) == true
+
+    private fun consumePendingSimprintsMfidBiometricIdentification(
+        uid: String,
+        value: String?,
+    ): Boolean {
+        val pending = pendingSimprintsMfidBiometricIdentification.load()
+
+        return pending?.uid == uid &&
+            pending.value == value &&
+            pendingSimprintsMfidBiometricIdentification.compareAndSet(pending, null)
+    }
+
+    private suspend fun requestSimprintsBiometricSearchNavigation(): PendingDashboardNavigation? {
+        _simprintsBiometricSearchNavigation.send(Unit)
+        return null
+    }
+
+    private fun List<FieldUiModel>.toSearchFields(): List<SimprintsSearchUtils.SearchField> =
+        map { field ->
+            SimprintsSearchUtils.SearchField(
+                uid = field.uid,
+                value = field.value,
+                customIntent = field.customIntent,
+            )
+        }
+}

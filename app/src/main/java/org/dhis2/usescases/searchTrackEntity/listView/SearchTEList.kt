@@ -42,6 +42,7 @@ import org.dhis2.usescases.searchTrackEntity.SearchTeiViewModelFactory
 import org.dhis2.usescases.searchTrackEntity.adapters.SearchTeiLiveAdapter
 import org.dhis2.usescases.searchTrackEntity.ui.CreateNewButton
 import org.dhis2.usescases.searchTrackEntity.ui.FullSearchButtonAndWorkingList
+import org.dhis2.usescases.searchTrackEntity.ui.SimprintsNoneOfTheAboveButton
 import org.dhis2.usescases.searchTrackEntity.ui.mapper.TEICardMapper
 import org.dhis2.utils.isLandscape
 import javax.inject.Inject
@@ -237,6 +238,12 @@ class SearchTEList : FragmentGlobalAbstract() {
                         remember(viewModel.searchParametersUiState) {
                             viewModel.searchParametersUiState.searchedItems
                         }
+                    val isSimprintsBiometricSearch by viewModel
+                        .isSimprintsBiometricSearch
+                        .observeAsState(false)
+                    val isSimprintsPossibleDuplicatesSearch by viewModel
+                        .isSimprintsPossibleDuplicatesSearch
+                        .observeAsState(false)
 
                     FullSearchButtonAndWorkingList(
                         teTypeName = teTypeLabel ?: "",
@@ -249,8 +256,19 @@ class SearchTEList : FragmentGlobalAbstract() {
                         onEnrollClick = { viewModel.onEnrollClick() },
                         onCloseFilters = { viewModel.onFiltersClick(isLandscape()) },
                         onClearSearchQuery = {
-                            viewModel.clearQueryData()
+                            if (isSimprintsPossibleDuplicatesSearch) {
+                                requireActivity().finish()
+                            } else {
+                                viewModel.clearQueryData()
+                                viewModel.clearFocus()
+                            }
+                        },
+                        isSimprintsBiometricSearch = isSimprintsBiometricSearch,
+                        isSimprintsPossibleDuplicatesSearch = isSimprintsPossibleDuplicatesSearch,
+                        onSimprintsBiometricSearchFallbackClick = {
+                            viewModel.clearSimprintsBiometricQueryData()
                             viewModel.clearFocus()
+                            viewModel.setSearchScreen()
                         },
                         workingListViewModel = workingListViewModel,
                     )
@@ -276,6 +294,12 @@ class SearchTEList : FragmentGlobalAbstract() {
                     remember(viewModel.searchParametersUiState) {
                         viewModel.queryDataList.isNotEmpty()
                     }
+                val isSimprintsUseLastBiometricsLabel by viewModel
+                    .isSimprintsUseLastBiometricsLabel
+                    .observeAsState(false)
+                val isSimprintsPossibleDuplicatesSearch by viewModel
+                    .isSimprintsPossibleDuplicatesSearch
+                    .observeAsState(false)
 
                 updateLayoutParams<CoordinatorLayout.LayoutParams> {
                     val bottomMargin =
@@ -288,7 +312,17 @@ class SearchTEList : FragmentGlobalAbstract() {
                 }
 
                 val orientation = LocalConfiguration.current.orientation
-                if ((hasQueryData || orientation == Configuration.ORIENTATION_LANDSCAPE) &&
+                if (isSimprintsPossibleDuplicatesSearch &&
+                    hasQueryData &&
+                    !filtersOpened &&
+                    !teTypeLabel.isNullOrBlank()
+                ) {
+                    SimprintsNoneOfTheAboveButton(
+                        modifier = Modifier,
+                        onClick = viewModel::onSimprintsPossibleDuplicatesNoneOfAboveClick,
+                    )
+                } else if (
+                    (hasQueryData || orientation == Configuration.ORIENTATION_LANDSCAPE) &&
                     createButtonVisibility &&
                     !filtersOpened &&
                     !teTypeLabel.isNullOrBlank()
@@ -298,6 +332,7 @@ class SearchTEList : FragmentGlobalAbstract() {
                         extended = !isScrollingDown,
                         onClick = viewModel::onEnrollClick,
                         teTypeName = teTypeLabel ?: "",
+                        isSimprintsUseLastBiometricsLabel = isSimprintsUseLastBiometricsLabel,
                     )
                 }
             }
@@ -330,9 +365,7 @@ class SearchTEList : FragmentGlobalAbstract() {
                 if (searchResult.shouldClearGlobalData()) {
                     globalAdapter.refresh()
                 }
-                if (searchResult.type == SearchResult.SearchResultType.TOO_MANY_RESULTS) {
-                    listAdapter.removeAdapter(liveAdapter)
-                }
+                updateProgramResultsAdapter(searchResult)
                 displayResult(it)
                 updateRecycler()
             }
@@ -363,6 +396,14 @@ class SearchTEList : FragmentGlobalAbstract() {
                 else -> 0.dp
             },
         )
+    }
+
+    private fun updateProgramResultsAdapter(searchResult: SearchResult) {
+        if (searchResult.type == SearchResult.SearchResultType.TOO_MANY_RESULTS) {
+            listAdapter.removeAdapter(liveAdapter)
+        } else if (!listAdapter.adapters.contains(liveAdapter)) {
+            listAdapter.addAdapter(1, liveAdapter)
+        }
     }
 
     private fun restoreAdapters() {

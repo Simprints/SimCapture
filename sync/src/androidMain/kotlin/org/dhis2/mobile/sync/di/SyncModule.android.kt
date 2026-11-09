@@ -1,6 +1,7 @@
 package org.dhis2.mobile.sync.di
 
 import androidx.work.WorkManager
+import org.dhis2.commons.simprints.repository.SimprintsDatastoreRepository
 import org.dhis2.mobile.sync.data.AndroidSyncBackgroundJobAction
 import org.dhis2.mobile.sync.data.AndroidSyncRepository
 import org.dhis2.mobile.sync.data.GranularSyncWorker
@@ -50,7 +51,7 @@ actual val syncModule =
         }
 
         factory<SyncRepository> {
-            AndroidSyncRepository(get(), get(), get(), get(), get())
+            AndroidSyncRepository(get(), get(), get(), get(), get(), get())
         }
 
         factoryOf(::SyncDataSetRepositoryImpl) bind SyncDataSetRepository::class
@@ -58,6 +59,8 @@ actual val syncModule =
         factoryOf(::SyncEventRepositoryImpl) bind SyncEventRepository::class
         factoryOf(::SyncProgramRepositoryImpl) bind SyncProgramRepository::class
         factoryOf(::SyncTeiRepositoryImpl) bind SyncTeiRepository::class
+
+        factory { SimprintsDatastoreRepository(get()) }
 
         factoryOf(::SyncMetadata)
 

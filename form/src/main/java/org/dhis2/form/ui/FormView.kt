@@ -41,6 +41,9 @@ import org.dhis2.commons.extensions.serializable
 import org.dhis2.commons.locationprovider.LocationProvider
 import org.dhis2.commons.orgunitselector.OUTreeFragment
 import org.dhis2.commons.periods.ui.PeriodSelectorContent
+import org.dhis2.commons.simprints.usecases.SimprintsResolvePossibleDuplicatesSearchUseCase.SimprintsPossibleDuplicatesSearch
+import org.dhis2.commons.simprints.utils.SimprintsExternalCredentialUtils
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.form.R
 import org.dhis2.form.data.RulesUtilsProviderConfigurationError
 import org.dhis2.form.data.scan.ScanContract
@@ -77,6 +80,8 @@ class FormView : Fragment() {
     private var onFocused: (() -> Unit)? = null
     private var onFinishDataEntry: (() -> Unit)? = null
     private var onActivityForResult: (() -> Unit)? = null
+    private var onLaunchSimprintsCustomIntent: ((CustomIntentInput) -> Unit)? = null
+    private var onLaunchSimprintsPossibleDuplicatesSearch: ((SimprintsPossibleDuplicatesSearch) -> Unit)? = null
     private var completionListener: ((percentage: Float) -> Unit)? = null
     private var onFieldItemsRendered: ((fieldsEmpty: Boolean) -> Unit)? = null
     private var actionIconsActivate: Boolean = true
@@ -132,34 +137,12 @@ class FormView : Fragment() {
             }
         }
 
+    private val customIntentActivityResultContract = CustomIntentActivityResultContract()
     private var openCustomIntentLauncher =
         registerForActivityResult(
-            CustomIntentActivityResultContract(),
+            customIntentActivityResultContract,
         ) {
-            when (it) {
-                is CustomIntentResult.Error -> {
-                    val loadingIntent = FormIntent.OnFieldFinishedLoadingData(it.fieldUid)
-                    intentHandler(loadingIntent)
-                    val intent =
-                        FormIntent.OnSaveCustomIntent(
-                            it.fieldUid,
-                            null,
-                            true,
-                        )
-                    intentHandler(intent)
-                }
-                is CustomIntentResult.Success -> {
-                    val loadingIntent = FormIntent.OnFieldFinishedLoadingData(it.fieldUid)
-                    intentHandler(loadingIntent)
-                    val intent =
-                        FormIntent.OnSaveCustomIntent(
-                            it.fieldUid,
-                            it.value,
-                            false,
-                        )
-                    intentHandler(intent)
-                }
-            }
+            handleCustomIntentResult(it)
         }
 
     private val viewModel: FormViewModel by viewModels {
@@ -168,9 +151,13 @@ class FormView : Fragment() {
             repositoryRecords =
                 arguments?.serializable(RECORDS)
                     ?: throw RepositoryRecordsException(),
+            programUid = arguments?.getString(PROGRAM_UID),
             openErrorLocation = openErrorLocation,
             useCompose = useCompose,
         )
+    }
+    private val simprintsSessionRepository by lazy {
+        Injector.provideSimprintsSessionRepository(requireContext().applicationContext)
     }
     private lateinit var formSectionMapper: FormSectionMapper
     var scrollCallback: ((Boolean) -> Unit)? = null
@@ -330,15 +317,23 @@ class FormView : Fragment() {
         uiEvent.customIntent?.let {
             val updatedRequestParams = viewModel.getCustomIntentRequestParams(it.uid)
             val updatedCustomIntent = uiEvent.customIntent.copy(customIntentRequest = updatedRequestParams)
+            if (SimprintsIntentUtils.isCallout(updatedCustomIntent)) {
+                simprintsSessionRepository.clear()
+            }
             val intent = FormIntent.OnFieldLoadingData(uiEvent.uid)
             intentHandler(intent)
-            openCustomIntentLauncher.launch(
+            val input =
                 CustomIntentInput(
                     fieldUid = uiEvent.uid,
                     customIntent = updatedCustomIntent,
                     defaultTitle = resources.getString(R.string.select_app_intent),
-                ),
-            )
+                )
+            if (SimprintsIntentUtils.isCallout(updatedCustomIntent) && onLaunchSimprintsCustomIntent != null) {
+                onActivityForResult?.invoke()
+                onLaunchSimprintsCustomIntent?.invoke(input)
+            } else {
+                openCustomIntentLauncher.launch(input)
+            }
         }
     }
 
@@ -593,6 +588,8 @@ class FormView : Fragment() {
         onFocused: (() -> Unit)?,
         onFinishDataEntry: (() -> Unit)?,
         onActivityForResult: (() -> Unit)?,
+        onLaunchSimprintsCustomIntent: ((CustomIntentInput) -> Unit)?,
+        onLaunchSimprintsPossibleDuplicatesSearch: ((SimprintsPossibleDuplicatesSearch) -> Unit)?,
         onFieldItemsRendered: ((fieldsEmpty: Boolean) -> Unit)?,
     ) {
         this.onItemChangeListener = onItemChangeListener
@@ -600,7 +597,65 @@ class FormView : Fragment() {
         this.onFocused = onFocused
         this.onFinishDataEntry = onFinishDataEntry
         this.onActivityForResult = onActivityForResult
+        this.onLaunchSimprintsCustomIntent = onLaunchSimprintsCustomIntent
+        this.onLaunchSimprintsPossibleDuplicatesSearch = onLaunchSimprintsPossibleDuplicatesSearch
         this.onFieldItemsRendered = onFieldItemsRendered
+    }
+
+    fun handleCustomIntentResult(result: CustomIntentResult) {
+        when (result) {
+            is CustomIntentResult.Error -> {
+                val loadingIntent = FormIntent.OnFieldFinishedLoadingData(result.fieldUid)
+                intentHandler(loadingIntent)
+                val intent =
+                    FormIntent.OnSaveCustomIntent(
+                        result.fieldUid,
+                        null,
+                        true,
+                    )
+                intentHandler(intent)
+            }
+            is CustomIntentResult.Success -> {
+                val loadingIntent = FormIntent.OnFieldFinishedLoadingData(result.fieldUid)
+                intentHandler(loadingIntent)
+                val intent =
+                    FormIntent.OnSaveCustomIntent(
+                        result.fieldUid,
+                        result.value,
+                        false,
+                        simprintsExternalCredential =
+                            SimprintsExternalCredentialUtils.enrollmentExternalCredentialValue(
+                                result.action,
+                                result.value,
+                                result.extras,
+                            ),
+                    )
+                intentHandler(intent)
+            }
+            is CustomIntentResult.PossibleDuplicates -> {
+                val loadingIntent = FormIntent.OnFieldFinishedLoadingData(result.fieldUid)
+                intentHandler(loadingIntent)
+                val sessionId = SimprintsIntentUtils.extractSessionId(result.extras)
+                if (sessionId != null && onLaunchSimprintsPossibleDuplicatesSearch != null) {
+                    simprintsSessionRepository.save(sessionId)
+                    onActivityForResult?.invoke()
+                    onLaunchSimprintsPossibleDuplicatesSearch?.invoke(
+                        SimprintsPossibleDuplicatesSearch(
+                            fieldUid = result.fieldUid,
+                            guidValues = result.guidValues,
+                        ),
+                    )
+                } else {
+                    val intent =
+                        FormIntent.OnSaveCustomIntent(
+                            result.fieldUid,
+                            null,
+                            true,
+                        )
+                    intentHandler(intent)
+                }
+            }
+        }
     }
 
     class Builder {
@@ -612,6 +667,8 @@ class FormView : Fragment() {
         private var onFocused: (() -> Unit)? = null
         private var onActivityForResult: (() -> Unit)? = null
         private var onFinishDataEntry: (() -> Unit)? = null
+        private var onLaunchSimprintsCustomIntent: ((CustomIntentInput) -> Unit)? = null
+        private var onLaunchSimprintsPossibleDuplicatesSearch: ((SimprintsPossibleDuplicatesSearch) -> Unit)? = null
         private var onPercentageUpdate: ((percentage: Float) -> Unit)? = null
         private var onFieldItemsRendered: ((fieldsEmpty: Boolean) -> Unit)? = null
         private var actionIconsActive: Boolean = true
@@ -646,6 +703,11 @@ class FormView : Fragment() {
 
         fun onFinishDataEntry(callback: () -> Unit) = apply { this.onFinishDataEntry = callback }
 
+        fun onLaunchSimprintsCustomIntent(callback: (CustomIntentInput) -> Unit) = apply { this.onLaunchSimprintsCustomIntent = callback }
+
+        fun onLaunchSimprintsPossibleDuplicatesSearch(callback: (SimprintsPossibleDuplicatesSearch) -> Unit) =
+            apply { this.onLaunchSimprintsPossibleDuplicatesSearch = callback }
+
         fun onPercentageUpdate(callback: (percentage: Float) -> Unit) = apply { this.onPercentageUpdate = callback }
 
         fun setRecords(records: FormRepositoryRecords) = apply { this.records = records }
@@ -669,6 +731,8 @@ class FormView : Fragment() {
                     onFocused,
                     onFinishDataEntry,
                     onActivityForResult,
+                    onLaunchSimprintsCustomIntent,
+                    onLaunchSimprintsPossibleDuplicatesSearch,
                     onPercentageUpdate,
                     onFieldItemsRendered,
                     actionIconsActive,
@@ -685,6 +749,7 @@ class FormView : Fragment() {
             val bundle =
                 Bundle().apply {
                     putSerializable(RECORDS, records)
+                    putString(PROGRAM_UID, programUid)
                 }
             fragment.arguments = bundle
             return fragment
@@ -693,5 +758,6 @@ class FormView : Fragment() {
 
     companion object {
         const val RECORDS = "RECORDS"
+        private const val PROGRAM_UID = "PROGRAM_UID"
     }
 }

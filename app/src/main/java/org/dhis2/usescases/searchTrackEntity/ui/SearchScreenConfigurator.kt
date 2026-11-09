@@ -85,7 +85,7 @@ class SearchScreenConfigurator(
         changeBounds(false, R.id.filterRecyclerLayout, 16.dp)
     }
 
-    fun closeBackdrop() {
+    fun closeBackdrop(withAnimation: Boolean = false) {
         if (isPortrait()) {
             binding.programSpinner.visibility = View.VISIBLE
             binding.title.visibility = View.GONE
@@ -93,7 +93,7 @@ class SearchScreenConfigurator(
         binding.filterRecyclerLayout.visibility = View.GONE
         binding.searchContainer.visibility = View.GONE
         filterIsOpenCallback(false)
-        changeBounds(true, R.id.backdropGuideTop, 0)
+        changeBounds(true, R.id.backdropGuideTop, 0, withAnimation)
     }
 
     private fun openSearch() {
@@ -111,6 +111,7 @@ class SearchScreenConfigurator(
         isNavigationBarVisible: Boolean,
         endID: Int,
         margin: Int,
+        withAnimation: Boolean = true,
     ) {
         changeBoundsIf(
             isPortrait(),
@@ -118,6 +119,7 @@ class SearchScreenConfigurator(
             binding.backdropLayout,
             endID,
             margin,
+            withAnimation,
         )
     }
 }

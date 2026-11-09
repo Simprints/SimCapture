@@ -60,6 +60,7 @@ kotlin {
         }
 
         androidMain.dependencies {
+            implementation(project(":commons"))
             implementation(libs.dhis2.android.sdk)
             api(libs.analytics.timber)
             implementation(libs.androidx.work)

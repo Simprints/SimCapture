@@ -3,6 +3,7 @@ package org.dhis2.usescases.searchTrackEntity;
 import android.content.Context;
 
 import androidx.annotation.NonNull;
+import androidx.lifecycle.ViewModelProvider;
 
 import org.dhis2.R;
 import org.dhis2.commons.data.ProgramConfigurationRepository;
@@ -22,6 +23,10 @@ import org.dhis2.commons.resources.ColorUtils;
 import org.dhis2.commons.resources.DhisPeriodUtils;
 import org.dhis2.commons.resources.MetadataIconProvider;
 import org.dhis2.commons.resources.ResourceManager;
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository;
+import org.dhis2.commons.simprints.repository.SimprintsSessionRepository;
+import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase;
+import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase;
 import org.dhis2.commons.schedulers.SchedulerProvider;
 import org.dhis2.commons.viewmodel.DispatcherProvider;
 import org.dhis2.data.dhislogic.DhisEnrollmentUtils;
@@ -69,6 +74,10 @@ import org.dhis2.mobile.commons.reporting.CrashReportController;
 import org.dhis2.mobile.commons.resources.D2ErrorMessageProvider;
 import org.dhis2.mobile.commons.resources.D2ErrorMessageProviderImpl;
 import org.dhis2.mobile.sync.domain.SyncStatusController;
+import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase;
+import org.dhis2.simprints.SimprintsResolveSingleBiometricSearchNavigationUseCase;
+import org.dhis2.simprints.SimprintsSearchViewModel;
+import org.dhis2.simprints.di.SimprintsSearchViewModelFactory;
 import org.dhis2.tracker.data.ProfilePictureProvider;
 import org.dhis2.tracker.search.data.OptionSetRepository;
 import org.dhis2.tracker.search.data.OptionSetRepositoryImpl;
@@ -120,8 +129,8 @@ public class SearchTEModule {
 
     @Provides
     @PerActivity
-    SearchTEContractsModule.View provideView(SearchTEActivity searchTEActivity) {
-        return searchTEActivity;
+    SearchTEContractsModule.View provideView() {
+        return view;
     }
 
     @Provides
@@ -332,6 +341,97 @@ public class SearchTEModule {
 
     @Provides
     @PerActivity
+    SimprintsSessionRepository provideSimprintsSessionRepository(
+            PreferenceProvider preferenceProvider
+    ) {
+        return new SimprintsSessionRepository(preferenceProvider);
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsD2Repository provideSimprintsD2Repository(
+            D2 d2
+    ) {
+        return new SimprintsD2Repository(d2);
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsResolveConfirmIdentityCalloutUseCase provideSimprintsResolveConfirmIdentityCalloutUseCase(
+            SimprintsD2Repository simprintsD2Repository
+    ) {
+        return new SimprintsResolveConfirmIdentityCalloutUseCase(simprintsD2Repository);
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsOrderSearchResultsByIdentifyResponseUseCase provideSimprintsOrderSearchResultsByIdentifyResponseUseCase(
+            SimprintsD2Repository simprintsD2Repository
+    ) {
+        return new SimprintsOrderSearchResultsByIdentifyResponseUseCase(simprintsD2Repository);
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsSearchViewModelFactory provideSimprintsSearchViewModelFactory(
+            SimprintsResolveConfirmIdentityCalloutUseCase resolveConfirmIdentityCalloutUseCase,
+            SimprintsSessionRepository simprintsSessionRepository,
+            SimprintsResolveSingleBiometricSearchNavigationUseCase resolveSingleBiometricSearchNavigationUseCase,
+            SimprintsD2Repository simprintsD2Repository
+    ) {
+        return new SimprintsSearchViewModelFactory(
+                resolveConfirmIdentityCalloutUseCase,
+                simprintsSessionRepository,
+                resolveSingleBiometricSearchNavigationUseCase,
+                simprintsD2Repository
+        );
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsSearchViewModel provideSimprintsSearchViewModel(
+            SimprintsSearchViewModelFactory simprintsSearchViewModelFactory
+    ) {
+        return new ViewModelProvider((SearchTEActivity) view, simprintsSearchViewModelFactory)
+                .get(SimprintsSearchViewModel.class);
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsResolveSingleBiometricSearchNavigationUseCase provideSimprintsResolveSingleBiometricSearchNavigationUseCase(
+            SearchRepository searchRepository,
+            SearchRepositoryKt searchRepositoryKt,
+            SearchTrackedEntities searchTrackedEntities,
+            NetworkUtils networkUtils,
+            FilterManager filterManager,
+            DispatcherProvider dispatcherProvider
+    ) {
+        return new SimprintsResolveSingleBiometricSearchNavigationUseCase(
+                searchRepository,
+                searchRepositoryKt,
+                searchTrackedEntities,
+                networkUtils,
+                filterManager,
+                dispatcherProvider.io()
+        );
+    }
+
+    @Provides
+    @PerActivity
+    SimprintsLoadBiometricSearchResultsUseCase provideSimprintsLoadBiometricSearchResultsUseCase(
+            SearchRepositoryKt searchRepositoryKt,
+            SearchTrackedEntities searchTrackedEntities,
+            SimprintsOrderSearchResultsByIdentifyResponseUseCase orderSearchResultsByIdentifyResponse
+    ) {
+        return new SimprintsLoadBiometricSearchResultsUseCase(
+                searchRepositoryKt,
+                searchTrackedEntities,
+                orderSearchResultsByIdentifyResponse
+        );
+    }
+
+    @Provides
+    @PerActivity
     SearchTeiViewModelFactory providesViewModelFactory(
             SearchRepository searchRepository,
             SearchRepositoryKt searchRepositoryKt,
@@ -344,7 +444,9 @@ public class SearchTEModule {
             ProgramConfigurationRepository programConfigurationRepository,
             SearchTrackedEntities searchTrackedEntities,
             FetchSearchParameters fetchSearchParameters,
-            FetchOptionSetOptions fetchOptionSetOptions
+            FetchOptionSetOptions fetchOptionSetOptions,
+            SimprintsSearchViewModel simprintsSearchViewModel,
+            SimprintsLoadBiometricSearchResultsUseCase loadSimprintsBiometricSearchResultsUseCase
     ) {
         return new SearchTeiViewModelFactory(
                 searchRepository,
@@ -366,7 +468,9 @@ public class SearchTEModule {
                 filterManager,
                 searchTrackedEntities,
                 fetchSearchParameters,
-                fetchOptionSetOptions
+                fetchOptionSetOptions,
+                simprintsSearchViewModel,
+                loadSimprintsBiometricSearchResultsUseCase
         );
     }
 

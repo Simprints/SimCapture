@@ -117,7 +117,7 @@ android {
     testNamespace = "org.dhis2.test"
 
     defaultConfig {
-        applicationId = "com.dhis2"
+        applicationId = "com.simprints.simcapture"
         targetSdk = libs.versions.targetSdk.get().toInt()
         minSdk = libs.versions.minSdk.get().toInt()
         versionCode = libs.versions.vCode.get().toInt()

@@ -5,7 +5,9 @@ import io.reactivex.Flowable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.dhis2.commons.prefs.PreferenceProvider
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
 import org.dhis2.form.model.ActionType
 import org.dhis2.form.model.EventCategory
 import org.dhis2.form.model.FieldUiModel
@@ -17,6 +19,9 @@ import org.dhis2.form.model.StoreResult
 import org.dhis2.form.model.ValueStoreResult
 import org.dhis2.form.ui.provider.DisplayNameProvider
 import org.dhis2.form.ui.provider.LegendValueProvider
+import org.dhis2.mobile.commons.model.CustomIntentModel
+import org.dhis2.mobile.commons.model.CustomIntentResponseDataModel
+import org.dhis2.mobile.commons.model.CustomIntentResponseExtraType
 import org.dhis2.mobile.commons.providers.FieldErrorMessageProvider
 import org.dhis2.mobileProgramRules.RuleEngineHelper
 import org.hamcrest.MatcherAssert.assertThat
@@ -29,6 +34,7 @@ import org.hisp.dhis.rules.models.RuleAction
 import org.hisp.dhis.rules.models.RuleEffect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -36,9 +42,12 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.atLeast
+import org.mockito.kotlin.clearInvocations
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doReturnConsecutively
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -51,6 +60,7 @@ class FormRepositoryImplTest {
     private val fieldErrorMessageProvider: FieldErrorMessageProvider = mock()
     private val displayNameProvider: DisplayNameProvider = mock()
     private val legendValueProvider: LegendValueProvider = mock()
+    private val simprintsD2Repository: SimprintsD2Repository = mock()
     private lateinit var repository: FormRepositoryImpl
 
     @Before
@@ -86,18 +96,7 @@ class FormRepositoryImplTest {
                 invocationOnMock.getArgument(0) as FieldUiModel
             }
 
-            repository =
-                FormRepositoryImpl(
-                    formValueStore,
-                    fieldErrorMessageProvider,
-                    displayNameProvider,
-                    dataEntryRepository,
-                    ruleEngineHelper,
-                    rulesUtilsProvider,
-                    legendValueProvider,
-                    false,
-                    preferenceProvider,
-                )
+            repository = createRepository()
             repository.fetchFormItems()
         }
 
@@ -455,6 +454,45 @@ class FormRepositoryImplTest {
             assertTrue(repository.runDataIntegrityCheck(false) is SuccessfulResult)
         }
 
+    @Test
+    fun `Should treat pending Simprints register last value as completed and valid`() =
+        runBlocking {
+            whenever(
+                dataEntryRepository.list(),
+            ) doReturn Flowable.just(providePendingSimprintsMandatoryItemList())
+            whenever(
+                preferenceProvider.getString("SID_LAST_IDENTIFICATION_SESSION_ID", null),
+            ) doReturn "session-id"
+            whenever(
+                preferenceProvider.getBoolean("SID_PENDING_ENROLL_LAST", false),
+            ) doReturn true
+            whenever(
+                dataEntryRepository.updateSection(
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                ),
+            ).thenAnswer { invocation ->
+                (invocation.getArgument(0) as SectionUiModelImpl).copy(
+                    isOpen = invocation.getArgument(1),
+                    totalFields = invocation.getArgument(2),
+                    completedFields = invocation.getArgument(3),
+                    errors = invocation.getArgument(4),
+                    warnings = invocation.getArgument(5),
+                )
+            }
+
+            val result = repository.fetchFormItems()
+            val section = result.filterIsInstance<SectionUiModelImpl>().first()
+
+            assertEquals(1f, repository.completedFieldsPercentage(result), 0f)
+            assertEquals(1, section.completedFields)
+            assertTrue(repository.runDataIntegrityCheck(false) is SuccessfulResult)
+        }
+
     private fun mockedSections() =
         listOf(
             "section1",
@@ -612,6 +650,132 @@ class FormRepositoryImplTest {
                 autocompleteList = null,
             ),
         )
+
+    private fun providePendingSimprintsMandatoryItemList() =
+        listOf(
+            section1(),
+            FieldUiModelImpl(
+                uid = "uid001",
+                value = null,
+                displayName = null,
+                label = "BiometricSubjectID",
+                valueType = ValueType.TEXT,
+                programStageSection = "section1",
+                uiEventFactory = null,
+                mandatory = true,
+                optionSetConfiguration = null,
+                autocompleteList = null,
+                customIntent = registerLastIntent(),
+            ),
+        )
+
+    private fun registerLastIntent() =
+        CustomIntentModel(
+            uid = "register-last",
+            name = "Register last",
+            packageName = "com.simprints.id.REGISTER",
+            customIntentRequest = emptyList(),
+            customIntentResponse =
+                listOf(
+                    CustomIntentResponseDataModel(
+                        name = "guid",
+                        extraType = CustomIntentResponseExtraType.STRING,
+                        key = null,
+                    ),
+                ),
+        )
+
+    private fun createRepository(
+        externalCredentialAttributeId: String? = null,
+    ) =
+        FormRepositoryImpl(
+            formValueStore,
+            fieldErrorMessageProvider,
+            displayNameProvider,
+            dataEntryRepository,
+            ruleEngineHelper,
+            rulesUtilsProvider,
+            legendValueProvider,
+            false,
+            preferenceProvider,
+            { externalCredentialAttributeId },
+            simprintsD2Repository,
+        )
+
+    @Test
+    fun `Configured external credential stays read only after form reload without program rule effects`() =
+        runTest {
+            repository = createRepository(externalCredentialAttributeId = "uid001")
+
+            repeat(2) {
+                val field = repository.fetchFormItems().first { it.uid == "uid001" }
+                assertFalse(field.editable)
+            }
+        }
+
+    @Test
+    fun `Saving Simprints external credential updates form value before program rules run`() =
+        runTest {
+            whenever(formValueStore.enrollmentUid()) doReturn "enrollment"
+            whenever(
+                simprintsD2Repository.blockingSaveEnrollmentExternalCredential("enrollment", "biometrics", "new-credential"),
+            ) doReturn "uid001"
+
+            val result = repository.saveSimprintsExternalCredential("biometrics", "new-credential")
+
+            assertEquals(StoreResult("uid001", ValueStoreResult.VALUE_CHANGED), result)
+            assertEquals("new-credential", repository.composeList().first { it.uid == "uid001" }.value)
+        }
+
+    @Test
+    fun `Loading refresh after Simprints external credential save must not reuse the hide empty rule`() =
+        runTest {
+            val hideEmptyExternalCredential =
+                RuleEffect(
+                    "hide-credential",
+                    RuleAction(null, ProgramRuleActionType.HIDEFIELD.name, mapOf("field" to "uid001")),
+                    null,
+                )
+            whenever(ruleEngineHelper.evaluate()) doReturn listOf(hideEmptyExternalCredential)
+            repository.composeList()
+            whenever(formValueStore.enrollmentUid()) doReturn "enrollment"
+            whenever(
+                simprintsD2Repository.blockingSaveEnrollmentExternalCredential("enrollment", "biometrics", "new-credential"),
+            ) doReturn "uid001"
+            whenever(ruleEngineHelper.evaluate()) doReturn emptyList()
+            clearInvocations(rulesUtilsProvider)
+
+            repository.saveSimprintsExternalCredential("biometrics", "new-credential")
+            repository.composeList(skipProgramRules = true)
+
+            verify(rulesUtilsProvider).applyRuleEffects(eq(false), any(), eq(emptyList()), eq(formValueStore))
+        }
+
+    @Test
+    fun `Simprints external credential save error is skipped without changing form value`() =
+        runTest {
+            whenever(formValueStore.enrollmentUid()) doReturn "enrollment"
+            whenever(
+                simprintsD2Repository.blockingSaveEnrollmentExternalCredential("enrollment", "biometrics", "new-credential"),
+            ).thenThrow(IllegalStateException("save failed"))
+            val previousValue = repository.composeList().first { it.uid == "uid001" }.value
+
+            val result = repository.saveSimprintsExternalCredential("biometrics", "new-credential")
+
+            assertNull(result)
+            assertEquals(previousValue, repository.composeList().first { it.uid == "uid001" }.value)
+        }
+
+    @Test
+    fun `Simprints external credential is not saved without an enrollment uid`() =
+        runTest {
+            whenever(formValueStore.enrollmentUid()) doReturn null
+
+            val result = repository.saveSimprintsExternalCredential("biometrics", "new-credential")
+
+            assertNull(result)
+            verify(simprintsD2Repository, times(0)).blockingSaveEnrollmentExternalCredential(any(), any(), any())
+        }
 
     @Test
     fun `reEvaluateRequestParams should call dataEntryRepository and map results`() {

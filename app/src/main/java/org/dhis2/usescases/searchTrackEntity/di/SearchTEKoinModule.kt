@@ -1,5 +1,13 @@
 package org.dhis2.usescases.searchTrackEntity.di
 
+import org.dhis2.commons.simprints.repository.SimprintsD2Repository
+import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
+import org.dhis2.commons.simprints.usecases.SimprintsOrderSearchResultsByIdentifyResponseUseCase
+import org.dhis2.commons.simprints.usecases.SimprintsResolveConfirmIdentityCalloutUseCase
+import org.dhis2.commons.viewmodel.DispatcherProvider
+import org.dhis2.simprints.SimprintsLoadBiometricSearchResultsUseCase
+import org.dhis2.simprints.SimprintsResolveSingleBiometricSearchNavigationUseCase
+import org.dhis2.simprints.SimprintsSearchViewModel
 import org.dhis2.usescases.searchTrackEntity.SearchRepository
 import org.dhis2.usescases.searchTrackEntity.SearchTEIViewModel
 import org.dhis2.usescases.searchTrackEntity.SearchTeiViewModelFactory
@@ -15,6 +23,39 @@ import org.koin.dsl.module
  */
 val searchTEKoinModule =
     module {
+        factory { SimprintsSessionRepository(get()) }
+        factory { SimprintsD2Repository(get()) }
+        factory { SimprintsResolveConfirmIdentityCalloutUseCase(get()) }
+        factory { SimprintsOrderSearchResultsByIdentifyResponseUseCase(get()) }
+        factory { params ->
+            val teType: String = params.get()
+            SimprintsResolveSingleBiometricSearchNavigationUseCase(
+                searchRepository = get(),
+                searchRepositoryKt = get(),
+                searchTrackedEntities = get { parametersOf(teType) },
+                networkUtils = get(),
+                filterManager = get(),
+                ioDispatcher = get<DispatcherProvider>().io(),
+            )
+        }
+        factory { params ->
+            val teType: String = params.get()
+            SimprintsLoadBiometricSearchResultsUseCase(
+                searchRepositoryKt = get(),
+                searchTrackedEntities = get { parametersOf(teType) },
+                orderSearchResultsByIdentifyResponse = get(),
+            )
+        }
+        factory { params ->
+            val teType: String = params.get()
+            SimprintsSearchViewModel(
+                resolveConfirmIdentityCallout = get(),
+                sessionRepository = get(),
+                resolveSingleBiometricSearchNavigation = get { parametersOf(teType) },
+                simprintsD2Repository = get(),
+            )
+        }
+
         // SearchTeiViewModelFactory
         // Factory for creating SearchTEIViewModel instances with SearchTrackedEntities
         factory { params ->
@@ -41,6 +82,8 @@ val searchTEKoinModule =
                 searchTrackedEntities = get { parametersOf(teType) },
                 fetchSearchParameters = get(),
                 fetchOptionSetOptions = get(),
+                simprintsSearchViewModel = get { parametersOf(teType) },
+                loadSimprintsBiometricSearchResultsUseCase = get { parametersOf(teType) },
             )
         }
 
@@ -71,6 +114,8 @@ val searchTEKoinModule =
                 searchTrackedEntities = get { parametersOf(teType) },
                 fetchSearchParameters = get(),
                 fetchOptionSetOptions = get(),
+                simprintsSearchViewModel = get { parametersOf(teType) },
+                loadSimprintsBiometricSearchResultsUseCase = get { parametersOf(teType) },
             )
         }
     }
