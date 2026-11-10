@@ -8,8 +8,8 @@ import org.dhis2.commons.periods.model.Period
 import org.dhis2.commons.prefs.Preference
 import org.dhis2.commons.prefs.PreferenceProvider
 import org.dhis2.commons.simprints.repository.SimprintsD2Repository
-import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.commons.simprints.repository.SimprintsSessionRepository
+import org.dhis2.commons.simprints.utils.SimprintsIntentUtils
 import org.dhis2.form.data.EnrollmentRepository.Companion.ENROLLMENT_DATE_UID
 import org.dhis2.form.model.ActionType
 import org.dhis2.form.model.FieldUiModel
@@ -88,8 +88,8 @@ class FormRepositoryImpl(
                 dataEntryRepository.firstSectionToOpen()
         }
 
-    override suspend fun composeList(skipProgramRules: Boolean): List<FieldUiModel> {
-        return synchronized(this) { itemList.applyRuleEffects(skipProgramRules) }
+    override suspend fun composeList(skipProgramRules: Boolean): List<FieldUiModel> =
+        synchronized(this) { itemList.applyRuleEffects(skipProgramRules) }
             .mergeListWithErrorFields(itemsWithError)
             .also {
                 calculateCompletionPercentage(it)
@@ -97,7 +97,6 @@ class FormRepositoryImpl(
             .setFocusedItem()
             .setLastItem()
             .applyExternalCredentialReadOnly()
-    }
 
     private fun List<FieldUiModel>.applyExternalCredentialReadOnly(): List<FieldUiModel> {
         val attributeUid = externalCredentialAttributeIdProvider() ?: return this
@@ -562,7 +561,7 @@ class FormRepositoryImpl(
                 item.uid == uid
             }?.let { item ->
                 updated(indexOf(item), item.setFocus())
-            } ?: this
+            }
         } ?: this
 
     private suspend fun List<FieldUiModel>.setOpenedSection(): List<FieldUiModel> =

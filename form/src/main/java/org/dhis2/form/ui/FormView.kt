@@ -759,6 +759,5 @@ class FormView : Fragment() {
     companion object {
         const val RECORDS = "RECORDS"
         private const val PROGRAM_UID = "PROGRAM_UID"
-        const val TEMP_FILE = "tempFile.png"
     }
 }
