@@ -20,7 +20,6 @@ import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.enrollment.Enrollment
 import org.hisp.dhis.android.core.event.Event
 import org.hisp.dhis.android.core.event.EventCollectionRepository
-import org.hisp.dhis.android.core.event.EventStatus
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit
 import org.hisp.dhis.android.core.period.PeriodType
 import org.hisp.dhis.android.core.program.Program
@@ -57,26 +56,26 @@ class TeiDataRepositoryImpl(
         }
     }
 
-    override fun getEnrollment(): Single<Enrollment?> =
+    override fun getEnrollment(): Single<Enrollment> =
         d2
             .enrollmentModule()
             .enrollments()
             .uid(enrollmentUid)
-            .get()
+            .rxGet()
 
-    override fun getEnrollmentProgram(): Single<Program?> =
+    override fun getEnrollmentProgram(): Single<Program> =
         d2
             .programModule()
             .programs()
             .uid(programUid)
-            .get()
+            .rxGet()
 
-    override fun getTrackedEntityInstance(): Single<TrackedEntityInstance?> =
+    override fun getTrackedEntityInstance(): Single<TrackedEntityInstance> =
         d2
             .trackedEntityModule()
             .trackedEntityInstances()
             .uid(teiUid)
-            .get()
+            .rxGet()
 
     override fun eventsWithoutCatCombo(): Single<List<EventModel>> {
         return getEnrollmentProgram()
@@ -87,8 +86,8 @@ class TeiDataRepositoryImpl(
                     .uid(
                         program
                             .categoryCombo()
-                            ?.uid(),
-                    ).get()
+                            .uid(),
+                    ).rxGet()
                     .map {
                         Pair(program, it)
                     }
@@ -112,7 +111,7 @@ class TeiDataRepositoryImpl(
                             .eq(enrollmentUid)
                             .byAttributeOptionComboUid()
                             .eq(defaultCatOptCombo?.uid())
-                            .get()
+                            .rxGet()
                     val eventsWithNoCatCombo =
                         d2
                             .eventModule()
@@ -121,7 +120,7 @@ class TeiDataRepositoryImpl(
                             .eq(enrollmentUid)
                             .byAttributeOptionComboUid()
                             .isNull
-                            .get()
+                            .rxGet()
                     val eventSource =
                         Single.zip(
                             eventsWithDefaultCatCombo,
@@ -209,7 +208,7 @@ class TeiDataRepositoryImpl(
             .byProgramUid()
             .eq(programUid)
             .orderBySortOrder(RepositoryScope.OrderByDirection.ASC)
-            .get()
+            .rxGet()
             .map { programStages ->
                 programStages.forEach { programStage ->
                     eventRepo =
@@ -246,7 +245,7 @@ class TeiDataRepositoryImpl(
 
                     val canAddEventToEnrollment =
                         enrollmentUid?.let {
-                            programStage.access()?.data()?.write() == true &&
+                            programStage.access().data().write() &&
                                 d2.eventModule().eventService().blockingCanAddEventToEnrollment(
                                     it,
                                     programStage.uid(),
@@ -295,7 +294,6 @@ class TeiDataRepositoryImpl(
                                     isSelected = true,
                                     canAddNewEvent = true,
                                     orgUnitName = orgUnitName(event.organisationUnit()),
-                                    orgUnitIsInCaptureScope = hasAccessToEvent(event.organisationUnit(), event.status()),
                                     catComboName = getCatOptionComboName(event.attributeOptionCombo()),
                                     dataElementValues =
                                         getEventValues(
@@ -372,7 +370,7 @@ class TeiDataRepositoryImpl(
             .orderByTimeline(RepositoryScope.OrderByDirection.DESC)
             .byDeleted()
             .isFalse
-            .get()
+            .rxGet()
             .map { eventList ->
                 eventList
                     .take(
@@ -394,7 +392,6 @@ class TeiDataRepositoryImpl(
                                 isSelected = true,
                                 canAddNewEvent = true,
                                 orgUnitName = orgUnitName(event.organisationUnit()),
-                                orgUnitIsInCaptureScope = hasAccessToEvent(event.organisationUnit(), event.status()),
                                 catComboName = getCatOptionComboName(event.attributeOptionCombo()),
                                 dataElementValues = getEventValues(event.uid(), programStage.uid()),
                                 groupedByStage = false,
@@ -486,24 +483,6 @@ class TeiDataRepositoryImpl(
             .uid(orgUnitUid)
             .blockingGet()
             ?.displayName() ?: ""
-
-    private fun hasAccessToEvent(
-        eventOrgUnitUid: String?,
-        eventStatus: EventStatus?,
-    ): Boolean =
-        if (eventStatus == EventStatus.SCHEDULE ||
-            eventStatus == EventStatus.OVERDUE
-        ) {
-            eventOrgUnitUid?.let {
-                d2
-                    .organisationUnitModule()
-                    .organisationUnitService()
-                    .isInCaptureScope(it)
-                    .blockingGet()
-            } ?: true
-        } else {
-            true
-        }
 
     private fun getEventValues(
         eventUid: String,
@@ -625,20 +604,18 @@ class TeiDataRepositoryImpl(
             .byProgramUids(listOf(programUid))
             .blockingCount() > 1
 
-    override fun ownerOrgUnit(teiUid: String): String? {
-
-         return d2
-                .trackedEntityModule()
-                .trackedEntityInstances()
-                .withProgramOwners()
-                .uid(teiUid)
-                .blockingGet()
-                ?.programOwners()
-                ?.firstOrNull {
-                    it.trackedEntityInstance() == teiUid &&
-                        (programUid.isNullOrEmpty() || it.program() == programUid)
-                }?.ownerOrgUnit()
-    }
+    override fun ownerOrgUnit(teiUid: String): String? =
+        d2
+            .trackedEntityModule()
+            .trackedEntityInstances()
+            .withProgramOwners()
+            .uid(teiUid)
+            .blockingGet()
+            ?.programOwners()
+            ?.firstOrNull {
+                it.trackedEntityInstance() == teiUid &&
+                    (programUid.isNullOrEmpty() || it.program() == programUid)
+            }?.ownerOrgUnit()
 
     override fun enrollmentOrgUnitInCaptureScope(enrollmentOrgUnit: String): Boolean =
         !getOrgUnitCollectionRepositoryByCaptureScope()

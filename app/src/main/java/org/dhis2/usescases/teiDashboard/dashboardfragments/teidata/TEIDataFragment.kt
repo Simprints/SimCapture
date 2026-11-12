@@ -51,6 +51,7 @@ import org.dhis2.commons.sync.SyncContext.EnrollmentEvent
 import org.dhis2.databinding.FragmentTeiDataBinding
 import org.dhis2.form.model.EventMode
 import org.dhis2.mobile.commons.orgunit.OrgUnitSelectorScope
+import org.dhis2.mobile.commons.providers.CustomLabelContext
 import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.EventCaptureActivity
 import org.dhis2.usescases.eventsWithoutRegistration.eventInitial.EventInitialActivity
 import org.dhis2.usescases.general.FragmentGlobalAbstract
@@ -142,7 +143,8 @@ class TEIDataFragment :
                 getString("TEI_UID")
                     ?: throw NullPointerException("A TEI uid is required to launch fragment")
             val enrollmentUid = getString("ENROLLMENT_UID") ?: ""
-            val fragmentFromEventCaptureActivity = getBoolean("FRAGMENT_FROM_EVENT_CAPTURE_ACTIVITY", false)
+            val fragmentFromEventCaptureActivity =
+                getBoolean("FRAGMENT_FROM_EVENT_CAPTURE_ACTIVITY", false)
             app()
                 .dashboardComponent()
                 ?.plus(
@@ -184,7 +186,6 @@ class TEIDataFragment :
                             dashboardModel.collect {
                                 presenter.checkIfHasToDisplayGenerateEvent()
                             }
-
                         }
                     }
                     lifecycleScope.launch {
@@ -228,7 +229,11 @@ class TEIDataFragment :
                         )
 
                     snackbar.setIcon(
-                        drawable = ContextCompat.getDrawable(requireContext(), R.drawable.ic_close)!!,
+                        drawable =
+                            ContextCompat.getDrawable(
+                                requireContext(),
+                                R.drawable.ic_close,
+                            )!!,
                     ) {
                         snackbar.dismiss()
                     }
@@ -245,7 +250,11 @@ class TEIDataFragment :
                         )
 
                     snackbar.setIcon(
-                        drawable = ContextCompat.getDrawable(requireContext(), R.drawable.ic_close)!!,
+                        drawable =
+                            ContextCompat.getDrawable(
+                                requireContext(),
+                                R.drawable.ic_close,
+                            )!!,
                     ) {
                         snackbar.dismiss()
                     }
@@ -273,14 +282,16 @@ class TEIDataFragment :
                 val eventCount by presenter.events.map { it.count() }.observeAsState(0)
 
                 val syncInfoBar =
-                    dashboardModel.takeIf { it is DashboardEnrollmentModel && !presenter.fragmentIsFromEventCaptureActivity() }?.let {
-                        infoBarMapper.map(
-                            infoBarType = InfoBarType.SYNC,
-                            item = dashboardModel as DashboardEnrollmentModel,
-                            actionCallback = { dashboardActivity.openSyncDialog() },
-                            showInfoBar = syncNeeded,
-                        )
-                    }
+                    dashboardModel
+                        .takeIf { it is DashboardEnrollmentModel && !presenter.fragmentIsFromEventCaptureActivity() }
+                        ?.let {
+                            infoBarMapper.map(
+                                infoBarType = InfoBarType.SYNC,
+                                item = dashboardModel as DashboardEnrollmentModel,
+                                actionCallback = { dashboardActivity.openSyncDialog() },
+                                showInfoBar = syncNeeded,
+                            )
+                        }
 
                 val followUpInfoBar =
                     dashboardModel.takeIf { it is DashboardEnrollmentModel }?.let {
@@ -344,7 +355,14 @@ class TEIDataFragment :
                         TimelineEventsHeaderModel(
                             displayEventCreationButton,
                             eventCount,
-                            eventResourcesProvider.programEventLabel(programUid, eventCount),
+                            eventResourcesProvider.programEventLabel(
+                                programUid?.let {
+                                    CustomLabelContext.Program(
+                                        it,
+                                    )
+                                },
+                                eventCount,
+                            ),
                             presenter.getNewEventOptionsByStages(null),
                         ),
                     timelineOnEventCreationOptionSelected = {
@@ -572,15 +590,6 @@ class TEIDataFragment :
             ).show(parentFragmentManager, SCHEDULING_DIALOG)
     }
 
-    override fun displayNoAccessToEventSnackbar(enrollmentOrgUnit: String) {
-        Snackbar
-            .make(
-                binding.root,
-                getString(R.string.at_enroll_org_unit).format(enrollmentOrgUnit) + "\n" + getString(R.string.no_access_to_it),
-                Snackbar.LENGTH_SHORT,
-            ).show()
-    }
-
     override fun showDialogCloseProgram() {
         dialog =
             CustomDialog(
@@ -693,7 +702,7 @@ class TEIDataFragment :
             model
                 .getCurrentOrgUnit()
                 .uid()
-                ?.takeIf(presenter::enrollmentOrgUnitInCaptureScope)
+                .takeIf(presenter::enrollmentOrgUnitInCaptureScope)
                 ?.let {
                     bundle.putString(Constants.ORG_UNIT, it)
                 }
@@ -800,7 +809,10 @@ class TEIDataFragment :
             args.putString("ENROLLMENT_UID", enrollmentUid)
             args.putBoolean(ARG_LANDSCAPE_SIDE_PANEL, landscapeSidePanel)
             fragmentFromEventCaptureActivity?.let {
-                args.putBoolean("FRAGMENT_FROM_EVENT_CAPTURE_ACTIVITY", fragmentFromEventCaptureActivity)
+                args.putBoolean(
+                    "FRAGMENT_FROM_EVENT_CAPTURE_ACTIVITY",
+                    fragmentFromEventCaptureActivity,
+                )
             }
             fragment.arguments = args
             return fragment

@@ -1,4 +1,3 @@
-import com.android.build.api.variant.impl.VariantOutputImpl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -113,13 +112,13 @@ android {
         }
     }
 
-    compileSdk = libs.versions.sdk.get().toInt()
+    compileSdk = libs.versions.compileSdk.get().toInt()
     namespace = "org.dhis2"
     testNamespace = "org.dhis2.test"
 
     defaultConfig {
         applicationId = "com.acf.dhis.androidnutritioncapture"
-        targetSdk = libs.versions.sdk.get().toInt()
+        targetSdk = libs.versions.targetSdk.get().toInt()
         minSdk = libs.versions.minSdk.get().toInt()
         versionName = libs.versions.vName.get()
         testInstrumentationRunner = "org.dhis2.Dhis2Runner"
@@ -241,6 +240,12 @@ android {
         }
     }
 
+    sourceSets {
+        getByName("dhis2Training") {
+            kotlin.srcDir("src/dhis2/java")
+        }
+    }
+
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
@@ -289,16 +294,13 @@ androidComponents {
         }
 
         variant.outputs.forEach { output ->
-            if (output is VariantOutputImpl) {
-                val suffix = when {
-                    buildType == "release" && flavorName == "dhis2Training" -> "-training"
-                    buildType == "release" && flavorName == "dhis2PlayServices" -> "-googlePlay"
-                    buildType == "debug" -> "-${getBranchName()}"
-                    else -> ""
-                }
-
-                output.outputFileName = "dhis2-v${libs.versions.vName.get()}$suffix.apk"
+            val suffix = when {
+                buildType == "release" && flavorName == "dhis2Training" -> "-training"
+                buildType == "release" && flavorName == "dhis2PlayServices" -> "-googlePlay"
+                buildType == "debug" -> "-${getBranchName()}"
+                else -> ""
             }
+            output.outputFileName.set("dhis2-v${libs.versions.vName.get()}$suffix.apk")
         }
 
     }
@@ -339,6 +341,7 @@ dependencies {
     implementation(project(":login"))
     implementation(project(":sync"))
 
+    implementation(libs.dhis2.expressionparser)
     implementation(libs.security.conscrypt)
     implementation(libs.security.rootbeer)
     implementation(libs.security.openId)

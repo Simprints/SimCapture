@@ -119,10 +119,10 @@ class ProgramRulesTest {
         }
 
         whenever(formValueStore.save(any(), anyOrNull(), anyOrNull())) doReturn
-                StoreResult(
-                    "",
-                    ValueStoreResult.VALUE_CHANGED,
-                )
+            StoreResult(
+                "",
+                ValueStoreResult.VALUE_CHANGED,
+            )
 
         repository =
             FormRepositoryImpl(
@@ -168,17 +168,17 @@ class ProgramRulesTest {
     fun `Should assign a value`() =
         runTest {
             whenever(ruleEngineHelper.evaluate()) doReturn
-                    listOf(
-                        RuleEffect(
-                            "",
-                            RuleAction(
-                                "assignedValue",
-                                ProgramRuleActionType.ASSIGN.name,
-                                mutableMapOf(Pair("field", "uid001")),
-                            ),
-                            "newValue",
+                listOf(
+                    RuleEffect(
+                        "",
+                        RuleAction(
+                            "assignedValue",
+                            ProgramRuleActionType.ASSIGN.name,
+                            mutableMapOf(Pair("field", "uid001")),
                         ),
-                    )
+                        "newValue",
+                    ),
+                )
 
             val intent =
                 FormIntent.OnSave(
@@ -193,7 +193,6 @@ class ProgramRulesTest {
 
                 assert(items.find { it -> it.fields.find { field -> field.uid == "uid001" }?.value == "newValue" } != null)
             }
-
         }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -201,19 +200,19 @@ class ProgramRulesTest {
     fun `Should hide field`() =
         runTest {
             whenever(ruleEngineHelper.evaluate()) doReturn
-                    listOf(
-                        RuleEffect(
-                            "ruleUid",
-                            RuleAction(
-                                "data",
-                                ProgramRuleActionType.HIDEFIELD.name,
-                                mutableMapOf(
-                                    "content" to "content",
-                                    "field" to "uid001",
-                                ),
+                listOf(
+                    RuleEffect(
+                        "ruleUid",
+                        RuleAction(
+                            "data",
+                            ProgramRuleActionType.HIDEFIELD.name,
+                            mutableMapOf(
+                                "content" to "content",
+                                "field" to "uid001",
                             ),
                         ),
-                    )
+                    ),
+                )
 
             val intent =
                 FormIntent.OnSave(
@@ -240,20 +239,20 @@ class ProgramRulesTest {
     fun `Should hide section`() =
         runTest {
             whenever(ruleEngineHelper.evaluate()) doReturn
-                    listOf(
-                        RuleEffect(
-                            "ruleUid",
-                            RuleAction(
-                                "data",
-                                ProgramRuleActionType.HIDESECTION.name,
-                                mutableMapOf(
-                                    "content" to "content",
-                                    "programStageSection" to "section1",
-                                ),
-                            ),
+                listOf(
+                    RuleEffect(
+                        "ruleUid",
+                        RuleAction(
                             "data",
+                            ProgramRuleActionType.HIDESECTION.name,
+                            mutableMapOf(
+                                "content" to "content",
+                                "programStageSection" to "section1",
+                            ),
                         ),
-                    )
+                        "data",
+                    ),
+                )
 
             val intent =
                 FormIntent.OnSave(
@@ -273,7 +272,6 @@ class ProgramRulesTest {
                 assertTrue(sections.first().fields[2].uid == "uid006")
                 assertTrue(sections.first().fields[3].uid == "uid007")
             }
-
         }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -281,32 +279,32 @@ class ProgramRulesTest {
     fun `Should show warning and error message`() =
         runTest {
             whenever(ruleEngineHelper.evaluate()) doReturn
-                    listOf(
-                        RuleEffect(
-                            "ruleUid",
-                            RuleAction(
-                                "data",
-                                ProgramRuleActionType.SHOWWARNING.name,
-                                mutableMapOf(
-                                    "content" to "content",
-                                    "field" to "uid002",
-                                ),
+                listOf(
+                    RuleEffect(
+                        "ruleUid",
+                        RuleAction(
+                            "data",
+                            ProgramRuleActionType.SHOWWARNING.name,
+                            mutableMapOf(
+                                "content" to "content",
+                                "field" to "uid002",
                             ),
-                            "warning message",
                         ),
-                        RuleEffect(
-                            "ruleUid2",
-                            RuleAction(
-                                "data",
-                                ProgramRuleActionType.SHOWERROR.name,
-                                mutableMapOf(
-                                    "content" to "content",
-                                    "field" to "uid005",
-                                ),
+                        "warning message",
+                    ),
+                    RuleEffect(
+                        "ruleUid2",
+                        RuleAction(
+                            "data",
+                            ProgramRuleActionType.SHOWERROR.name,
+                            mutableMapOf(
+                                "content" to "content",
+                                "field" to "uid005",
                             ),
-                            "error message",
                         ),
-                    )
+                        "error message",
+                    ),
+                )
 
             val intent =
                 FormIntent.OnSave(
@@ -338,20 +336,20 @@ class ProgramRulesTest {
         runTest {
             repository.updateValueOnList("uid003", null, ValueType.TEXT)
             whenever(ruleEngineHelper.evaluate()) doReturn
-                    listOf(
-                        RuleEffect(
-                            "ruleUid",
-                            RuleAction(
-                                "data",
-                                ProgramRuleActionType.SETMANDATORYFIELD.name,
-                                mutableMapOf(
-                                    "content" to "content",
-                                    "field" to "uid003",
-                                ),
-                            ),
+                listOf(
+                    RuleEffect(
+                        "ruleUid",
+                        RuleAction(
                             "data",
+                            ProgramRuleActionType.SETMANDATORYFIELD.name,
+                            mutableMapOf(
+                                "content" to "content",
+                                "field" to "uid003",
+                            ),
                         ),
-                    )
+                        "data",
+                    ),
+                )
 
             val intent =
                 FormIntent.OnSave(
@@ -370,7 +368,6 @@ class ProgramRulesTest {
                     }
                 }
             }
-
         }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -378,21 +375,21 @@ class ProgramRulesTest {
     fun `Should show option`() =
         runTest {
             whenever(ruleEngineHelper.evaluate()) doReturn
-                    listOf(
-                        RuleEffect(
-                            "ruleUid",
-                            RuleAction(
-                                "data",
-                                ProgramRuleActionType.SHOWOPTIONGROUP.name,
-                                mutableMapOf(
-                                    "content" to "content",
-                                    "field" to "uid006",
-                                    "optionGroup" to "optionGroupId",
-                                ),
-                            ),
+                listOf(
+                    RuleEffect(
+                        "ruleUid",
+                        RuleAction(
                             "data",
+                            ProgramRuleActionType.SHOWOPTIONGROUP.name,
+                            mutableMapOf(
+                                "content" to "content",
+                                "field" to "uid006",
+                                "optionGroup" to "optionGroupId",
+                            ),
                         ),
-                    )
+                        "data",
+                    ),
+                )
 
             whenever(
                 dataEntryRepository.options(
@@ -411,10 +408,10 @@ class ProgramRulesTest {
                 )
 
             whenever(formValueStore.deleteOptionValueIfSelected(any(), any())) doReturn
-                    StoreResult(
-                        "uid006",
-                        ValueStoreResult.VALUE_CHANGED,
-                    )
+                StoreResult(
+                    "uid006",
+                    ValueStoreResult.VALUE_CHANGED,
+                )
 
             formViewModel.submitIntent(intent)
             advanceUntilIdle()
@@ -432,21 +429,21 @@ class ProgramRulesTest {
     fun `Should hide option`() =
         runTest {
             whenever(ruleEngineHelper.evaluate()) doReturn
-                    listOf(
-                        RuleEffect(
-                            "ruleUid",
-                            RuleAction(
-                                "data",
-                                ProgramRuleActionType.HIDEOPTION.name,
-                                mutableMapOf(
-                                    "content" to "content",
-                                    "field" to "uid007",
-                                    "option" to "Option2",
-                                ),
-                            ),
+                listOf(
+                    RuleEffect(
+                        "ruleUid",
+                        RuleAction(
                             "data",
+                            ProgramRuleActionType.HIDEOPTION.name,
+                            mutableMapOf(
+                                "content" to "content",
+                                "field" to "uid007",
+                                "option" to "Option2",
+                            ),
                         ),
-                    )
+                        "data",
+                    ),
+                )
 
             whenever(
                 dataEntryRepository.options(
@@ -465,10 +462,10 @@ class ProgramRulesTest {
                 )
 
             whenever(formValueStore.deleteOptionValueIfSelected(any(), any())) doReturn
-                    StoreResult(
-                        "uid007",
-                        ValueStoreResult.VALUE_HAS_NOT_CHANGED,
-                    )
+                StoreResult(
+                    "uid007",
+                    ValueStoreResult.VALUE_HAS_NOT_CHANGED,
+                )
 
             formViewModel.submitIntent(intent)
             advanceUntilIdle()

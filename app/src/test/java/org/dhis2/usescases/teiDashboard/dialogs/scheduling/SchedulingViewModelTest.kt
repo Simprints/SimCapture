@@ -48,8 +48,20 @@ class SchedulingViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testingDispatcher)
-        whenever(d2.enrollmentModule().enrollments().uid(ENROLLMENT_UID).blockingGet()) doReturn enrollment
-        whenever(d2.programModule().programStages().uid(STAGE).blockingGet()) doReturn
+        whenever(
+            d2
+                .enrollmentModule()
+                .enrollments()
+                .uid(ENROLLMENT_UID)
+                .blockingGet(),
+        ) doReturn enrollment
+        whenever(
+            d2
+                .programModule()
+                .programStages()
+                .uid(STAGE)
+                .blockingGet(),
+        ) doReturn
             ProgramStage.builder().uid(STAGE).build()
         whenever(d2.eventModule().events()) doReturn
             Mockito.mock(EventCollectionRepository::class.java, Mockito.RETURNS_DEEP_STUBS)
@@ -79,6 +91,7 @@ class SchedulingViewModelTest {
                         ownerOrgUnitUid = OWNER_ORG_UNIT_UID,
                     ),
                 getEventPeriods = mock(),
+                customLabelProvider = mock(),
                 rampDatastoreRepository = mock<RampDatastoreRepository>(),
             )
     }

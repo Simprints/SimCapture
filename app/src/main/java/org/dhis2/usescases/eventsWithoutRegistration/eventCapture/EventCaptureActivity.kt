@@ -801,7 +801,6 @@ class EventCaptureActivity :
                 putExtra(Constants.PROGRAM_UID, programUid)
                 putExtra(Constants.EVENT_MODE, eventMode)
                 putExtra("FRAGMENT_FROM_EVENT_CAPTURE_ACTIVITY", true)
-
             }
     }
 }

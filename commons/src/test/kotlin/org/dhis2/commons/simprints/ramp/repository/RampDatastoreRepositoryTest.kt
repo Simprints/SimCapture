@@ -685,6 +685,16 @@ class RampDatastoreRepositoryTest {
     }
 
     @Test
+    fun `getConfig should return default config when datastore value is a scalar string`() {
+        stubRampConfigRawValue("JsonWrapper(json=\"string\")")
+
+        val config = repository.getConfig()
+
+        assertEquals(0, config.dataElementHistoryCharts.size)
+        assertEquals(null, repository.externalCredentialAttributeId("program"))
+    }
+
+    @Test
     fun `getConfig should return default config when datastore value is invalid`() {
         stubRampConfigRawValue("{invalid")
 

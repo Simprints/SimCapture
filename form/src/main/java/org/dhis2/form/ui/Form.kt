@@ -81,8 +81,7 @@ fun Form(
                             bottomStart = Spacing.Spacing0,
                             bottomEnd = Spacing.Spacing0,
                         ),
-                )
-                .verticalScroll(scrollState)
+                ).verticalScroll(scrollState)
                 .clickable(
                     interactionSource =
                         remember {

@@ -75,8 +75,8 @@ class FormRepositoryImpl(
         return composeList()
     }
 
-    override suspend fun composeList(skipProgramRules: Boolean): List<FieldUiModel> {
-        return synchronized(this) { itemList.applyRuleEffects(skipProgramRules) }
+    override suspend fun composeList(skipProgramRules: Boolean): List<FieldUiModel> =
+        synchronized(this) { itemList.applyRuleEffects(skipProgramRules) }
             .applyBiometricsCaptureOnlyVisibility()
             .mergeListWithErrorFields(itemsWithError)
             .also {
@@ -85,7 +85,6 @@ class FormRepositoryImpl(
             .setFocusedItem()
             .setLastItem()
             .applyExternalCredentialReadOnly()
-    }
 
     private fun List<FieldUiModel>.applyExternalCredentialReadOnly(): List<FieldUiModel> {
         val attributeUid = externalCredentialAttributeIdProvider() ?: return this
@@ -560,7 +559,7 @@ class FormRepositoryImpl(
                 item.uid == uid
             }?.let { item ->
                 updated(indexOf(item), item.setFocus())
-            } ?: this
+            }
         } ?: this
 
     private suspend fun List<FieldUiModel>.setSectionStates(): List<FieldUiModel> {
