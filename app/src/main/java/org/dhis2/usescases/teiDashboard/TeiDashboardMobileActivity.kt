@@ -40,7 +40,6 @@ import org.dhis2.R
 import org.dhis2.commons.Constants
 import org.dhis2.commons.Constants.TEI_UID
 import org.dhis2.commons.dialogs.bottomsheet.DeleteBottomSheetDialog
-import org.dhis2.commons.featureconfig.data.FeatureConfigRepository
 import org.dhis2.commons.filters.FilterManager
 import org.dhis2.commons.filters.Filters
 import org.dhis2.commons.network.NetworkUtils
@@ -52,7 +51,9 @@ import org.dhis2.commons.sync.OnDismissListener
 import org.dhis2.commons.sync.SyncContext
 import org.dhis2.databinding.ActivityDashboardMobileBinding
 import org.dhis2.form.model.EnrollmentMode
+import org.dhis2.mobile.commons.featureconfig.data.FeatureConfigRepository
 import org.dhis2.mobile.commons.orgunit.OrgUnitSelectorScope
+import org.dhis2.mobile.commons.providers.CustomLabelProvider
 import org.dhis2.simprints.ramp.ui.EventHistoryTableFragment
 import org.dhis2.tracker.TEIDashboardItems
 import org.dhis2.tracker.relationships.ui.state.RelationshipTopBarIconState
@@ -74,7 +75,6 @@ import org.dhis2.usescases.teiDashboard.dashboardfragments.teidata.TEIDataActivi
 import org.dhis2.usescases.teiDashboard.dashboardfragments.teidata.TEIDataFragment.Companion.newInstance
 import org.dhis2.usescases.teiDashboard.teiProgramList.TeiProgramListActivity
 import org.dhis2.usescases.teiDashboard.ui.RelationshipTopBarIcon
-import org.dhis2.usescases.teiDashboard.ui.getEnrollmentMenuList
 import org.dhis2.usescases.teiDashboard.ui.setButtonContent
 import org.dhis2.utils.HelpManager
 import org.dhis2.utils.analytics.CLICK
@@ -91,6 +91,7 @@ import org.dhis2.utils.isPortrait
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus
 import org.hisp.dhis.mobile.ui.designsystem.component.navigationBar.NavigationBar
 import org.hisp.dhis.mobile.ui.designsystem.theme.DHIS2Theme
+import org.koin.android.ext.android.inject
 import javax.inject.Inject
 
 class TeiDashboardMobileActivity :
@@ -129,6 +130,8 @@ class TeiDashboardMobileActivity :
 
     @Inject
     lateinit var eventResourcesProvider: EventResourcesProvider
+
+    private val customLabelProvider: CustomLabelProvider by inject()
 
     var teiUid: String? = null
     var programUid: String? = null
@@ -932,13 +935,7 @@ class TeiDashboardMobileActivity :
 
     private fun setupMoreOptionsMenu() {
         binding.moreOptions.setContent {
-            val menuItems =
-                getEnrollmentMenuList(
-                    enrollmentUid = enrollmentUid,
-                    resourceManager = resourceManager,
-                    presenter = presenter,
-                    dashboardViewModel = dashboardViewModel,
-                )
+            val menuItems by dashboardViewModel.moreOptionsMenu.collectAsStateWithLifecycle()
 
             var expanded by remember { mutableStateOf(false) }
 
