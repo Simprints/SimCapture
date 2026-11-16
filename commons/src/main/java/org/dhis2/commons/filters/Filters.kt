@@ -18,6 +18,7 @@ enum class Filters(
     FOLLOW_UP(R.layout.item_filter_followup),
     TRANSFERRED(R.layout.item_filter_transferred),
     OVERDUE(R.layout.item_filter_overdue),
+    DUE_TODAY(R.layout.item_filter_due_today),
     SYNC_ERROR(R.layout.item_filter_sync_error),
     NON(-1),
 }
