@@ -9,6 +9,7 @@ import org.dhis2.commons.prefs.PreferenceProvider;
 import org.dhis2.commons.resources.MetadataIconProvider;
 import org.dhis2.commons.resources.ResourceManager;
 import org.dhis2.commons.simprints.ramp.repository.RampDatastoreRepository;
+import org.dhis2.mobile.commons.providers.CustomLabelProvider;
 import org.dhis2.mobile.sync.domain.SyncStatusController;
 import org.dhis2.simprints.ramp.data.DetailedEnrollmentRepository;
 import org.dhis2.usescases.main.program.ProgramViewModelMapper;
@@ -54,8 +55,9 @@ public class TeiProgramListModule {
 
     @Provides
     @PerActivity
-    TeiProgramListContract.Interactor provideInteractor(@NonNull TeiProgramListRepository teiProgramListRepository) {
-        return new TeiProgramListInteractor(teiProgramListRepository, syncStatusController);
+    TeiProgramListContract.Interactor provideInteractor(@NonNull TeiProgramListRepository teiProgramListRepository,
+                                                         CustomLabelProvider customLabelProvider) {
+        return new TeiProgramListInteractor(teiProgramListRepository, syncStatusController, customLabelProvider);
     }
 
     @Provides

@@ -99,16 +99,16 @@ class TEIDetailMapperTest {
                 "avatarFilepath",
                 ownerOrgUnit,
                 emptyList(),
+                "Marked for follow-up",
             )
 
         return model
     }
 
-    private fun getTEAValue(value: String) =
-        TrackedEntityAttributeValue
-            .builder()
-            .value(value)
-            .build()
+    private fun getTEAValue(value: String): TrackedEntityAttributeValue =
+        mock {
+            on { value() } doReturn value
+        }
 
     private fun getTEA(
         uid: String,

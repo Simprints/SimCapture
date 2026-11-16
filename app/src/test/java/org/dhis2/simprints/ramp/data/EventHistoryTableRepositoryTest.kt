@@ -550,12 +550,14 @@ class EventHistoryTableRepositoryTest {
                 Option
                     .builder()
                     .uid("option-a")
+                    .optionSet(ObjectWithUid.create(OPTION_SET_UID))
                     .code("A")
                     .displayName("OptionA")
                     .build(),
                 Option
                     .builder()
                     .uid("option-b")
+                    .optionSet(ObjectWithUid.create(OPTION_SET_UID))
                     .code("B")
                     .displayName("OptionB")
                     .build(),
@@ -588,7 +590,7 @@ class EventHistoryTableRepositoryTest {
             .programStage(PROGRAM_STAGE_UID)
             .enrollment(ENROLLMENT_UID)
             .eventDate(eventDate)
-            .trackedEntityDataValues(values)
+            .trackedEntityDataValues(values.map { it.toBuilder().event(uid).build() })
             .build()
 
     private fun value(
@@ -597,6 +599,7 @@ class EventHistoryTableRepositoryTest {
     ): TrackedEntityDataValue =
         TrackedEntityDataValue
             .builder()
+            .event(CURRENT_EVENT_UID)
             .dataElement(dataElementUid)
             .value(value)
             .build()

@@ -726,6 +726,7 @@ class EventCaptureRepositoryImplTest {
                     .uid(sectionUidC)
                     .displayName(sectionNameC)
                     .sortOrder(sectionOrderC)
+                    .programStage(ObjectWithUid.create(testEventStageUid))
                     .dataElements(
                         mutableListOf(
                             DataElement
@@ -740,6 +741,7 @@ class EventCaptureRepositoryImplTest {
                     .uid(sectionUidB)
                     .displayName(sectionNameB)
                     .sortOrder(sectionOrderB)
+                    .programStage(ObjectWithUid.create(testEventStageUid))
                     .dataElements(
                         mutableListOf(
                             DataElement
@@ -759,6 +761,7 @@ class EventCaptureRepositoryImplTest {
                     .uid(sectionUidA)
                     .displayName(sectionNameA)
                     .sortOrder(sectionOrderA)
+                    .programStage(ObjectWithUid.create(testEventStageUid))
                     .dataElements(
                         mutableListOf(
                             DataElement

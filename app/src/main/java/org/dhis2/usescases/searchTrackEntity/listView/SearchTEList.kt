@@ -228,9 +228,9 @@ class SearchTEList : FragmentGlobalAbstract() {
                 ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed,
             )
             setContent {
-                val teTypeName by viewModel.teTypeName.observeAsState()
+                val teTypeLabel by viewModel.teTypeLabel.observeAsState()
 
-                if (!teTypeName.isNullOrBlank()) {
+                if (!teTypeLabel.isNullOrBlank()) {
                     val isFilterOpened by viewModel.filtersOpened.observeAsState(false)
                     val isSearchEnabled by viewModel.isSearchEnabled.observeAsState(true)
                     val createButtonVisibility by viewModel
@@ -248,7 +248,7 @@ class SearchTEList : FragmentGlobalAbstract() {
                         .observeAsState(false)
 
                     FullSearchButtonAndWorkingList(
-                        teTypeName = teTypeName!!,
+                        teTypeName = teTypeLabel ?: "",
                         modifier = Modifier,
                         searchButtonVisible = isSearchEnabled,
                         createButtonVisible = createButtonVisibility,
@@ -292,7 +292,7 @@ class SearchTEList : FragmentGlobalAbstract() {
                     .createButtonScrollVisibility
                     .observeAsState(true)
                 val filtersOpened by viewModel.filtersOpened.observeAsState(false)
-                val teTypeName by viewModel.teTypeName.observeAsState()
+                val teTypeLabel by viewModel.teTypeLabel.observeAsState()
                 val hasQueryData =
                     remember(viewModel.searchParametersUiState) {
                         viewModel.queryDataList.isNotEmpty()
@@ -318,7 +318,7 @@ class SearchTEList : FragmentGlobalAbstract() {
                 if (isSimprintsPossibleDuplicatesSearch &&
                     hasQueryData &&
                     !filtersOpened &&
-                    !teTypeName.isNullOrBlank()
+                    !teTypeLabel.isNullOrBlank()
                 ) {
                     SimprintsNoneOfTheAboveButton(
                         modifier = Modifier,
@@ -328,13 +328,13 @@ class SearchTEList : FragmentGlobalAbstract() {
                     (hasQueryData || orientation == Configuration.ORIENTATION_LANDSCAPE) &&
                     createButtonVisibility &&
                     !filtersOpened &&
-                    !teTypeName.isNullOrBlank()
+                    !teTypeLabel.isNullOrBlank()
                 ) {
                     CreateNewButton(
                         modifier = Modifier,
                         extended = !isScrollingDown,
                         onClick = viewModel::onEnrollClick,
-                        teTypeName = teTypeName!!,
+                        teTypeName = teTypeLabel ?: "",
                         isSimprintsUseLastBiometricsLabel = isSimprintsUseLastBiometricsLabel,
                     )
                 }

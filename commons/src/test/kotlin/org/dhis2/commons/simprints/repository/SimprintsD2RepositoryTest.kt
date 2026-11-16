@@ -168,12 +168,6 @@ class SimprintsD2RepositoryTest {
                 TrackedEntityTypeAttribute
                     .builder()
                     .trackedEntityType(ObjectWithUid.create("tracked-entity-type-uid"))
-                    .displayInList(true)
-                    .searchable(true)
-                    .build(),
-                TrackedEntityTypeAttribute
-                    .builder()
-                    .trackedEntityType(ObjectWithUid.create("tracked-entity-type-uid"))
                     .trackedEntityAttribute(ObjectWithUid.create("attribute-3"))
                     .displayInList(true)
                     .searchable(true)

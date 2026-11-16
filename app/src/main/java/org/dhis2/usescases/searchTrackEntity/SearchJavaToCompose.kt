@@ -20,7 +20,7 @@ fun ComposeView?.setLandscapeOpenSearchButton(
     this?.setContent {
         DHIS2Theme {
             val screenState by searchTEIViewModel.screenState.observeAsState()
-            val teTypeName by searchTEIViewModel.teTypeName.observeAsState()
+            val teTypeName by searchTEIViewModel.teTypeLabel.observeAsState()
             val isSearchEnabled by searchTEIViewModel.isSearchEnabled.observeAsState(true)
             val shouldLaunchSimprintsBiometricIdentification by
                 searchTEIViewModel.shouldLaunchSimprintsBiometricIdentification.observeAsState(false)
@@ -43,7 +43,7 @@ fun ComposeView?.setLandscapeOpenSearchButton(
             ) {
                 WrappedSearchButton(
                     onClick = onClick,
-                    teTypeName = teTypeName!!,
+                    teTypeName = teTypeName ?: "",
                     fillWidth = isDirectSimprintsSearch,
                 )
             }

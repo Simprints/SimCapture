@@ -51,7 +51,7 @@ class FilterManagerTest {
     @Test
     fun `Reset should clear all current values`() {
         filterManager.addPeriod(
-            arrayListOf(DatePeriod.create(Date(), Date())),
+            arrayListOf(DatePeriod(Date(), Date())),
         )
         assertTrue(filterManager.totalFilters == 1)
         filterManager.reset()
@@ -83,10 +83,10 @@ class FilterManagerTest {
     fun `Should add date periods`() {
         filterManager.addPeriod(
             arrayListOf(
-                DatePeriod.create(Date(), Date()),
-                DatePeriod.create(Date(), Date()),
-                DatePeriod.create(Date(), Date()),
-                DatePeriod.create(Date(), Date()),
+                DatePeriod(Date(), Date()),
+                DatePeriod(Date(), Date()),
+                DatePeriod(Date(), Date()),
+                DatePeriod(Date(), Date()),
             ),
         )
         assertTrue(filterManager.totalFilters == 1)
@@ -147,7 +147,7 @@ class FilterManagerTest {
     @Test
     fun `Should count due today only while scheduled status and today period are both selected`() {
         filterManager.periodIdSelected.set(R.id.today)
-        filterManager.addPeriod(arrayListOf(DatePeriod.create(Date(), Date())))
+        filterManager.addPeriod(arrayListOf(DatePeriod(Date(), Date())))
         assertTrue(filterManager.observeField(Filters.DUE_TODAY).get() == 0)
 
         filterManager.addEventStatus(false, EventStatus.SCHEDULE)
@@ -157,7 +157,7 @@ class FilterManagerTest {
         assertTrue(filterManager.observeField(Filters.DUE_TODAY).get() == 0)
 
         filterManager.periodIdSelected.set(R.id.today)
-        filterManager.addPeriod(arrayListOf(DatePeriod.create(Date(), Date())))
+        filterManager.addPeriod(arrayListOf(DatePeriod(Date(), Date())))
         assertTrue(filterManager.observeField(Filters.DUE_TODAY).get() == 1)
 
         filterManager.clearEventStatus()
@@ -178,7 +178,7 @@ class FilterManagerTest {
     fun `Should not count enrollment filters in total if they are in unsupported list`() {
         filterManager.setUnsupportedFilters(Filters.ENROLLMENT_DATE, Filters.ENROLLMENT_STATUS)
 
-        filterManager.addEnrollmentPeriod(listOf(DatePeriod.create(Date(), Date())))
+        filterManager.addEnrollmentPeriod(listOf(DatePeriod(Date(), Date())))
         filterManager.addEnrollmentStatus(false, EnrollmentStatus.ACTIVE)
         filterManager.addEventStatus(false, EventStatus.ACTIVE)
 
@@ -188,7 +188,7 @@ class FilterManagerTest {
     @Test
     fun `Should count enrollment filters in total if they are not in unsupported list`() {
         filterManager.clearUnsupportedFilters()
-        filterManager.addEnrollmentPeriod(listOf(DatePeriod.create(Date(), Date())))
+        filterManager.addEnrollmentPeriod(listOf(DatePeriod(Date(), Date())))
         filterManager.addEnrollmentStatus(false, EnrollmentStatus.ACTIVE)
         filterManager.addEventStatus(false, EventStatus.ACTIVE)
 

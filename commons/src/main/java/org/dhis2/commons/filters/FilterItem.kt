@@ -428,7 +428,7 @@ data class DueTodayFilter(
 
     private fun todayPeriod(): List<DatePeriod> {
         val (start, end) = DateUtils.getInstance().getDateFromDateAndPeriod(Date(), Period.DAILY)
-        return listOf(DatePeriod.create(start, end))
+        return listOf(DatePeriod(start, end))
     }
 
     override fun icon() = R.drawable.ic_due_today_filter

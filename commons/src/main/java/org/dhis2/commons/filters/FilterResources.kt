@@ -116,8 +116,6 @@ class FilterResources(
             1,
         )
 
-    fun filterFollowUpLabel(teTypeName: String): String = resourceManager.getString(R.string.filter_follow_up_label).format(teTypeName)
-
     fun filterTransferredPatientLabel(): String = resourceManager.getString(R.string.filter_transferred_patient_label)
 
     fun filterOverdueLabel(): String = resourceManager.getString(R.string.filter_event_status_overdue)

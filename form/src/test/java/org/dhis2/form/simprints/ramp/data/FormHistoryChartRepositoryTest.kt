@@ -6,6 +6,7 @@ import org.hisp.dhis.android.core.D2
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.BooleanFilterConnector
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.StringFilterConnector
 import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope
+import org.hisp.dhis.android.core.common.ObjectWithUid
 import org.hisp.dhis.android.core.common.ValueType
 import org.hisp.dhis.android.core.event.Event
 import org.hisp.dhis.android.core.event.EventCollectionRepository
@@ -392,6 +393,7 @@ class FormHistoryChartRepositoryTest {
         Option
             .builder()
             .uid("$code-option")
+            .optionSet(ObjectWithUid.create(OPTION_SET_UID))
             .code(code)
             .name(displayName)
             .displayName(displayName)

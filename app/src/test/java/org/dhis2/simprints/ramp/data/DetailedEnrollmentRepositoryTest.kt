@@ -188,6 +188,7 @@ class DetailedEnrollmentRepositoryTest {
                     listOf(
                         TrackedEntityDataValue
                             .builder()
+                            .event(uid)
                             .dataElement(OUTCOME_DATA_ELEMENT_UID)
                             .value(it)
                             .build(),

@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.setMain
 import org.dhis2.commons.prefs.PreferenceProvider
 import org.dhis2.commons.resources.ResourceManager
 import org.dhis2.data.schedulers.TrampolineSchedulerProvider
+import org.dhis2.mobile.commons.providers.CustomLabelProvider
 import org.dhis2.utils.customviews.navigationbar.NavigationPage
 import org.dhis2.utils.customviews.navigationbar.NavigationPageConfigurator
 import org.hisp.dhis.android.core.common.ValidationStrategy
@@ -48,6 +49,7 @@ class EventCapturePresenterTest {
     private val preferences: PreferenceProvider = mock()
     private val pageConfigurator: NavigationPageConfigurator = mock()
     private val resourceManager: ResourceManager = mock()
+    private val customLabelProvider: CustomLabelProvider = mock()
 
     @Before
     fun setUp() {
@@ -62,6 +64,7 @@ class EventCapturePresenterTest {
                 preferences,
                 pageConfigurator,
                 resourceManager,
+                customLabelProvider,
             )
     }
 
